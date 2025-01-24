@@ -32,3 +32,23 @@ class TrainingDataModel(BaseModel):
     due_date: Optional[datetime]
     status: str
     modules: List[ModuleModel]
+
+class SimulationCompletionStats(BaseModel):
+    total_simulations: int
+    completed_simulations: int
+    percentage: float
+
+class TimelyCompletionStats(BaseModel):
+    total_simulations: int
+    completed_simulations: int
+    percentage: float
+
+class TrainingStats(BaseModel):
+    simulation_completed: SimulationCompletionStats
+    timely_completion: TimelyCompletionStats
+    average_sim_score: float
+    highest_sim_score: float
+
+class TrainingDataResponse(BaseModel):
+    training_plans: List[TrainingDataModel]
+    stats: TrainingStats
