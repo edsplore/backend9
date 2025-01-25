@@ -12,3 +12,6 @@ class AttemptsResponse(BaseModel):
 
 class AttemptResponse(BaseModel):
     attempt: AttemptAnalyticsModel
+
+class ScriptResponse(BaseModel):
+    script: List[dict]
