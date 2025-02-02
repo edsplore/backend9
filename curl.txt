@@ -1,0 +1,9 @@
+curl -X POST "https://9ecde514-cc00-4b7c-ad6e-575845affec3-00-1zeqnlxeexcwe.pike.replit.dev/training-data/fetch" -H "Content-Type: application/json" -d '{"id": "userId11"}'
+
+curl -X POST \
+  'https://9ecde514-cc00-4b7c-ad6e-575845affec3-00-1zeqnlxeexcwe.pike.replit.dev/convert/text-to-script' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "user_id": "user123",
+    "prompt": "Generate a script for customer support on booking a flight ticket on Pacific Airlines."
+  }'
