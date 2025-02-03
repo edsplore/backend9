@@ -108,3 +108,34 @@ class UpdateSimulationRequest(BaseModel):
 class StartAudioSimulationPreviewRequest(BaseModel):
     user_id: str
     sim_id: str
+
+
+class FetchSimulationsRequest(BaseModel):
+    user_id: str
+
+
+class CreateModuleRequest(BaseModel):
+    user_id: str
+    module_name: str
+    tags: list[str]
+    simulations: list[str]
+
+
+class FetchModulesRequest(BaseModel):
+    user_id: str
+
+
+class AddedObject(BaseModel):
+    type: str
+    id: str
+
+
+class CreateTrainingPlanRequest(BaseModel):
+    user_id: str
+    training_plan_name: str
+    tags: list[str]
+    added_object: list[AddedObject]
+
+
+class FetchTrainingPlansRequest(BaseModel):
+    user_id: str

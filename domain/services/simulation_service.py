@@ -6,6 +6,7 @@ from bson import ObjectId
 from config import OPENAI_API_KEY, RETELL_API_KEY
 from infrastructure.database import Database
 from api.schemas.requests import CreateSimulationRequest, UpdateSimulationRequest
+from api.schemas.responses import SimulationData
 from fastapi import HTTPException
 
 
@@ -351,3 +352,39 @@ class SimulationService:
         except Exception as e:
             raise HTTPException(status_code=500,
                                 detail=f"Error creating web call: {str(e)}")
+
+    async def fetch_simulations(self, user_id: str) -> List[SimulationData]:
+        """Fetch all simulations"""
+        try:
+            cursor = self.db.simulations.find({})
+            simulations = []
+
+            async for doc in cursor:
+                simulation = SimulationData(
+                    id=str(doc["_id"]),
+                    sim_name=doc.get("name", ""),
+                    version=str(doc.get("version", "1")),
+                    lvl1=doc.get("lvl1", {}),
+                    lvl2=doc.get("lvl2", {}),
+                    lvl3=doc.get("lvl3", {}),
+                    sim_type=doc.get("type", ""),
+                    status=doc.get("status", ""),
+                    tags=doc.get("tags", []),
+                    est_time=str(doc.get("estimatedTimeToAttemptInMins", "")),
+                    last_modified=doc.get("lastModified",
+                                          datetime.utcnow()).isoformat(),
+                    modified_by=doc.get("lastModifiedBy", ""),
+                    created_on=doc.get("createdOn",
+                                       datetime.utcnow()).isoformat(),
+                    created_by=doc.get("createdBy", ""),
+                    islocked=doc.get("isLocked", False),
+                    division_id=doc.get("divisionId", ""),
+                    department_id=doc.get("departmentId", ""),
+                    script=doc.get("script", None))
+                simulations.append(simulation)
+
+            return simulations
+
+        except Exception as e:
+            raise HTTPException(status_code=500,
+                                detail=f"Error fetching simulations: {str(e)}")

@@ -1,10 +1,14 @@
 from fastapi import APIRouter, HTTPException
 from typing import Dict
 from domain.services.simulation_service import SimulationService
-from api.schemas.requests import CreateSimulationRequest, UpdateSimulationRequest
-from api.schemas.responses import CreateSimulationResponse, UpdateSimulationResponse
-from api.schemas.requests import StartAudioSimulationPreviewRequest
-from api.schemas.responses import StartAudioSimulationPreviewResponse
+from api.schemas.requests import (CreateSimulationRequest,
+                                  UpdateSimulationRequest,
+                                  StartAudioSimulationPreviewRequest,
+                                  FetchSimulationsRequest)
+from api.schemas.responses import (CreateSimulationResponse,
+                                   UpdateSimulationResponse,
+                                   StartAudioSimulationPreviewResponse,
+                                   FetchSimulationsResponse)
 
 router = APIRouter()
 
@@ -57,6 +61,15 @@ class SimulationController:
         return StartAudioSimulationPreviewResponse(
             access_token=result["access_token"])
 
+    async def fetch_simulations(
+            self,
+            request: FetchSimulationsRequest) -> FetchSimulationsResponse:
+        if not request.user_id:
+            raise HTTPException(status_code=400, detail="Missing 'userId'")
+
+        simulations = await self.service.fetch_simulations(request.user_id)
+        return FetchSimulationsResponse(simulations=simulations)
+
 
 controller = SimulationController()
 
@@ -79,3 +92,9 @@ async def start_audio_simulation_preview(
     request: StartAudioSimulationPreviewRequest
 ) -> StartAudioSimulationPreviewResponse:
     return await controller.start_audio_simulation_preview(request)
+
+
+@router.post("/simulations/fetch")
+async def fetch_simulations(
+        request: FetchSimulationsRequest) -> FetchSimulationsResponse:
+    return await controller.fetch_simulations(request)
