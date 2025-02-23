@@ -9,12 +9,18 @@ DB_NAME = os.getenv("db-name",
                     "everai_simulator")  # Default database name if not set
 DEEPGRAM_API_KEY = os.getenv("DEEPGRAM_API_KEY",
                              "90b109a0bc690efde72b6e9da892d9371885cb8f")
-OPENAI_API_KEY = os.getenv(
-    "OPENAI_API_KEY",
-    "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"
-)
 RETELL_API_KEY = os.getenv("RETELL_API_KEY",
                            "key_c98334da2d625bae2d5c9a24d33f")
+
+# Azure OpenAI Configuration
+AZURE_OPENAI_DEPLOYMENT_NAME = os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME",
+                                         "")
+AZURE_OPENAI_KEY = os.getenv(
+    "AZURE_OPENAI_KEY",
+    ""
+)
+AZURE_OPENAI_BASE_URL = os.getenv(
+    "AZURE_OPENAI_BASE_URL", "")
 
 # Validate configuration
 if not MONGO_URI:
@@ -29,12 +35,22 @@ if not DEEPGRAM_API_KEY:
         "Deepgram API key not set. Please set DEEPGRAM_API_KEY environment variable."
     )
 
-if not OPENAI_API_KEY:
-    raise ValueError(
-        "OpenAI API key not set. Please set OPENAI_API_KEY environment variable."
-    )
-
 if not RETELL_API_KEY:
     raise ValueError(
         "Retell API key not set. Please set RETELL_API_KEY environment variable."
+    )
+
+if not AZURE_OPENAI_DEPLOYMENT_NAME:
+    raise ValueError(
+        "Azure OpenAI deployment name not set. Please set AZURE_OPENAI_DEPLOYMENT_NAME environment variable."
+    )
+
+if not AZURE_OPENAI_KEY:
+    raise ValueError(
+        "Azure OpenAI key not set. Please set AZURE_OPENAI_KEY environment variable."
+    )
+
+if not AZURE_OPENAI_BASE_URL:
+    raise ValueError(
+        "Azure OpenAI base URL not set. Please set AZURE_OPENAI_BASE_URL environment variable."
     )
