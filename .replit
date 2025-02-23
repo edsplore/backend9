@@ -13,8 +13,7 @@ requiredFiles = [".replit", "replit.nix"]
 # The 'run' config below is used by the "Run" button in Replit.
 [deployment]
 run = ["sh", "-c", "python main.py"]
-
-deploymentTarget = "cloudrun"
+deploymentTarget = "gce"
 
 [[ports]]
 localPort = 8000

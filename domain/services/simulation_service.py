@@ -270,7 +270,7 @@ class SimulationService:
                         "role":
                         "system",
                         "content":
-                        "Create a detailed prompt for a customer service simulation based on the following conversation. The prompt should help generate realistic customer responses that match the conversation flow and context. Consider the sequence of interactions and maintain consistency with the original conversation."
+                        "Create a detailed prompt for an AI agent. You will be given a script of a dialog between a customer and a customer service agent. You need to create a prompt so that the AI should play the role of the customer. Make sure that in the prompt you mention that the AI needs to follow the script exactly verbatim. If the user gives an out of script response then the AI should answer accordingly."
                     }, {
                         "role": "user",
                         "content": conversation
