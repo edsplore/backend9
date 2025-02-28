@@ -80,7 +80,6 @@ curl -X POST \
   list modules
   list simulations
   
-  script also in fetch simulations
 
 
 

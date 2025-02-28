@@ -40,6 +40,11 @@ class StartAudioSimulationPreviewResponse(BaseModel):
     access_token: str
 
 
+class StartChatPreviewResponse(BaseModel):
+    chat_id: str
+    response: str
+
+
 class ScriptSentence(BaseModel):
     script_sentence: str
     role: str

@@ -31,6 +31,12 @@ class ListVoicesRequest(BaseModel):
     user_id: str
 
 
+class StartChatPreviewRequest(BaseModel):
+    user_id: str
+    sim_id: str
+    message: str | None = None
+
+
 class ScriptSentence(BaseModel):
     script_sentence: str
     role: str

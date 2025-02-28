@@ -1,13 +1,16 @@
 from fastapi import APIRouter, HTTPException
 from typing import Dict
 from domain.services.simulation_service import SimulationService
+from domain.services.chat_service import ChatService
 from api.schemas.requests import (CreateSimulationRequest,
                                   UpdateSimulationRequest,
                                   StartAudioSimulationPreviewRequest,
+                                  StartChatPreviewRequest,
                                   FetchSimulationsRequest)
 from api.schemas.responses import (CreateSimulationResponse,
                                    UpdateSimulationResponse,
                                    StartAudioSimulationPreviewResponse,
+                                   StartChatPreviewResponse,
                                    FetchSimulationsResponse)
 
 router = APIRouter()
@@ -17,6 +20,7 @@ class SimulationController:
 
     def __init__(self):
         self.service = SimulationService()
+        self.chat_service = ChatService()
 
     async def create_simulation(
             self,
@@ -61,6 +65,20 @@ class SimulationController:
         return StartAudioSimulationPreviewResponse(
             access_token=result["access_token"])
 
+    async def start_chat_preview(
+            self,
+            request: StartChatPreviewRequest) -> StartChatPreviewResponse:
+        if not request.user_id:
+            raise HTTPException(status_code=400, detail="Missing 'userId'")
+        if not request.sim_id:
+            raise HTTPException(status_code=400, detail="Missing 'simId'")
+
+        result = await self.chat_service.start_chat(request.user_id,
+                                                    request.sim_id,
+                                                    request.message)
+        return StartChatPreviewResponse(chat_id=result["chat_id"],
+                                        response=result["response"])
+
     async def fetch_simulations(
             self,
             request: FetchSimulationsRequest) -> FetchSimulationsResponse:
@@ -92,6 +110,12 @@ async def start_audio_simulation_preview(
     request: StartAudioSimulationPreviewRequest
 ) -> StartAudioSimulationPreviewResponse:
     return await controller.start_audio_simulation_preview(request)
+
+
+@router.post("/simulations/start-chat-preview")
+async def start_chat_preview(
+        request: StartChatPreviewRequest) -> StartChatPreviewResponse:
+    return await controller.start_chat_preview(request)
 
 
 @router.post("/simulations/fetch")

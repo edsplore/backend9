@@ -292,7 +292,7 @@ class SimulationService:
             history.add_user_message(conversation)
 
             # Get response from Azure OpenAI
-            result = await self.chat_completion.get_chat_message_content(
+            result = await self.chat_completion.complete_chat(
                 history, settings=self.execution_settings)
 
             return str(result)
