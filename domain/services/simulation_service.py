@@ -3,11 +3,18 @@ import json
 import aiohttp
 from datetime import datetime
 from bson import ObjectId
-from config import OPENAI_API_KEY, RETELL_API_KEY
+from config import (AZURE_OPENAI_DEPLOYMENT_NAME, AZURE_OPENAI_KEY,
+                    AZURE_OPENAI_BASE_URL, RETELL_API_KEY)
 from infrastructure.database import Database
 from api.schemas.requests import CreateSimulationRequest, UpdateSimulationRequest
 from api.schemas.responses import SimulationData
 from fastapi import HTTPException
+from semantic_kernel import Kernel
+from semantic_kernel.connectors.ai.open_ai import AzureChatCompletion
+from semantic_kernel.connectors.ai.function_choice_behavior import FunctionChoiceBehavior
+from semantic_kernel.contents.chat_history import ChatHistory
+from semantic_kernel.connectors.ai.open_ai.prompt_execution_settings.azure_chat_prompt_execution_settings import (
+    AzureChatPromptExecutionSettings, )
 
 
 class SimulationService:
@@ -15,11 +22,26 @@ class SimulationService:
     def __init__(self):
         self.db = Database()
 
+        # Initialize Azure OpenAI chat completion
+        self.kernel = Kernel()
+        self.chat_completion = AzureChatCompletion(
+            service_id="azure_gpt4",
+            deployment_name=AZURE_OPENAI_DEPLOYMENT_NAME,
+            endpoint=AZURE_OPENAI_BASE_URL,
+            api_key=AZURE_OPENAI_KEY)
+        self.kernel.add_service(self.chat_completion)
+        self.execution_settings = AzureChatPromptExecutionSettings(
+            service_id="azure_gpt4",
+            ai_model_id=AZURE_OPENAI_DEPLOYMENT_NAME,
+            temperature=0.7,
+            top_p=1.0,
+            max_tokens=2000)
+
     async def create_simulation(self,
                                 request: CreateSimulationRequest) -> Dict:
         """Create a new simulation"""
         try:
-            # Generate prompt using OpenAI
+            # Generate prompt using Azure OpenAI
             prompt = await self._generate_simulation_prompt(request.script)
 
             # Create simulation document
@@ -251,19 +273,15 @@ class SimulationService:
                 detail=f"Error creating Retell Agent: {str(e)}")
 
     async def _generate_simulation_prompt(self, script: List[Dict]) -> str:
-        """Generate simulation prompt using OpenAI"""
+        """Generate simulation prompt using Azure OpenAI"""
         try:
             # Convert script to conversation format for prompt
             conversation = "\n".join(
                 [f"{s.role}: {s.script_sentence}" for s in script])
 
-            async with aiohttp.ClientSession() as session:
-                headers = {
-                    'Authorization': f'Bearer {OPENAI_API_KEY}',
-                    'Content-Type': 'application/json'
-                }
+            history = ChatHistory()
 
-                data = {
+            data = {
                     "model":
                     "gpt-4o",
                     "messages": [{
@@ -277,16 +295,14 @@ class SimulationService:
                     }]
                 }
 
-                async with session.post(
-                        "https://api.openai.com/v1/chat/completions",
-                        headers=headers,
-                        json=data) as response:
-                    if response.status != 200:
-                        raise HTTPException(status_code=response.status,
-                                            detail=response)
+            # Add user content
+            history.add_user_message(conversation)
 
-                    result = await response.json()
-                    return result['choices'][0]['message']['content']
+            # Get response from Azure OpenAI
+            result = await self.chat_completion.get_chat_message_content(
+                history, settings=self.execution_settings)
+
+            return str(result)
 
         except Exception as e:
             raise HTTPException(
@@ -342,7 +358,6 @@ class SimulationService:
                         'https://api.retellai.com/v2/create-web-call',
                         headers=headers,
                         json=data) as response:
-                    print(await response.json())
                     if response.status != 201:
                         raise HTTPException(status_code=response.status,
                                             detail="Failed to create web call")
