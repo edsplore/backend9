@@ -281,7 +281,7 @@ class SimulationService:
 
             history = ChatHistory()
 
-                data = {
+            data = {
                     "model":
                     "gpt-4o",
                     "messages": [{
