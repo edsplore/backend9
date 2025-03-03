@@ -76,8 +76,7 @@ class SimulationController:
         result = await self.chat_service.start_chat(request.user_id,
                                                     request.sim_id,
                                                     request.message)
-        return StartChatPreviewResponse(chat_id=result["chat_id"],
-                                        response=result["response"])
+        return StartChatPreviewResponse(response=result["response"])
 
     async def fetch_simulations(
             self,

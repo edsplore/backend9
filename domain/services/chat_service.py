@@ -69,25 +69,22 @@ class ChatService:
             response = None
             if message:
                 history.add_user_message(message)
-                response = await self.chat_completion.complete_chat(
+                response = await self.chat_completion.get_chat_message_content(
                     history, settings=self.execution_settings)
 
             # Create chat session document
-            chat_doc = {
-                "userId": user_id,
-                "simulationId": sim_id,
-                "history": [msg.dict() for msg in history.messages],
-                "createdAt": datetime.utcnow(),
-                "lastModifiedAt": datetime.utcnow()
-            }
+            # chat_doc = {
+            #     "userId": user_id,
+            #     "simulationId": sim_id,
+            #     "history": [msg.dict() for msg in history.messages],
+            #     "createdAt": datetime.utcnow(),
+            #     "lastModifiedAt": datetime.utcnow()
+            # }
 
-            # Insert into database
-            result = await self.db.chat_sessions.insert_one(chat_doc)
+            # # Insert into database
+            # result = await self.db.chat_sessions.insert_one(chat_doc)
 
-            return {
-                "chat_id": str(result.inserted_id),
-                "response": str(response) if response else ""
-            }
+            return {"response": str(response) if response else ""}
 
         except HTTPException as he:
             raise he
@@ -122,7 +119,7 @@ class ChatService:
             history.add_user_message(message)
 
             # Get response
-            response = await self.chat_completion.complete_chat(
+            response = await self.chat_completion.get_chat_message_content(
                 history, settings=self.execution_settings)
 
             # Add response to history
