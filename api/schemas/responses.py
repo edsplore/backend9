@@ -41,7 +41,6 @@ class StartAudioSimulationPreviewResponse(BaseModel):
 
 
 class StartChatPreviewResponse(BaseModel):
-    chat_id: str
     response: str
 
 
