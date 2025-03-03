@@ -1,3 +1,15 @@
+
+curl -X POST '
+https://everise-backend.replit.app/simulations/start-chat-preview' \
+-H 'Content-Type: application/json' \
+-d '{
+    "user_id": "user123",
+    "sim_id": "67978cc544831733ed7d9edf",
+    "message": ""
+}'
+
+
+
 curl -X POST "https://9ecde514-cc00-4b7c-ad6e-575845affec3-00-1zeqnlxeexcwe.pike.replit.dev/training-data/fetch" -H "Content-Type: application/json" -d '{"id": "userId11"}'
 
 curl -X POST \
