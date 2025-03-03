@@ -1,6 +1,8 @@
 from fastapi import APIRouter, HTTPException
 from typing import Dict
+from bson import ObjectId
 from domain.services.simulation_service import SimulationService
+from infrastructure.database import Database
 from domain.services.chat_service import ChatService
 from api.schemas.requests import (CreateSimulationRequest,
                                   UpdateSimulationRequest,
@@ -21,6 +23,7 @@ class SimulationController:
     def __init__(self):
         self.service = SimulationService()
         self.chat_service = ChatService()
+        self.db = Database()
 
     async def create_simulation(
             self,
@@ -73,10 +76,33 @@ class SimulationController:
         if not request.sim_id:
             raise HTTPException(status_code=400, detail="Missing 'simId'")
 
-        result = await self.chat_service.start_chat(request.user_id,
-                                                    request.sim_id,
-                                                    request.message)
-        return StartChatPreviewResponse(response=result["response"])
+        if request.message == "":
+            # Get simulation document
+            sim_id_object = ObjectId(request.sim_id)
+            simulation = await self.db.simulations.find_one(
+                {"_id": sim_id_object})
+
+            if not simulation:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Simulation with id {request.sim_id} not found")
+
+            # Check if script exists and has at least one entry
+            script = simulation.get("script", [])
+            if script and len(script) > 0:
+                # Check if first entry has role 'Customer'
+                first_entry = script[0]
+                if first_entry.get("role") == "Customer":
+                    return StartChatPreviewResponse(
+                        response=first_entry.get("script_sentence", ""))
+
+            # If conditions not met, return empty string
+            return StartChatPreviewResponse(response="")
+        else:
+            # Existing functionality for non-empty messages
+            result = await self.chat_service.start_chat(
+                request.user_id, request.sim_id, request.message)
+            return StartChatPreviewResponse(response=result["response"])
 
     async def fetch_simulations(
             self,
