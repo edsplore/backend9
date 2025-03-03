@@ -111,10 +111,8 @@ class SimulationService:
                 "key_objectives": "keyObjectives",
                 "overview_video": "overviewVideo",
                 "quick_tips": "quickTips",
-                "voice_id": "voiceId",
                 "language": "language",
                 "mood": "mood",
-                "voice_speed": "voice_speed",
                 "prompt": "prompt",
                 "simulation_completion_repetition":
                 "simulationCompletionRepetition",
@@ -181,17 +179,41 @@ class SimulationService:
                     request.sim_practice.pre_requisite_limit
                 }
 
-            # Create LLM and Agent if prompt is provided
-            if request.prompt is not None:
-                # Create Retell LLM
-                llm_response = await self._create_retell_llm(request.prompt)
-                update_doc["llmId"] = llm_response["llm_id"]
+            # Check if simulation is of type 'chat'
+            is_chat_type = existing_sim.get("type") == "chat" or (
+                request.type and request.type == "chat")
 
-                # Create Retell Agent
-                agent_response = await self._create_retell_agent(
-                    llm_response["llm_id"], request.voice_id
-                    or "11labs-Adrian")
-                update_doc["agentId"] = agent_response["agent_id"]
+            # Handle voice-related fields and LLM/Agent creation based on simulation type
+            if is_chat_type:
+                # For chat simulations, just update the prompt if provided
+                if request.prompt is not None:
+                    update_doc["prompt"] = request.prompt
+
+                # Remove voice-related fields for chat simulations
+                if "voiceId" in update_doc:
+                    del update_doc["voiceId"]
+                if "voice_speed" in update_doc:
+                    del update_doc["voice_speed"]
+            else:
+                # For non-chat simulations, handle voice-related fields
+                if request.voice_id is not None:
+                    update_doc["voiceId"] = request.voice_id
+
+                if request.voice_speed is not None:
+                    update_doc["voice_speed"] = request.voice_speed
+
+                # Create LLM and Agent if prompt is provided for non-chat simulations
+                if request.prompt is not None:
+                    # Create Retell LLM
+                    llm_response = await self._create_retell_llm(request.prompt
+                                                                 )
+                    update_doc["llmId"] = llm_response["llm_id"]
+
+                    # Create Retell Agent
+                    agent_response = await self._create_retell_agent(
+                        llm_response["llm_id"], request.voice_id
+                        or "11labs-Adrian")
+                    update_doc["agentId"] = agent_response["agent_id"]
 
             # Add metadata
             update_doc["lastModified"] = datetime.utcnow()
