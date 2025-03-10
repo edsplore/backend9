@@ -154,10 +154,9 @@ class ListItemsRequest(BaseModel):
 
 class CreateAssignmentRequest(BaseModel):
     user_id: str
-    assignment_name: str
-    assignment_type: str
-    assignment_id: str
+    name: str
+    type: str
     start_date: str
     end_date: str
-    team: list[str] = []
-    trainee: list[str] = []
+    team_id: list[str] = []
+    trainee_id: list[str] = []
