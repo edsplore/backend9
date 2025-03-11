@@ -40,6 +40,10 @@ class StartAudioSimulationPreviewResponse(BaseModel):
     access_token: str
 
 
+class StartChatPreviewResponse(BaseModel):
+    response: str
+
+
 class ScriptSentence(BaseModel):
     script_sentence: str
     role: str
@@ -111,3 +115,28 @@ class TrainingPlanData(BaseModel):
 
 class FetchTrainingPlansResponse(BaseModel):
     training_plans: List[TrainingPlanData]
+
+
+# New response models
+class ListItemData(BaseModel):
+    name: str
+    id: str
+    type: str
+    sims: int = 0
+
+
+class ListTrainingPlansResponse(BaseModel):
+    training_plans: List[ListItemData]
+
+
+class ListModulesResponse(BaseModel):
+    modules: List[ListItemData]
+
+
+class ListSimulationsResponse(BaseModel):
+    simulations: List[ListItemData]
+
+
+class CreateAssignmentResponse(BaseModel):
+    id: str
+    status: str

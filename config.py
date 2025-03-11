@@ -17,6 +17,15 @@ AZURE_OPENAI_DEPLOYMENT_NAME = os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME")
 AZURE_OPENAI_KEY = os.getenv("AZURE_OPENAI_KEY")
 AZURE_OPENAI_BASE_URL = os.getenv("AZURE_OPENAI_BASE_URL")
 
+AZURE_OPENAI_DEPLOYMENT_NAME = os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME",
+                                         "gpt-4o-simulator")
+AZURE_OPENAI_KEY = os.getenv(
+    "AZURE_OPENAI_KEY",
+    "9cBKHrEKbc07HRGSQzLaqmB0YvSQLCrDKWRkQBHBPyvAhfrdfCrTJQQJ99BBACYeBjFXJ3w3AAABACOGWBtj"
+)
+AZURE_OPENAI_BASE_URL = os.getenv("AZURE_OPENAI_BASE_URL",
+                                  "https://everai-simulator.openai.azure.com")
+
 # Validate configuration
 if not MONGO_URI:
     raise ValueError(

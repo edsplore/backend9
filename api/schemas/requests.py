@@ -31,6 +31,12 @@ class ListVoicesRequest(BaseModel):
     user_id: str
 
 
+class StartChatPreviewRequest(BaseModel):
+    user_id: str
+    sim_id: str
+    message: str | None = None
+
+
 class ScriptSentence(BaseModel):
     script_sentence: str
     role: str
@@ -139,3 +145,19 @@ class CreateTrainingPlanRequest(BaseModel):
 
 class FetchTrainingPlansRequest(BaseModel):
     user_id: str
+
+
+# New request models
+class ListItemsRequest(BaseModel):
+    user_id: str
+
+
+class CreateAssignmentRequest(BaseModel):
+    user_id: str
+    assignment_name: str
+    assignment_type: str
+    assignment_id: str
+    start_date: str
+    end_date: str
+    team: list[str] = []
+    trainee: list[str] = []
