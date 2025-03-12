@@ -140,3 +140,22 @@ class ListSimulationsResponse(BaseModel):
 class CreateAssignmentResponse(BaseModel):
     id: str
     status: str
+
+
+class AssignmentData(BaseModel):
+    id: str
+    name: str
+    type: str
+    start_date: str
+    end_date: str
+    team_id: List[str]
+    trainee_id: List[str]
+    created_by: str
+    created_at: str
+    last_modified_by: str
+    last_modified_at: str
+    status: str
+
+
+class FetchAssignmentsResponse(BaseModel):
+    assignments: List[AssignmentData]
