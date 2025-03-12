@@ -117,33 +117,33 @@ class SimulationController:
 controller = SimulationController()
 
 
-@router.post("/simulations/create")
+@router.post("/simulations/create", tags=["Simulations", "Create"])
 async def create_simulation(
         request: CreateSimulationRequest) -> CreateSimulationResponse:
     return await controller.create_simulation(request)
 
 
-@router.put("/simulations/{sim_id}/update")
+@router.put("/simulations/{sim_id}/update", tags=["Simulations", "Update"])
 async def update_simulation(
         sim_id: str,
         request: UpdateSimulationRequest) -> UpdateSimulationResponse:
     return await controller.update_simulation(sim_id, request)
 
 
-@router.post("/simulations/start-audio-preview")
+@router.post("/simulations/start-audio-preview", tags=["Simulations", "Audio"])
 async def start_audio_simulation_preview(
     request: StartAudioSimulationPreviewRequest
 ) -> StartAudioSimulationPreviewResponse:
     return await controller.start_audio_simulation_preview(request)
 
 
-@router.post("/simulations/start-chat-preview")
+@router.post("/simulations/start-chat-preview", tags=["Simulations", "Chat"])
 async def start_chat_preview(
         request: StartChatPreviewRequest) -> StartChatPreviewResponse:
     return await controller.start_chat_preview(request)
 
 
-@router.post("/simulations/fetch")
+@router.post("/simulations/fetch", tags=["Simulations", "Read"])
 async def fetch_simulations(
         request: FetchSimulationsRequest) -> FetchSimulationsResponse:
     return await controller.fetch_simulations(request)

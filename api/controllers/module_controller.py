@@ -36,11 +36,11 @@ class ModuleController:
 controller = ModuleController()
 
 
-@router.post("/modules/create")
+@router.post("/modules/create", tags=["Modules", "Create"])
 async def create_module(request: CreateModuleRequest) -> CreateModuleResponse:
     return await controller.create_module(request)
 
 
-@router.post("/modules/fetch")
+@router.post("/modules/fetch", tags=["Modules", "Read"])
 async def fetch_modules(request: FetchModulesRequest) -> FetchModulesResponse:
     return await controller.fetch_modules(request)

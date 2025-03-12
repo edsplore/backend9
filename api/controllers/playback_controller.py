@@ -32,11 +32,11 @@ class PlaybackController:
 
 controller = PlaybackController()
 
-@router.post("/attempts/fetch")
+@router.post("/attempts/fetch", tags=["Playback", "Read", "List"])
 async def fetch_simulations_attempt(request: dict) -> AttemptsResponse:
     return await controller.get_attempts(AttemptsRequest(user_id=request.get("id")))
 
-@router.post("/attempt/fetch")
+@router.post("/attempt/fetch", tags=["Playback", "Read"])
 async def get_sim_attempt_by_id(request: dict) -> AttemptResponse:
     return await controller.get_attempt_by_id(
         AttemptRequest(user_id=request.get("userId"), attempt_id=request.get("attemptId"))

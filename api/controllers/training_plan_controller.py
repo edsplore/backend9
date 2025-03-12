@@ -41,13 +41,13 @@ class TrainingPlanController:
 controller = TrainingPlanController()
 
 
-@router.post("/training-plans/create")
+@router.post("/training-plans/create", tags=["Training Plans", "Create"])
 async def create_training_plan(
         request: CreateTrainingPlanRequest) -> CreateTrainingPlanResponse:
     return await controller.create_training_plan(request)
 
 
-@router.post("/training-plans/fetch")
+@router.post("/training-plans/fetch", tags=["Training Plans", "Read"])
 async def fetch_training_plans(
         request: FetchTrainingPlansRequest) -> FetchTrainingPlansResponse:
     return await controller.fetch_training_plans(request)
