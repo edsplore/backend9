@@ -1,7 +1,8 @@
-from typing import Dict
+from typing import Dict, List
 from datetime import datetime
 from infrastructure.database import Database
 from api.schemas.requests import CreateAssignmentRequest
+from api.schemas.responses import AssignmentData
 from fastapi import HTTPException
 
 
@@ -16,18 +17,17 @@ class AssignmentService:
         try:
             # Create assignment document
             assignment_doc = {
-                "assignmentName": request.assignment_name,
-                "assignedItemType": request.assignment_type,
-                "assignedItemId": request.assignment_id,
+                "name": request.name,
+                "type": request.type,
                 "startDate": request.start_date,
                 "endDate": request.end_date,
-                "team": request.team,
-                "trainee": request.trainee,
+                "teamId": request.team_id,
+                "traineeId": request.trainee_id,
                 "createdBy": request.user_id,
                 "createdAt": datetime.utcnow(),
                 "lastModifiedBy": request.user_id,
                 "lastModifiedAt": datetime.utcnow(),
-                "status": "assigned"
+                "status": "active"
             }
 
             # Insert into database
@@ -38,3 +38,33 @@ class AssignmentService:
         except Exception as e:
             raise HTTPException(status_code=500,
                                 detail=f"Error creating assignment: {str(e)}")
+
+    async def fetch_assignments(self) -> List[AssignmentData]:
+        """Fetch all assignments"""
+        try:
+            cursor = self.db.assignments.find({})
+            assignments = []
+
+            async for doc in cursor:
+                assignment = AssignmentData(
+                    id=str(doc["_id"]),
+                    name=doc.get("name", ""),
+                    type=doc.get("type", ""),
+                    start_date=doc.get("startDate", ""),
+                    end_date=doc.get("endDate", ""),
+                    team_id=doc.get("teamId", []),
+                    trainee_id=doc.get("traineeId", []),
+                    created_by=doc.get("createdBy", ""),
+                    created_at=doc.get("createdAt",
+                                       datetime.utcnow()).isoformat(),
+                    last_modified_by=doc.get("lastModifiedBy", ""),
+                    last_modified_at=doc.get("lastModifiedAt",
+                                             datetime.utcnow()).isoformat(),
+                    status=doc.get("status", ""))
+                assignments.append(assignment)
+
+            return assignments
+
+        except Exception as e:
+            raise HTTPException(status_code=500,
+                                detail=f"Error fetching assignments: {str(e)}")
