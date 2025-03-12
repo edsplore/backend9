@@ -47,20 +47,20 @@ class ScriptConverterController:
 controller = ScriptConverterController()
 
 
-@router.post("/convert/audio-to-script")
+@router.post("/convert/audio-to-script", tags=["Script", "Create", "Audio"])
 async def audio_to_script(user_id: str = Form(...),
                           audio_file: UploadFile = File(
                               ...)) -> ScriptResponse:
     return await controller.convert_audio_to_script(user_id, audio_file)
 
 
-@router.post("/convert/text-to-script")
+@router.post("/convert/text-to-script", tags=["Script", "Create", "Prompt"])
 async def text_to_script(request: TextToScriptRequest) -> ScriptResponse:
     return await controller.convert_text_to_script(request.user_id,
                                                    request.prompt)
 
 
-@router.post("/convert/file-to-script")
+@router.post("/convert/file-to-script", tags=["Script", "Create", "File"])
 async def file_to_script(user_id: str = Form(...),
                          file: UploadFile = File(...)) -> ScriptResponse:
     return await controller.convert_file_to_script(user_id, file)

@@ -15,6 +15,6 @@ class TrainingController:
 
 controller = TrainingController()
 
-@router.post("/training-data/fetch")
+@router.post("/training-data/fetch", tags=["Training", "Read"])
 async def fetch_user_training_stats(request: Dict[str, str]):
     return await controller.get_training_data(request.get("id"))

@@ -18,6 +18,6 @@ class VoiceController:
 
 controller = VoiceController()
 
-@router.post("/list-voices")
+@router.post("/list-voices", tags=["Voices", "Read"])
 async def list_voices(request: ListVoicesRequest) -> ListVoicesResponse:
     return await controller.list_voices(request)

@@ -40,20 +40,20 @@ class ListController:
 controller = ListController()
 
 
-@router.post("/list-training-plans")
+@router.post("/list-training-plans", tags=["Read", "Training Plans"])
 async def list_training_plans(
         request: ListItemsRequest) -> ListTrainingPlansResponse:
     """List all training plans with summary information"""
     return await controller.list_training_plans(request)
 
 
-@router.post("/list-modules")
+@router.post("/list-modules", tags=["Read", "Modules"])
 async def list_modules(request: ListItemsRequest) -> ListModulesResponse:
     """List all modules with summary information"""
     return await controller.list_modules(request)
 
 
-@router.post("/list-simulations")
+@router.post("/list-simulations", tags=["Read", "Simulations"])
 async def list_simulations(
         request: ListItemsRequest) -> ListSimulationsResponse:
     """List all simulations with summary information"""

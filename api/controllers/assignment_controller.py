@@ -37,14 +37,14 @@ class AssignmentController:
 controller = AssignmentController()
 
 
-@router.post("/create-assignment")
+@router.post("/create-assignment", tags=["Assignments", "Create"])
 async def create_assignment(
         request: CreateAssignmentRequest) -> CreateAssignmentResponse:
     """Create a new assignment"""
     return await controller.create_assignment(request)
 
 
-@router.get("/fetch-assignments")
+@router.get("/fetch-assignments", tags=["Assignments", "Read"])
 async def fetch_assignments() -> FetchAssignmentsResponse:
     """Fetch all assignments"""
     return await controller.fetch_assignments()
