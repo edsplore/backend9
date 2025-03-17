@@ -33,9 +33,9 @@ class SimulationService:
         self.execution_settings = AzureChatPromptExecutionSettings(
             service_id="azure_gpt4",
             ai_model_id=AZURE_OPENAI_DEPLOYMENT_NAME,
-            temperature=0.7,
+            temperature=0.1,
             top_p=1.0,
-            max_tokens=2000)
+            max_tokens=5000)
 
     async def create_simulation(self,
                                 request: CreateSimulationRequest) -> Dict:
@@ -297,32 +297,38 @@ class SimulationService:
     async def _generate_simulation_prompt(self, script: List[Dict]) -> str:
         """Generate simulation prompt using Azure OpenAI"""
         try:
-            # Convert script to conversation format for prompt
-            conversation = "\n".join(
-                [f"{s.role}: {s.script_sentence}" for s in script])
+          
+            history = ChatHistory()           
+            
 
-            history = ChatHistory()
+            # First, add the system prompt
+            system_message = (
+                "Create a detailed prompt for an AI agent. You will be given a script of a dialog between a customer "
+                "and a customer service agent. You need to create a prompt so that the AI should play the role of the customer. "
+                "Make sure that in the prompt you mention that the AI needs to follow the script exactly verbatim. In other words, "
+                "include the complete verbatim script in your response. If the user gives an input that is not included in the script "
+                "then the AI should invent details and answer smartly."
+            )
+            history.add_system_message(system_message)
 
-            data = {
-                    "model":
-                    "gpt-4o",
-                    "messages": [{
-                        "role":
-                        "system",
-                        "content":
-                        "Create a detailed prompt for an AI agent. You will be given a script of a dialog between a customer and a customer service agent. You need to create a prompt so that the AI should play the role of the customer. Make sure that in the prompt you mention that the AI needs to follow the script exactly verbatim. If the user gives an out of script response then the AI should answer accordingly."
-                    }, {
-                        "role": "user",
-                        "content": conversation
-                    }]
-                }
+            # Then, add the user message with the conversation script
+            conversation = "\n".join([f"{s.role}: {s.script_sentence}" for s in script])
+            inputprompt = f"Script: {conversation}"
+
+            print("input",inputprompt)
 
             # Add user content
-            history.add_user_message(conversation)
+            history.add_user_message(inputprompt)
+
+            print("input prompt pushed")
+         
 
             # Get response from Azure OpenAI
             result = await self.chat_completion.get_chat_message_content(
                 history, settings=self.execution_settings)
+            
+            
+            print("result",result)
 
             return str(result)
 

@@ -90,9 +90,9 @@ class SimulationController:
             # Check if script exists and has at least one entry
             script = simulation.get("script", [])
             if script and len(script) > 0:
-                # Check if first entry has role 'Customer'
+                # Check if first entry has role 'customer'
                 first_entry = script[0]
-                if first_entry.get("role") == "Customer":
+                if first_entry.get("role").lower() == "customer":
                     return StartChatPreviewResponse(
                         response=first_entry.get("script_sentence", ""))
 
