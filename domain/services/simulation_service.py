@@ -74,7 +74,7 @@ class SimulationService:
                                 detail=f"Error creating simulation: {str(e)}")
 
     async def update_simulation(self, sim_id: str,
-                              a  request: UpdateSimulationRequest) -> Dict:
+                                request: UpdateSimulationRequest) -> Dict:
         """Update an existing simulation"""
         try:
             # Convert string ID to ObjectId
