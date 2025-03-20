@@ -17,6 +17,7 @@ class AssignmentService:
         try:
             # Create assignment document
             assignment_doc = {
+                "id": request.id,
                 "name": request.name,
                 "type": request.type,
                 "startDate": request.start_date,
@@ -47,7 +48,7 @@ class AssignmentService:
 
             async for doc in cursor:
                 assignment = AssignmentData(
-                    id=str(doc["_id"]),
+                    id=doc.get("id", ""),
                     name=doc.get("name", ""),
                     type=doc.get("type", ""),
                     start_date=doc.get("startDate", ""),
