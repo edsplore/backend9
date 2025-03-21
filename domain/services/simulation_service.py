@@ -1,6 +1,7 @@
 from typing import Dict, List
 import json
 import aiohttp
+import base64
 from datetime import datetime
 from bson import ObjectId
 from config import (AZURE_OPENAI_DEPLOYMENT_NAME, AZURE_OPENAI_KEY,
@@ -37,6 +38,39 @@ class SimulationService:
             top_p=1.0,
             max_tokens=5000)
 
+    async def _store_slide_image(self, slide_data: dict) -> dict:
+        """Store image data in MongoDB and return updated slide data"""
+        if not slide_data.get("imageData"):
+            return slide_data
+
+        try:
+            # Create image document
+            image_doc = {
+                "imageId": slide_data["imageId"],
+                "name": slide_data["imageName"],
+                "contentType": slide_data["imageData"]["contentType"],
+                "data": slide_data["imageData"]["data"],
+                "uploadedAt": datetime.utcnow()
+            }
+
+            # Store in images collection
+            result = await self.db.images.insert_one(image_doc)
+
+            # Create image URL (you can modify this based on your URL structure)
+            image_url = f"/api/images/{result.inserted_id}"
+
+            # Update slide data
+            slide_data_copy = slide_data.copy()
+            slide_data_copy["imageUrl"] = image_url
+            del slide_data_copy[
+                "imageData"]  # Remove the image data after storing
+
+            return slide_data_copy
+
+        except Exception as e:
+            raise HTTPException(status_code=500,
+                                detail=f"Error storing image: {str(e)}")
+
     async def create_simulation(self,
                                 request: CreateSimulationRequest) -> Dict:
         """Create a new simulation"""
@@ -57,11 +91,16 @@ class SimulationService:
                 "tags": request.tags
             }
 
-            # Add slides data if type is visual-audio
+            # Handle slides data and images for visual-audio type
             if request.type == "visual-audio" and request.slidesData:
-                simulation_doc["slidesData"] = [
-                    slide.dict() for slide in request.slidesData
-                ]
+                processed_slides = []
+                for slide in request.slidesData:
+                    slide_dict = slide.dict()
+                    # Store image and get updated slide data
+                    processed_slide = await self._store_slide_image(slide_dict)
+                    processed_slides.append(processed_slide)
+
+                simulation_doc["slidesData"] = processed_slides
 
             # Generate prompt only for non-visual-audio types
             if request.type != "visual-audio":
@@ -140,10 +179,21 @@ class SimulationService:
             if request.script is not None:
                 update_doc["script"] = [s.dict() for s in request.script]
 
+            # Handle slides data and images for visual-audio type
             if request.slidesData is not None:
-                update_doc["slidesData"] = [
-                    slide.dict() for slide in request.slidesData
-                ]
+                processed_slides = []
+                for slide in request.slidesData:
+                    slide_dict = slide.dict()
+                    # Only process image if new image data is provided
+                    if slide_dict.get("imageData"):
+                        processed_slide = await self._store_slide_image(
+                            slide_dict)
+                    else:
+                        # Keep existing image URL if no new image
+                        processed_slide = slide_dict
+                    processed_slides.append(processed_slide)
+
+                update_doc["slidesData"] = processed_slides
 
             if request.lvl1 is not None:
                 update_doc["lvl1"] = {

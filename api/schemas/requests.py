@@ -88,9 +88,16 @@ class SlideSequence(BaseModel):
     text: Optional[str] = None
 
 
+class SlideImage(BaseModel):
+    data: str  # Base64 encoded image data
+    contentType: str  # e.g., "image/png", "image/jpeg"
+
+
 class SlideData(BaseModel):
     imageId: str
     imageName: str
+    imageUrl: Optional[str] = None  # URL for stored image
+    imageData: Optional[SlideImage] = None  # Image data for upload
     sequence: List[SlideSequence]
 
 
