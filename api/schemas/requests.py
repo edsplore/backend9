@@ -44,6 +44,56 @@ class ScriptSentence(BaseModel):
     keywords: list[str]
 
 
+class HotspotSettings(BaseModel):
+    font: str
+    fontSize: int
+    buttonColor: str
+    textColor: str
+    timeoutDuration: int
+    highlightField: bool
+    enableHotkey: bool
+
+
+class HotspotCoordinates(BaseModel):
+    x: float
+    y: float
+    width: float
+    height: float
+
+
+class Hotspot(BaseModel):
+    type: str
+    id: str
+    name: str
+    hotspotType: str
+    coordinates: HotspotCoordinates
+    settings: HotspotSettings
+
+
+class Message(BaseModel):
+    type: str
+    id: str
+    role: str
+    text: str
+
+
+class SlideSequence(BaseModel):
+    type: str
+    id: str
+    name: Optional[str] = None
+    hotspotType: Optional[str] = None
+    coordinates: Optional[HotspotCoordinates] = None
+    settings: Optional[HotspotSettings] = None
+    role: Optional[str] = None
+    text: Optional[str] = None
+
+
+class SlideData(BaseModel):
+    imageId: str
+    imageName: str
+    sequence: List[SlideSequence]
+
+
 class SimulationLevel(BaseModel):
     is_enabled: bool = False
     enable_practice: bool = False
@@ -76,6 +126,7 @@ class CreateSimulationRequest(BaseModel):
     type: str
     script: list[ScriptSentence]
     tags: list[str]
+    slidesData: Optional[List[SlideData]] = None
 
 
 class UpdateSimulationRequest(BaseModel):
@@ -109,7 +160,8 @@ class UpdateSimulationRequest(BaseModel):
     agent_id: str | None = None
     llm_id: str | None = None
     assistant_id: str | None = None
-    slides: listdict | None = None
+    slides: dict | None = None
+    slidesData: Optional[List[SlideData]] = None
 
 
 class StartAudioSimulationPreviewRequest(BaseModel):
