@@ -1,4 +1,5 @@
 from pydantic import BaseModel
+from typing import List, Optional
 
 
 class TrainingDataRequest(BaseModel):
@@ -152,6 +153,27 @@ class ListItemsRequest(BaseModel):
     user_id: str
 
 
+class TeamMember(BaseModel):
+    user_id: str
+    first_name: str
+    last_name: str
+    email: str
+    phone_no: str
+    fullName: str
+
+
+class TeamLeader(TeamMember):
+    pass
+
+
+class Team(BaseModel):
+    team_id: str
+    name: str
+    leader: TeamLeader
+    team_members: List[TeamMember]
+    status: str
+
+
 class CreateAssignmentRequest(BaseModel):
     id: str
     user_id: str
@@ -159,5 +181,5 @@ class CreateAssignmentRequest(BaseModel):
     type: str
     start_date: str
     end_date: str
-    team_id: list[str] = []
-    trainee_id: list[str] = []
+    team_id: List[Team]
+    trainee_id: List[str] = []

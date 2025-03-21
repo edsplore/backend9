@@ -4,6 +4,7 @@ from infrastructure.database import Database
 from api.schemas.requests import CreateAssignmentRequest
 from api.schemas.responses import AssignmentData
 from fastapi import HTTPException
+from bson import ObjectId
 
 
 class AssignmentService:
@@ -22,7 +23,7 @@ class AssignmentService:
                 "type": request.type,
                 "startDate": request.start_date,
                 "endDate": request.end_date,
-                "teamId": request.team_id,
+                "teamId": [team.dict() for team in request.team_id],
                 "traineeId": request.trainee_id,
                 "createdBy": request.user_id,
                 "createdAt": datetime.utcnow(),
@@ -33,12 +34,57 @@ class AssignmentService:
 
             # Insert into database
             result = await self.db.assignments.insert_one(assignment_doc)
+            assignment_id = str(result.inserted_id)
 
-            return {"id": str(result.inserted_id), "status": "success"}
+            # Process trainee IDs
+            for trainee_id in request.trainee_id:
+                await self._process_user_assignment(trainee_id, assignment_id)
+
+            # Process team members
+            for team in request.team_id:
+                # Process team leader
+                await self._process_user_assignment(team.leader.user_id,
+                                                   assignment_id)
+
+                # Process team members
+                for member in team.team_members:
+                    await self._process_user_assignment(member.user_id,
+                                                       assignment_id)
+
+            return {"id": assignment_id, "status": "success"}
 
         except Exception as e:
             raise HTTPException(status_code=500,
                                 detail=f"Error creating assignment: {str(e)}")
+
+    async def _process_user_assignment(self, user_id: str,
+                                       assignment_id: str) -> None:
+        """Process user document creation or update for assignments"""
+        try:
+            # Check if user exists
+            existing_user = await self.db.users.find_one({"_id": user_id})
+
+            if existing_user:
+                # Update existing user's assignments array
+                await self.db.users.update_one(
+                    {"_id": user_id},
+                    {"$addToSet": {
+                        "assignments": assignment_id
+                    }})
+            else:
+                # Create new user document
+                new_user = {
+                    "_id": user_id,
+                    "assignments": [assignment_id],
+                    "createdAt": datetime.utcnow(),
+                    "lastModifiedAt": datetime.utcnow()
+                }
+                await self.db.users.insert_one(new_user)
+
+        except Exception as e:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Error processing user assignment: {str(e)}")
 
     async def fetch_assignments(self) -> List[AssignmentData]:
         """Fetch all assignments"""
