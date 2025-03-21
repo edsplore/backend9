@@ -9,6 +9,7 @@ from api.controllers.module_controller import router as module_router
 from api.controllers.training_plan_controller import router as training_plan_router
 from api.controllers.list_controller import router as list_router
 from api.controllers.assignment_controller import router as assignment_router
+from api.controllers.image_controller import router as image_router
 
 app = FastAPI()
 
@@ -21,6 +22,7 @@ app.include_router(module_router)
 app.include_router(training_plan_router)
 app.include_router(list_router)
 app.include_router(assignment_router)
+app.include_router(image_router)
 
 
 @app.get("/")

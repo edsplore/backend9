@@ -44,26 +44,30 @@ class SimulationService:
             return slide_data
 
         try:
+            # Decode base64 image data
+            image_data = base64.b64decode(slide_data["imageData"]["data"])
+
             # Create image document
             image_doc = {
                 "imageId": slide_data["imageId"],
                 "name": slide_data["imageName"],
                 "contentType": slide_data["imageData"]["contentType"],
-                "data": slide_data["imageData"]["data"],
+                "data": image_data,
                 "uploadedAt": datetime.utcnow()
             }
 
             # Store in images collection
             result = await self.db.images.insert_one(image_doc)
 
-            # Create image URL (you can modify this based on your URL structure)
+            # Create image URL
             image_url = f"/api/images/{result.inserted_id}"
 
             # Update slide data
             slide_data_copy = slide_data.copy()
             slide_data_copy["imageUrl"] = image_url
-            del slide_data_copy[
-                "imageData"]  # Remove the image data after storing
+            if "imageData" in slide_data_copy:
+                del slide_data_copy[
+                    "imageData"]  # Remove the image data after storing
 
             return slide_data_copy
 
@@ -361,7 +365,6 @@ class SimulationService:
     async def _generate_simulation_prompt(self, script: List[Dict]) -> str:
         """Generate simulation prompt using Azure OpenAI"""
         try:
-
             history = ChatHistory()
 
             # First, add the system prompt
