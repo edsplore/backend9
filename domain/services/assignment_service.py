@@ -118,13 +118,20 @@ class AssignmentService:
             assignments = []
 
             async for doc in cursor:
+                # Extract team IDs from the team objects
+                team_ids = []
+                if doc.get("teamId"):
+                    for team in doc["teamId"]:
+                        if isinstance(team, dict) and team.get("team_id"):
+                            team_ids.append(team["team_id"])
+
                 assignment = AssignmentData(
                     id=doc.get("id", ""),
                     name=doc.get("name", ""),
                     type=doc.get("type", ""),
                     start_date=doc.get("startDate", ""),
                     end_date=doc.get("endDate", ""),
-                    team_id=doc.get("teamId", []),
+                    team_id=team_ids,  # Use the extracted team IDs
                     trainee_id=doc.get("traineeId", []),
                     created_by=doc.get("createdBy", ""),
                     created_at=doc.get("createdAt",
