@@ -148,7 +148,6 @@ class FetchTrainingPlansRequest(BaseModel):
     user_id: str
 
 
-# New request models
 class ListItemsRequest(BaseModel):
     user_id: str
 
@@ -183,3 +182,7 @@ class CreateAssignmentRequest(BaseModel):
     end_date: str
     team_id: List[Team]
     trainee_id: List[str] = []
+
+
+class FetchAssignedPlansRequest(BaseModel):
+    user_id: str

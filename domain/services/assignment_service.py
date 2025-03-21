@@ -1,10 +1,13 @@
 from typing import Dict, List
 from datetime import datetime
+from bson import ObjectId
 from infrastructure.database import Database
 from api.schemas.requests import CreateAssignmentRequest
-from api.schemas.responses import AssignmentData
+from api.schemas.responses import (AssignmentData, FetchAssignmentsResponse,
+                                   FetchAssignedPlansResponse,
+                                   TrainingPlanDetails, ModuleDetails,
+                                   SimulationDetails, Stats, StatsData)
 from fastapi import HTTPException
-from bson import ObjectId
 
 
 class AssignmentService:
@@ -147,3 +150,164 @@ class AssignmentService:
         except Exception as e:
             raise HTTPException(status_code=500,
                                 detail=f"Error fetching assignments: {str(e)}")
+
+    async def fetch_assigned_plans(self,
+                                   user_id: str) -> FetchAssignedPlansResponse:
+        """Fetch assigned training plans with nested details"""
+        try:
+            # Get all assignments for the user
+            assignments = await self.db.assignments.find({
+                "$or": [{
+                    "traineeId": user_id
+                }, {
+                    "teamId.team_members.user_id": user_id
+                }, {
+                    "teamId.leader.user_id": user_id
+                }],
+                "status":
+                "active"
+            }).to_list(None)
+
+            training_plans = []
+            modules = []
+            simulations = []
+            total_simulations = 0
+
+            for assignment in assignments:
+                if assignment["type"] == "TrainingPlan":
+                    # Process training plan assignment
+                    training_plan = await self.db.training_plans.find_one(
+                        {"_id": ObjectId(assignment["id"])})
+
+                    if training_plan:
+                        plan_modules = []
+                        plan_total_simulations = 0
+                        plan_est_time = 0
+
+                        # Process each added object in the training plan
+                        for added_obj in training_plan.get("addedObject", []):
+                            if added_obj["type"] == "module":
+                                module_details = await self._get_module_details(
+                                    added_obj["id"], assignment["endDate"])
+                                if module_details:
+                                    plan_modules.append(module_details)
+                                    plan_total_simulations += module_details.total_simulations
+                                    plan_est_time += sum(
+                                        sim.estTime
+                                        for sim in module_details.simulations)
+                                    total_simulations += module_details.total_simulations
+
+                            elif added_obj["type"] == "simulation":
+                                sim_details = await self._get_simulation_details(
+                                    added_obj["id"], assignment["endDate"])
+                                if sim_details:
+                                    # Add simulation as a single-simulation module
+                                    plan_modules.append(
+                                        ModuleDetails(
+                                            id=sim_details.simulation_id,
+                                            name=sim_details.name,
+                                            total_simulations=1,
+                                            average_score=0,
+                                            due_date=assignment["endDate"],
+                                            status="not_started",
+                                            simulations=[sim_details]))
+                                    plan_total_simulations += 1
+                                    plan_est_time += sim_details.estTime
+                                    total_simulations += 1
+
+                        training_plans.append(
+                            TrainingPlanDetails(
+                                id=str(training_plan["_id"]),
+                                name=training_plan.get("name", ""),
+                                completion_percentage=0,
+                                total_modules=len(plan_modules),
+                                total_simulations=plan_total_simulations,
+                                est_time=plan_est_time,
+                                average_sim_score=0,
+                                due_date=assignment["endDate"],
+                                status="not_started",
+                                modules=plan_modules))
+
+                elif assignment["type"] == "Module":
+                    # Process directly assigned module
+                    module_details = await self._get_module_details(
+                        assignment["id"], assignment["endDate"])
+                    if module_details:
+                        modules.append(module_details)
+                        total_simulations += module_details.total_simulations
+
+                elif assignment["type"] == "Simulation":
+                    # Process directly assigned simulation
+                    sim_details = await self._get_simulation_details(
+                        assignment["id"], assignment["endDate"])
+                    if sim_details:
+                        simulations.append(sim_details)
+                        total_simulations += 1
+
+            # Create stats
+            stats = Stats(simulation_completed=StatsData(
+                total_simulations=total_simulations,
+                completed_simulations=0,
+                percentage=0),
+                          timely_completion=StatsData(
+                              total_simulations=total_simulations,
+                              completed_simulations=0,
+                              percentage=0),
+                          average_sim_score=0,
+                          highest_sim_score=0)
+
+            return FetchAssignedPlansResponse(training_plans=training_plans,
+                                              modules=modules,
+                                              simulations=simulations,
+                                              stats=stats)
+
+        except Exception as e:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Error fetching assigned plans: {str(e)}")
+
+    async def _get_module_details(self, module_id: str,
+                                  due_date: str) -> ModuleDetails:
+        """Helper method to get module details"""
+        try:
+            module = await self.db.modules.find_one(
+                {"_id": ObjectId(module_id)})
+            if not module:
+                return None
+
+            module_simulations = []
+            for sim_id in module.get("simulationIds", []):
+                sim_details = await self._get_simulation_details(
+                    sim_id, due_date)
+                if sim_details:
+                    module_simulations.append(sim_details)
+
+            return ModuleDetails(id=str(module["_id"]),
+                                 name=module.get("name", ""),
+                                 total_simulations=len(module_simulations),
+                                 average_score=0,
+                                 due_date=due_date,
+                                 status="not_started",
+                                 simulations=module_simulations)
+        except Exception:
+            return None
+
+    async def _get_simulation_details(self, sim_id: str,
+                                      due_date: str) -> SimulationDetails:
+        """Helper method to get simulation details"""
+        try:
+            sim = await self.db.simulations.find_one({"_id": ObjectId(sim_id)})
+            if not sim:
+                return None
+
+            return SimulationDetails(
+                simulation_id=str(sim["_id"]),
+                name=sim.get("name", ""),
+                type=sim.get("type", ""),
+                level="beginner",  # Default value
+                estTime=sim.get("estimatedTimeToAttemptInMins", 0),
+                dueDate=due_date,
+                status="not_started",
+                highest_attempt_score=0)
+        except Exception:
+            return None
