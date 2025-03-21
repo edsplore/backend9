@@ -41,9 +41,6 @@ class SimulationService:
                                 request: CreateSimulationRequest) -> Dict:
         """Create a new simulation"""
         try:
-            # Generate prompt using Azure OpenAI
-            prompt = await self._generate_simulation_prompt(request.script)
-
             # Create simulation document
             simulation_doc = {
                 "name": request.name,
@@ -57,16 +54,26 @@ class SimulationService:
                 "createdOn": datetime.utcnow(),
                 "status": "draft",
                 "version": 1,
-                "prompt": prompt,
                 "tags": request.tags
             }
+
+            # Add slides data if type is visual-audio
+            if request.type == "visual-audio" and request.slidesData:
+                simulation_doc["slidesData"] = [
+                    slide.dict() for slide in request.slidesData
+                ]
+
+            # Generate prompt only for non-visual-audio types
+            if request.type != "visual-audio":
+                prompt = await self._generate_simulation_prompt(request.script)
+                simulation_doc["prompt"] = prompt
 
             # Insert into database
             result = await self.db.simulations.insert_one(simulation_doc)
             return {
                 "id": str(result.inserted_id),
                 "status": "success",
-                "prompt": prompt
+                "prompt": simulation_doc.get("prompt", "")
             }
 
         except Exception as e:
@@ -133,6 +140,11 @@ class SimulationService:
             if request.script is not None:
                 update_doc["script"] = [s.dict() for s in request.script]
 
+            if request.slidesData is not None:
+                update_doc["slidesData"] = [
+                    slide.dict() for slide in request.slidesData
+                ]
+
             if request.lvl1 is not None:
                 update_doc["lvl1"] = {
                     "isEnabled":
@@ -179,12 +191,11 @@ class SimulationService:
                     request.sim_practice.pre_requisite_limit
                 }
 
-            # Check if simulation is of type 'chat'
-            is_chat_type = existing_sim.get("type") == "chat" or (
-                request.type and request.type == "chat")
+            # Check if simulation is of type 'chat' or 'visual-audio'
+            sim_type = request.type if request.type else existing_sim.get(
+                "type")
 
-            # Handle voice-related fields and LLM/Agent creation based on simulation type
-            if is_chat_type:
+            if sim_type == "chat":
                 # For chat simulations, just update the prompt if provided
                 if request.prompt is not None:
                     update_doc["prompt"] = request.prompt
@@ -194,15 +205,18 @@ class SimulationService:
                     del update_doc["voiceId"]
                 if "voice_speed" in update_doc:
                     del update_doc["voice_speed"]
+            elif sim_type == "visual-audio":
+                # For visual-audio simulations, just update the data
+                pass
             else:
-                # For non-chat simulations, handle voice-related fields
+                # For other types, handle voice-related fields
                 if request.voice_id is not None:
                     update_doc["voiceId"] = request.voice_id
 
                 if request.voice_speed is not None:
                     update_doc["voice_speed"] = request.voice_speed
 
-                # Create LLM and Agent if prompt is provided for non-chat simulations
+                # Create LLM and Agent if prompt is provided
                 if request.prompt is not None:
                     # Create Retell LLM
                     llm_response = await self._create_retell_llm(request.prompt
@@ -297,9 +311,8 @@ class SimulationService:
     async def _generate_simulation_prompt(self, script: List[Dict]) -> str:
         """Generate simulation prompt using Azure OpenAI"""
         try:
-          
-            history = ChatHistory()           
-            
+
+            history = ChatHistory()
 
             # First, add the system prompt
             system_message = (
@@ -307,28 +320,26 @@ class SimulationService:
                 "and a customer service agent. You need to create a prompt so that the AI should play the role of the customer. "
                 "Make sure that in the prompt you mention that the AI needs to follow the script exactly verbatim. In other words, "
                 "include the complete verbatim script in your response. If the user gives an input that is not included in the script "
-                "then the AI should invent details and answer smartly."
-            )
+                "then the AI should invent details and answer smartly.")
             history.add_system_message(system_message)
 
             # Then, add the user message with the conversation script
-            conversation = "\n".join([f"{s.role}: {s.script_sentence}" for s in script])
+            conversation = "\n".join(
+                [f"{s.role}: {s.script_sentence}" for s in script])
             inputprompt = f"Script: {conversation}"
 
-            print("input",inputprompt)
+            print("input", inputprompt)
 
             # Add user content
             history.add_user_message(inputprompt)
 
             print("input prompt pushed")
-         
 
             # Get response from Azure OpenAI
             result = await self.chat_completion.get_chat_message_content(
                 history, settings=self.execution_settings)
-            
-            
-            print("result",result)
+
+            print("result", result)
 
             return str(result)
 

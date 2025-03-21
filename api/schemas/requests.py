@@ -109,7 +109,7 @@ class UpdateSimulationRequest(BaseModel):
     agent_id: str | None = None
     llm_id: str | None = None
     assistant_id: str | None = None
-    slides: dict | None = None
+    slides: listdict | None = None
 
 
 class StartAudioSimulationPreviewRequest(BaseModel):
