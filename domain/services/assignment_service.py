@@ -43,13 +43,16 @@ class AssignmentService:
             # Process team members
             for team in request.team_id:
                 # Process team leader
-                await self._process_user_assignment(team.leader.user_id,
-                                                   assignment_id)
+                if team.leader and team.leader.user_id:
+                    await self._process_user_assignment(
+                        team.leader.user_id, assignment_id, team.leader.dict())
 
                 # Process team members
-                for member in team.team_members:
-                    await self._process_user_assignment(member.user_id,
-                                                       assignment_id)
+                if team.team_members:
+                    for member in team.team_members:
+                        if member.user_id:
+                            await self._process_user_assignment(
+                                member.user_id, assignment_id, member.dict())
 
             return {"id": assignment_id, "status": "success"}
 
@@ -57,8 +60,10 @@ class AssignmentService:
             raise HTTPException(status_code=500,
                                 detail=f"Error creating assignment: {str(e)}")
 
-    async def _process_user_assignment(self, user_id: str,
-                                       assignment_id: str) -> None:
+    async def _process_user_assignment(self,
+                                       user_id: str,
+                                       assignment_id: str,
+                                       user_data: Dict = None) -> None:
         """Process user document creation or update for assignments"""
         try:
             # Check if user exists
@@ -66,11 +71,20 @@ class AssignmentService:
 
             if existing_user:
                 # Update existing user's assignments array
-                await self.db.users.update_one(
-                    {"_id": user_id},
-                    {"$addToSet": {
-                        "assignments": assignment_id
-                    }})
+                update_doc = {"$addToSet": {"assignments": assignment_id}}
+
+                # Update user data if provided
+                if user_data:
+                    update_doc["$set"] = {
+                        "first_name": user_data.get("first_name"),
+                        "last_name": user_data.get("last_name"),
+                        "email": user_data.get("email"),
+                        "phone_no": user_data.get("phone_no"),
+                        "fullName": user_data.get("fullName"),
+                        "lastModifiedAt": datetime.utcnow()
+                    }
+
+                await self.db.users.update_one({"_id": user_id}, update_doc)
             else:
                 # Create new user document
                 new_user = {
@@ -79,6 +93,17 @@ class AssignmentService:
                     "createdAt": datetime.utcnow(),
                     "lastModifiedAt": datetime.utcnow()
                 }
+
+                # Add user data if provided
+                if user_data:
+                    new_user.update({
+                        "first_name": user_data.get("first_name"),
+                        "last_name": user_data.get("last_name"),
+                        "email": user_data.get("email"),
+                        "phone_no": user_data.get("phone_no"),
+                        "fullName": user_data.get("fullName")
+                    })
+
                 await self.db.users.insert_one(new_user)
 
         except Exception as e:
