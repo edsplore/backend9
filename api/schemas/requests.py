@@ -1,4 +1,10 @@
 from pydantic import BaseModel
+from typing import List, Optional
+
+
+class ChatHistoryItem(BaseModel):
+    sentence: str
+    role: str
 
 
 class TrainingDataRequest(BaseModel):
@@ -27,6 +33,26 @@ class FileToScriptRequest(BaseModel):
     user_id: str
 
 
+class StartSimulationRequest(BaseModel):
+    user_id: str
+    sim_id: str
+    assignment_id: str
+
+
+class EndAudioSimulationRequest(BaseModel):
+    user_id: str
+    simulation_id: str
+    usersimulationprogress_id: str
+    call_id: str
+
+
+class EndChatSimulationRequest(BaseModel):
+    user_id: str
+    simulation_id: str
+    usersimulationprogress_id: str
+    chat_history: List[ChatHistoryItem]
+
+
 class ListVoicesRequest(BaseModel):
     user_id: str
 
@@ -37,10 +63,75 @@ class StartChatPreviewRequest(BaseModel):
     message: str | None = None
 
 
+class StartChatSimulationRequest(BaseModel):
+    user_id: str
+    sim_id: str
+    assignment_id: str
+    message: Optional[str] = None
+    usersimulationprogress_id: Optional[str] = None
+
+
 class ScriptSentence(BaseModel):
     script_sentence: str
     role: str
     keywords: list[str]
+
+
+class HotspotSettings(BaseModel):
+    font: str
+    fontSize: int
+    buttonColor: str
+    textColor: str
+    timeoutDuration: int
+    highlightField: bool
+    enableHotkey: bool
+
+
+class HotspotCoordinates(BaseModel):
+    x: float
+    y: float
+    width: float
+    height: float
+
+
+class Hotspot(BaseModel):
+    type: str
+    id: str
+    name: str
+    hotspotType: str
+    coordinates: HotspotCoordinates
+    settings: HotspotSettings
+
+
+class Message(BaseModel):
+    type: str
+    id: str
+    role: str
+    text: str
+
+
+class SlideSequence(BaseModel):
+    type: str
+    id: str
+    name: Optional[str] = None
+    hotspotType: Optional[str] = None
+    coordinates: Optional[HotspotCoordinates] = None
+    settings: Optional[HotspotSettings] = None
+    role: Optional[str] = None
+    text: Optional[str] = None
+
+
+class SlideImage(BaseModel):
+    data: str  # Base64 encoded image data
+    contentType: str  # e.g., "image/png", "image/jpeg"
+
+
+class SlideData(BaseModel):
+    imageId: str
+    imageName: str
+    imageUrl: Optional[str] = None  # URL for stored image
+    imageData: Optional[SlideImage] = None  # Image data for upload
+    sequence: List[SlideSequence]
 
 
 class SimulationLevel(BaseModel):
@@ -75,6 +166,7 @@ class CreateSimulationRequest(BaseModel):
     type: str
     script: list[ScriptSentence]
     tags: list[str]
+    slidesData: Optional[List[SlideData]] = None
 
 
 class UpdateSimulationRequest(BaseModel):
@@ -109,11 +201,18 @@ class UpdateSimulationRequest(BaseModel):
     llm_id: str | None = None
     assistant_id: str | None = None
     slides: dict | None = None
+    slidesData: Optional[List[SlideData]] = None
 
 
 class StartAudioSimulationPreviewRequest(BaseModel):
     user_id: str
     sim_id: str
+
+
+class StartAudioSimulationRequest(BaseModel):
+    user_id: str
+    sim_id: str
+    assignment_id: str
 
 
 class FetchSimulationsRequest(BaseModel):
@@ -147,16 +246,41 @@ class FetchTrainingPlansRequest(BaseModel):
     user_id: str
 
 
-# New request models
 class ListItemsRequest(BaseModel):
     user_id: str
 
 
+class TeamMember(BaseModel):
+    user_id: str
+    first_name: str
+    last_name: str
+    email: str
+    phone_no: str
+    fullName: str
+
+
+class TeamLeader(TeamMember):
+    pass
+
+
+class Team(BaseModel):
+    team_id: str
+    name: str
+    leader: TeamLeader
+    team_members: List[TeamMember]
+    status: str
+
+
 class CreateAssignmentRequest(BaseModel):
+    id: str
     user_id: str
     name: str
     type: str
     start_date: str
     end_date: str
-    team_id: list[str] = []
-    trainee_id: list[str] = []
+    team_id: List[Team]
+    trainee_id: List[str] = []
+
+
+class FetchAssignedPlansRequest(BaseModel):
+    user_id: str

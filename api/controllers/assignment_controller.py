@@ -1,7 +1,9 @@
 from fastapi import APIRouter, HTTPException
 from domain.services.assignment_service import AssignmentService
-from api.schemas.requests import CreateAssignmentRequest
-from api.schemas.responses import CreateAssignmentResponse, FetchAssignmentsResponse
+from api.schemas.requests import CreateAssignmentRequest, FetchAssignedPlansRequest
+from api.schemas.responses import (CreateAssignmentResponse,
+                                   FetchAssignmentsResponse,
+                                   FetchAssignedPlansResponse)
 
 router = APIRouter()
 
@@ -33,6 +35,13 @@ class AssignmentController:
         assignments = await self.service.fetch_assignments()
         return FetchAssignmentsResponse(assignments=assignments)
 
+    async def fetch_assigned_plans(
+            self,
+            request: FetchAssignedPlansRequest) -> FetchAssignedPlansResponse:
+        if not request.user_id:
+            raise HTTPException(status_code=400, detail="Missing 'userId'")
+        return await self.service.fetch_assigned_plans(request.user_id)
+
 
 controller = AssignmentController()
 
@@ -48,3 +57,10 @@ async def create_assignment(
 async def fetch_assignments() -> FetchAssignmentsResponse:
     """Fetch all assignments"""
     return await controller.fetch_assignments()
+
+
+@router.post("/fetch-assigned-plans", tags=["Assignments", "Read"])
+async def fetch_assigned_plans(
+        request: FetchAssignedPlansRequest) -> FetchAssignedPlansResponse:
+    """Fetch assigned training plans with nested details"""
+    return await controller.fetch_assigned_plans(request)

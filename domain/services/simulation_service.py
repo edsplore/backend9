@@ -1,6 +1,7 @@
 from typing import Dict, List
 import json
 import aiohttp
+import base64
 from datetime import datetime
 from bson import ObjectId
 from config import (AZURE_OPENAI_DEPLOYMENT_NAME, AZURE_OPENAI_KEY,
@@ -33,17 +34,51 @@ class SimulationService:
         self.execution_settings = AzureChatPromptExecutionSettings(
             service_id="azure_gpt4",
             ai_model_id=AZURE_OPENAI_DEPLOYMENT_NAME,
-            temperature=0.7,
+            temperature=0.1,
             top_p=1.0,
-            max_tokens=2000)
+            max_tokens=5000)
+
+    async def _store_slide_image(self, slide_data: dict) -> dict:
+        """Store image data in MongoDB and return updated slide data"""
+        if not slide_data.get("imageData"):
+            return slide_data
+
+        try:
+            # Decode base64 image data
+            image_data = base64.b64decode(slide_data["imageData"]["data"])
+
+            # Create image document
+            image_doc = {
+                "imageId": slide_data["imageId"],
+                "name": slide_data["imageName"],
+                "contentType": slide_data["imageData"]["contentType"],
+                "data": image_data,
+                "uploadedAt": datetime.utcnow()
+            }
+
+            # Store in images collection
+            result = await self.db.images.insert_one(image_doc)
+
+            # Create image URL
+            image_url = f"/api/images/{result.inserted_id}"
+
+            # Update slide data
+            slide_data_copy = slide_data.copy()
+            slide_data_copy["imageUrl"] = image_url
+            if "imageData" in slide_data_copy:
+                del slide_data_copy[
+                    "imageData"]  # Remove the image data after storing
+
+            return slide_data_copy
+
+        except Exception as e:
+            raise HTTPException(status_code=500,
+                                detail=f"Error storing image: {str(e)}")
 
     async def create_simulation(self,
                                 request: CreateSimulationRequest) -> Dict:
         """Create a new simulation"""
         try:
-            # Generate prompt using Azure OpenAI
-            prompt = await self._generate_simulation_prompt(request.script)
-
             # Create simulation document
             simulation_doc = {
                 "name": request.name,
@@ -57,16 +92,31 @@ class SimulationService:
                 "createdOn": datetime.utcnow(),
                 "status": "draft",
                 "version": 1,
-                "prompt": prompt,
                 "tags": request.tags
             }
+
+            # Handle slides data and images for visual-audio type
+            if request.type == "visual-audio" and request.slidesData:
+                processed_slides = []
+                for slide in request.slidesData:
+                    slide_dict = slide.dict()
+                    # Store image and get updated slide data
+                    processed_slide = await self._store_slide_image(slide_dict)
+                    processed_slides.append(processed_slide)
+
+                simulation_doc["slidesData"] = processed_slides
+
+            # Generate prompt only for non-visual-audio types
+            if request.type != "visual-audio":
+                prompt = await self._generate_simulation_prompt(request.script)
+                simulation_doc["prompt"] = prompt
 
             # Insert into database
             result = await self.db.simulations.insert_one(simulation_doc)
             return {
                 "id": str(result.inserted_id),
                 "status": "success",
-                "prompt": prompt
+                "prompt": simulation_doc.get("prompt", "")
             }
 
         except Exception as e:
@@ -74,7 +124,7 @@ class SimulationService:
                                 detail=f"Error creating simulation: {str(e)}")
 
     async def update_simulation(self, sim_id: str,
-                              a  request: UpdateSimulationRequest) -> Dict:
+                                request: UpdateSimulationRequest) -> Dict:
         """Update an existing simulation"""
         try:
             # Convert string ID to ObjectId
@@ -133,6 +183,22 @@ class SimulationService:
             if request.script is not None:
                 update_doc["script"] = [s.dict() for s in request.script]
 
+            # Handle slides data and images for visual-audio type
+            if request.slidesData is not None:
+                processed_slides = []
+                for slide in request.slidesData:
+                    slide_dict = slide.dict()
+                    # Only process image if new image data is provided
+                    if slide_dict.get("imageData"):
+                        processed_slide = await self._store_slide_image(
+                            slide_dict)
+                    else:
+                        # Keep existing image URL if no new image
+                        processed_slide = slide_dict
+                    processed_slides.append(processed_slide)
+
+                update_doc["slidesData"] = processed_slides
+
             if request.lvl1 is not None:
                 update_doc["lvl1"] = {
                     "isEnabled":
@@ -179,12 +245,11 @@ class SimulationService:
                     request.sim_practice.pre_requisite_limit
                 }
 
-            # Check if simulation is of type 'chat'
-            is_chat_type = existing_sim.get("type") == "chat" or (
-                request.type and request.type == "chat")
+            # Check if simulation is of type 'chat' or 'visual-audio'
+            sim_type = request.type if request.type else existing_sim.get(
+                "type")
 
-            # Handle voice-related fields and LLM/Agent creation based on simulation type
-            if is_chat_type:
+            if sim_type == "chat":
                 # For chat simulations, just update the prompt if provided
                 if request.prompt is not None:
                     update_doc["prompt"] = request.prompt
@@ -194,15 +259,18 @@ class SimulationService:
                     del update_doc["voiceId"]
                 if "voice_speed" in update_doc:
                     del update_doc["voice_speed"]
+            elif sim_type == "visual-audio":
+                # For visual-audio simulations, just update the data
+                pass
             else:
-                # For non-chat simulations, handle voice-related fields
+                # For other types, handle voice-related fields
                 if request.voice_id is not None:
                     update_doc["voiceId"] = request.voice_id
 
                 if request.voice_speed is not None:
                     update_doc["voice_speed"] = request.voice_speed
 
-                # Create LLM and Agent if prompt is provided for non-chat simulations
+                # Create LLM and Agent if prompt is provided
                 if request.prompt is not None:
                     # Create Retell LLM
                     llm_response = await self._create_retell_llm(request.prompt
@@ -297,32 +365,34 @@ class SimulationService:
     async def _generate_simulation_prompt(self, script: List[Dict]) -> str:
         """Generate simulation prompt using Azure OpenAI"""
         try:
-            # Convert script to conversation format for prompt
-            conversation = "\n".join(
-                [f"{s.role}: {s.script_sentence}" for s in script])
-
             history = ChatHistory()
 
-            data = {
-                    "model":
-                    "gpt-4o",
-                    "messages": [{
-                        "role":
-                        "system",
-                        "content":
-                        "Create a detailed prompt for an AI agent. You will be given a script of a dialog between a customer and a customer service agent. You need to create a prompt so that the AI should play the role of the customer. Make sure that in the prompt you mention that the AI needs to follow the script exactly verbatim. If the user gives an out of script response then the AI should answer accordingly."
-                    }, {
-                        "role": "user",
-                        "content": conversation
-                    }]
-                }
+            # First, add the system prompt
+            system_message = (
+                "Create a detailed prompt for an AI agent. You will be given a script of a dialog between a customer "
+                "and a customer service agent. You need to create a prompt so that the AI should play the role of the customer. "
+                "Make sure that in the prompt you mention that the AI needs to follow the script exactly verbatim. In other words, "
+                "include the complete verbatim script in your response. If the user gives an input that is not included in the script "
+                "then the AI should invent details and answer smartly.")
+            history.add_system_message(system_message)
+
+            # Then, add the user message with the conversation script
+            conversation = "\n".join(
+                [f"{s.role}: {s.script_sentence}" for s in script])
+            inputprompt = f"Script: {conversation}"
+
+            print("input", inputprompt)
 
             # Add user content
-            history.add_user_message(conversation)
+            history.add_user_message(inputprompt)
+
+            print("input prompt pushed")
 
             # Get response from Azure OpenAI
             result = await self.chat_completion.get_chat_message_content(
                 history, settings=self.execution_settings)
+
+            print("result", result)
 
             return str(result)
 

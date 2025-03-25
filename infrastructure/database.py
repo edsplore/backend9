@@ -1,6 +1,7 @@
 from motor.motor_asyncio import AsyncIOMotorClient
 from config import MONGO_URI, DB_NAME
 
+
 class Database:
     _instance = None
 
@@ -19,8 +20,11 @@ class Database:
                 cls._instance.simulations = db["simulations"]
                 cls._instance.user_sim_progress = db["userSimulationProgress"]
                 cls._instance.sim_attempts = db["simulationAttempts"]
+                cls._instance.images = db[
+                    "images"]  # New collection for storing images
             except Exception as e:
-                raise ConnectionError(f"Failed to connect to MongoDB: {str(e)}")
+                raise ConnectionError(
+                    f"Failed to connect to MongoDB: {str(e)}")
 
         return cls._instance
 
