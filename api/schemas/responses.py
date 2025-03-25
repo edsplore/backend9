@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Dict
 from pydantic import BaseModel
 from domain.models.training import TrainingDataModel
 from domain.models.playback import SimulationAttemptModel, AttemptAnalyticsModel
@@ -32,6 +32,22 @@ class UpdateSimulationResponse(BaseModel):
     status: str
 
 
+class StartSimulationResponse(BaseModel):
+    id: str
+    status: str
+    access_token: Optional[str] = None  # For audio simulations
+    response: Optional[str] = None  # For chat simulations
+
+
+class EndSimulationResponse(BaseModel):
+    id: str
+    status: str
+    scores: Dict[str, float]
+    duration: int
+    transcript: str
+    audio_url: str
+
+
 class ListVoicesResponse(BaseModel):
     voices: List[dict]
 
@@ -40,8 +56,10 @@ class StartAudioSimulationPreviewResponse(BaseModel):
     access_token: str
 
 
+
 class StartChatPreviewResponse(BaseModel):
     response: str
+    
 
 
 class ScriptSentence(BaseModel):
@@ -169,6 +187,7 @@ class SimulationDetails(BaseModel):
     dueDate: str
     status: str = "not_started"
     highest_attempt_score: float = 0
+    assignment_id: str
 
 
 class ModuleDetails(BaseModel):

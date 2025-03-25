@@ -2,6 +2,11 @@ from pydantic import BaseModel
 from typing import List, Optional
 
 
+class ChatHistoryItem(BaseModel):
+    sentence: str
+    role: str
+
+
 class TrainingDataRequest(BaseModel):
     user_id: str
 
@@ -28,6 +33,26 @@ class FileToScriptRequest(BaseModel):
     user_id: str
 
 
+class StartSimulationRequest(BaseModel):
+    user_id: str
+    sim_id: str
+    assignment_id: str
+
+
+class EndAudioSimulationRequest(BaseModel):
+    user_id: str
+    simulation_id: str
+    usersimulationprogress_id: str
+    call_id: str
+
+
+class EndChatSimulationRequest(BaseModel):
+    user_id: str
+    simulation_id: str
+    usersimulationprogress_id: str
+    chat_history: List[ChatHistoryItem]
+
+
 class ListVoicesRequest(BaseModel):
     user_id: str
 
@@ -36,6 +61,14 @@ class StartChatPreviewRequest(BaseModel):
     user_id: str
     sim_id: str
     message: str | None = None
+
+
+class StartChatSimulationRequest(BaseModel):
+    user_id: str
+    sim_id: str
+    assignment_id: str
+    message: Optional[str] = None
+    usersimulationprogress_id: Optional[str] = None
 
 
 class ScriptSentence(BaseModel):
@@ -174,6 +207,12 @@ class UpdateSimulationRequest(BaseModel):
 class StartAudioSimulationPreviewRequest(BaseModel):
     user_id: str
     sim_id: str
+
+
+class StartAudioSimulationRequest(BaseModel):
+    user_id: str
+    sim_id: str
+    assignment_id: str
 
 
 class FetchSimulationsRequest(BaseModel):

@@ -155,17 +155,28 @@ class AssignmentService:
                                    user_id: str) -> FetchAssignedPlansResponse:
         """Fetch assigned training plans with nested details"""
         try:
-            # Get all assignments for the user
+            print(user_id)
+            # Get user document to get assignment IDs
+            user = await self.db.users.find_one({"_id": user_id})
+
+            if not user:
+                raise HTTPException(status_code=404,
+                                    detail=f"User {user_id} not found")
+
+            # Get assignments from user's assignments array
+            assignment_ids = user.get("assignments", [])
+            assignments = []
+
+            print(assignment_ids)
+
+            # Convert string IDs to ObjectId
+            object_ids = [ObjectId(aid) for aid in assignment_ids]
+
             assignments = await self.db.assignments.find({
-                "$or": [{
-                    "traineeId": user_id
-                }, {
-                    "teamId.team_members.user_id": user_id
-                }, {
-                    "teamId.leader.user_id": user_id
-                }],
-                "status":
-                "active"
+                "_id": {
+                    "$in": object_ids
+                },
+                "status": "active"
             }).to_list(None)
 
             training_plans = []
@@ -174,6 +185,7 @@ class AssignmentService:
             total_simulations = 0
 
             for assignment in assignments:
+                print(assignment)
                 if assignment["type"] == "TrainingPlan":
                     # Process training plan assignment
                     training_plan = await self.db.training_plans.find_one(
@@ -188,7 +200,8 @@ class AssignmentService:
                         for added_obj in training_plan.get("addedObject", []):
                             if added_obj["type"] == "module":
                                 module_details = await self._get_module_details(
-                                    added_obj["id"], assignment["endDate"])
+                                    added_obj["id"], assignment["endDate"],
+                                    assignment["id"])
                                 if module_details:
                                     plan_modules.append(module_details)
                                     plan_total_simulations += module_details.total_simulations
@@ -199,7 +212,8 @@ class AssignmentService:
 
                             elif added_obj["type"] == "simulation":
                                 sim_details = await self._get_simulation_details(
-                                    added_obj["id"], assignment["endDate"])
+                                    added_obj["id"], assignment["endDate"],
+                                    assignment["id"])
                                 if sim_details:
                                     # Add simulation as a single-simulation module
                                     plan_modules.append(
@@ -231,7 +245,8 @@ class AssignmentService:
                 elif assignment["type"] == "Module":
                     # Process directly assigned module
                     module_details = await self._get_module_details(
-                        assignment["id"], assignment["endDate"])
+                        assignment["id"], assignment["endDate"],
+                        assignment["id"])
                     if module_details:
                         modules.append(module_details)
                         total_simulations += module_details.total_simulations
@@ -239,7 +254,8 @@ class AssignmentService:
                 elif assignment["type"] == "Simulation":
                     # Process directly assigned simulation
                     sim_details = await self._get_simulation_details(
-                        assignment["id"], assignment["endDate"])
+                        assignment["id"], assignment["endDate"],
+                        assignment["id"])
                     if sim_details:
                         simulations.append(sim_details)
                         total_simulations += 1
@@ -266,8 +282,8 @@ class AssignmentService:
                 status_code=500,
                 detail=f"Error fetching assigned plans: {str(e)}")
 
-    async def _get_module_details(self, module_id: str,
-                                  due_date: str) -> ModuleDetails:
+    async def _get_module_details(self, module_id: str, due_date: str,
+                                  assignment_id: str) -> ModuleDetails:
         """Helper method to get module details"""
         try:
             module = await self.db.modules.find_one(
@@ -278,7 +294,7 @@ class AssignmentService:
             module_simulations = []
             for sim_id in module.get("simulationIds", []):
                 sim_details = await self._get_simulation_details(
-                    sim_id, due_date)
+                    sim_id, due_date, assignment_id)
                 if sim_details:
                     module_simulations.append(sim_details)
 
@@ -292,8 +308,8 @@ class AssignmentService:
         except Exception:
             return None
 
-    async def _get_simulation_details(self, sim_id: str,
-                                      due_date: str) -> SimulationDetails:
+    async def _get_simulation_details(self, sim_id: str, due_date: str,
+                                      assignment_id: str) -> SimulationDetails:
         """Helper method to get simulation details"""
         try:
             sim = await self.db.simulations.find_one({"_id": ObjectId(sim_id)})
@@ -308,6 +324,7 @@ class AssignmentService:
                 estTime=sim.get("estimatedTimeToAttemptInMins", 0),
                 dueDate=due_date,
                 status="not_started",
-                highest_attempt_score=0)
+                highest_attempt_score=0,
+                assignment_id=assignment_id)
         except Exception:
             return None
