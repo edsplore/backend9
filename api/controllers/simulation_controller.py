@@ -1,5 +1,5 @@
-from fastapi import APIRouter, HTTPException
-from typing import Dict
+from fastapi import APIRouter, HTTPException, File, UploadFile, Request
+from typing import Dict, List
 from bson import ObjectId
 from datetime import datetime
 import aiohttp
@@ -48,27 +48,74 @@ class SimulationController:
             max_tokens=2000)
 
     async def create_simulation(
-            self,
-            request: CreateSimulationRequest) -> CreateSimulationResponse:
-        return await self.service.create_simulation(request)
+        self,
+        simulation_request: CreateSimulationRequest,
+        slides: List[UploadFile] = None) -> CreateSimulationResponse:
+        if not simulation_request.user_id:
+            raise HTTPException(status_code=400, detail="Missing 'userId'")
+        if not simulation_request.name:
+            raise HTTPException(status_code=400, detail="Missing 'name'")
+        if not simulation_request.division_id:
+            raise HTTPException(status_code=400, detail="Missing 'divisionId'")
+        if not simulation_request.department_id:
+            raise HTTPException(status_code=400,
+                                detail="Missing 'departmentId'")
+        if not simulation_request.script:
+            raise HTTPException(status_code=400, detail="Missing 'script'")
+    
+        result = await self.service.create_simulation(simulation_request,
+                                                      slides)
+        return CreateSimulationResponse(id=result["id"],
+                                        status=result["status"],
+                                        prompt=result["prompt"])
 
     async def update_simulation(
-            self, sim_id: str,
-            request: UpdateSimulationRequest) -> UpdateSimulationResponse:
-        return await self.service.update_simulation(sim_id, request)
+        self, sim_id: str,
+        request: UpdateSimulationRequest) -> UpdateSimulationResponse:
+        if not request.user_id:
+            raise HTTPException(status_code=400, detail="Missing 'userId'")
+        result = await self.service.update_simulation(sim_id, request)
+        return UpdateSimulationResponse(id=result["id"],
+                                        status=result["status"])
 
     async def start_audio_simulation_preview(
         self, request: StartAudioSimulationPreviewRequest
     ) -> StartAudioSimulationPreviewResponse:
-        return await self.service.start_audio_simulation_preview(
+        if not request.user_id:
+            raise HTTPException(status_code=400, detail="Missing 'userId'")
+        if not request.sim_id:
+            raise HTTPException(status_code=400, detail="Missing 'simId'")
+        result = await self.service.start_audio_simulation_preview(
             request.sim_id, request.user_id)
+        return StartAudioSimulationPreviewResponse(
+            access_token=result["access_token"])
 
     async def start_chat_preview(
-            self,
-            request: StartChatPreviewRequest) -> StartChatPreviewResponse:
-        return await self.chat_service.start_chat(request.user_id,
-                                                  request.sim_id,
-                                                  request.message)
+        self,
+        request: StartChatPreviewRequest) -> StartChatPreviewResponse:
+        if not request.user_id:
+            raise HTTPException(status_code=400, detail="Missing 'userId'")
+        if not request.sim_id:
+            raise HTTPException(status_code=400, detail="Missing 'simId'")
+        if request.message == "":
+            sim_id_object = ObjectId(request.sim_id)
+            simulation = await self.db.simulations.find_one(
+                {"_id": sim_id_object})
+            if not simulation:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Simulation with id {request.sim_id} not found")
+            script = simulation.get("script", [])
+            if script and len(script) > 0:
+                first_entry = script[0]
+                if first_entry.get("role").lower() == "customer":
+                    return StartChatPreviewResponse(
+                        response=first_entry.get("script_sentence", ""))
+            return StartChatPreviewResponse(response="")
+        else:
+            result = await self.chat_service.start_chat(
+                request.user_id, request.sim_id, request.message)
+            return StartChatPreviewResponse(response=result["response"])
 
     async def start_audio_simulation(
             self,
@@ -406,19 +453,72 @@ class SimulationController:
                                 detail=f"Error calculating scores: {str(e)}")
 
     async def fetch_simulations(
-            self,
-            request: FetchSimulationsRequest) -> FetchSimulationsResponse:
-        return await self.service.fetch_simulations(request.user_id)
+        self,
+        request: FetchSimulationsRequest) -> FetchSimulationsResponse:
+        if not request.user_id:
+            raise HTTPException(status_code=400, detail="Missing 'userId'")
+        simulations = await self.service.fetch_simulations(request.user_id)
+        return FetchSimulationsResponse(simulations=simulations)
 
 
 controller = SimulationController()
 
 
 @router.post("/simulations/create", tags=["Simulations", "Create"])
-async def create_simulation(
-        request: CreateSimulationRequest) -> CreateSimulationResponse:
-    return await controller.create_simulation(request)
-
+async def create_simulation(req: Request,
+    slides: List[UploadFile] = File(None)):
+    # Check the content type
+    content_type = req.headers.get("content-type", "")
+    if "application/json" in content_type:
+        # Pure JSON payload: no files are expected
+        data = await req.json()
+        slides_files = []  # No file uploads in JSON case
+    else:
+        # Assume multipart/form-data
+        form_data = await req.form()
+        print("DEBUG: Received form data:")
+        for key, value in form_data.items():
+            print(f"  {key}: {value}")
+        # Convert form data to a dictionary
+        data = dict(form_data)
+        import json
+        if "script" in data:
+            try:
+                data["script"] = json.loads(data["script"])
+            except Exception as e:
+                print("DEBUG: Could not parse 'script':", e)
+        if "slidesData" in data:
+            try:
+                data["slidesData"] = json.loads(data["slidesData"])
+            except Exception as e:
+                print("DEBUG: Could not parse 'slidesData':", e)
+        if "tags" in data:
+            try:
+                data["tags"] = json.loads(data["tags"])
+            except Exception as e:
+                print("DEBUG: Could not parse 'tags':", e)
+        print("DEBUG: Data dictionary after JSON parsing:")
+        for key, value in data.items():
+            print(f"  {key}: {value}")
+        # Manually extract file uploads from keys like "slides[0]", "slides[1]", etc.
+        slides_files = []
+        for key, value in form_data.multi_items():
+            if key.startswith("slides["):
+                slides_files.append(value)
+        print("DEBUG: Extracted slides files:", slides_files)
+        
+    # Parse the data into a Pydantic model
+    from api.schemas.requests import CreateSimulationRequest
+    try:
+        simulation_request = CreateSimulationRequest.parse_obj(data)
+        print("DEBUG: Successfully parsed CreateSimulationRequest:")
+        print(simulation_request)
+    except Exception as e:
+        print("DEBUG: Error parsing CreateSimulationRequest:", e)
+        raise HTTPException(status_code=422, detail="Request validation error")
+    
+    return await controller.create_simulation(simulation_request, slides_files)
+    
 
 @router.put("/simulations/{sim_id}/update", tags=["Simulations", "Update"])
 async def update_simulation(

@@ -4,12 +4,13 @@ import aiohttp
 import base64
 from datetime import datetime
 from bson import ObjectId
+import traceback
 from config import (AZURE_OPENAI_DEPLOYMENT_NAME, AZURE_OPENAI_KEY,
                     AZURE_OPENAI_BASE_URL, RETELL_API_KEY)
 from infrastructure.database import Database
 from api.schemas.requests import CreateSimulationRequest, UpdateSimulationRequest
 from api.schemas.responses import SimulationData
-from fastapi import HTTPException
+from fastapi import HTTPException, UploadFile
 from semantic_kernel import Kernel
 from semantic_kernel.connectors.ai.open_ai import AzureChatCompletion
 from semantic_kernel.connectors.ai.function_choice_behavior import FunctionChoiceBehavior
@@ -38,6 +39,49 @@ class SimulationService:
             top_p=1.0,
             max_tokens=5000)
 
+
+    async def _store_slide_file(self, slide_data: dict,
+        file: UploadFile) -> dict:
+        """Store slide file in MongoDB and return updated slide data"""
+        try:
+            print(
+            f"DEBUG: Attempting to store slide file for slide with imageId: {slide_data.get('imageId')}"
+            )
+            file_bytes = await file.read()
+            print(
+            f"DEBUG: Read {len(file_bytes)} bytes from file '{file.filename}'"
+            )
+        
+            # Build the document to insert
+            image_doc = {
+            "imageId": slide_data["imageId"],
+            "name": slide_data.get("imageName", file.filename),
+            "contentType": file.content_type,
+            "data": file_bytes,
+            "uploadedAt": datetime.utcnow()
+            }
+            print("DEBUG: Inserting image document into MongoDB:", image_doc)
+        
+            # Insert into the images collection
+            result = await self.db.images.insert_one(image_doc)
+            print("DEBUG: Image inserted with id:", result.inserted_id)
+        
+            # Build the image URL
+            image_url = f"/api/images/{result.inserted_id}"
+        
+            # Update slide data with the image URL
+            slide_data_copy = slide_data.copy()
+            slide_data_copy["imageUrl"] = image_url
+            return slide_data_copy
+    
+        except Exception as e:
+            print("DEBUG: Exception in _store_slide_file:")
+            traceback.print_exc(
+            )  # Print full traceback to help diagnose the error
+            raise HTTPException(status_code=500,
+                detail=f"Error storing slide file: {str(e)}")
+
+    
     async def _store_slide_image(self, slide_data: dict) -> dict:
         """Store image data in MongoDB and return updated slide data"""
         if not slide_data.get("imageData"):
@@ -76,52 +120,68 @@ class SimulationService:
                                 detail=f"Error storing image: {str(e)}")
 
     async def create_simulation(self,
-                                request: CreateSimulationRequest) -> Dict:
-        """Create a new simulation"""
+        request: CreateSimulationRequest,
+        slides: List[UploadFile] = None) -> Dict:
+        """Create a new simulation using a slides file array for visual-audio type"""
         try:
             # Create simulation document
             simulation_doc = {
-                "name": request.name,
-                "divisionId": request.division_id,
-                "departmentId": request.department_id,
-                "type": request.type,
-                "script": [s.dict() for s in request.script],
-                "lastModifiedBy": request.user_id,
-                "lastModified": datetime.utcnow(),
-                "createdBy": request.user_id,
-                "createdOn": datetime.utcnow(),
-                "status": "draft",
-                "version": 1,
-                "tags": request.tags
+            "name": request.name,
+            "divisionId": request.division_id,
+            "departmentId": request.department_id,
+            "type": request.type,
+            "script": [s.dict() for s in request.script],
+            "lastModifiedBy": request.user_id,
+            "lastModified": datetime.utcnow(),
+            "createdBy": request.user_id,
+            "createdOn": datetime.utcnow(),
+            "status": "draft",
+            "version": 1,
+            "tags": request.tags
             }
-
-            # Handle slides data and images for visual-audio type
+        
+            # Handle slides data and slides files for visual-audio type
             if request.type == "visual-audio" and request.slidesData:
                 processed_slides = []
-                for slide in request.slidesData:
+                if slides is None or len(slides) != len(request.slidesData):
+                    raise HTTPException(
+                    status_code=400,
+                    detail=
+                    "Mismatch between slidesData and slides files provided"
+                    )
+                for idx, slide in enumerate(request.slidesData):
                     slide_dict = slide.dict()
-                    # Store image and get updated slide data
-                    processed_slide = await self._store_slide_image(slide_dict)
+                    # Remove any "imageData" key to ensure we use the binary file instead
+                    slide_dict.pop("imageData", None)
+                    file = slides[idx]
+                    processed_slide = await self._store_slide_file(
+                    slide_dict, file)
                     processed_slides.append(processed_slide)
-
                 simulation_doc["slidesData"] = processed_slides
-
+        
             # Generate prompt only for non-visual-audio types
-            if request.type != "visual-audio":
+            elif request.type != "visual-audio":
                 prompt = await self._generate_simulation_prompt(request.script)
                 simulation_doc["prompt"] = prompt
-
+        
+            # Print the simulation document for debugging before insertion
+            print(
+            "DEBUG: Final simulation_doc to be inserted into simulations collection:"
+            )
+            print(simulation_doc)
+        
             # Insert into database
             result = await self.db.simulations.insert_one(simulation_doc)
+            print("DEBUG: Inserted simulation with id:", result.inserted_id)
             return {
                 "id": str(result.inserted_id),
                 "status": "success",
                 "prompt": simulation_doc.get("prompt", "")
             }
-
+        
         except Exception as e:
             raise HTTPException(status_code=500,
-                                detail=f"Error creating simulation: {str(e)}")
+            detail=f"Error creating simulation: {str(e)}")
 
     async def update_simulation(self, sim_id: str,
                                 request: UpdateSimulationRequest) -> Dict:
