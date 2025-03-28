@@ -284,3 +284,8 @@ class CreateAssignmentRequest(BaseModel):
 
 class FetchAssignedPlansRequest(BaseModel):
     user_id: str
+
+
+class StartVisualAudioPreviewRequest(BaseModel):
+    user_id: str
+    sim_id: str
