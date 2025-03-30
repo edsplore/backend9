@@ -1,8 +1,7 @@
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Any
 from pydantic import BaseModel
 from domain.models.training import TrainingDataModel
 from domain.models.playback import SimulationAttemptModel, AttemptAnalyticsModel
-
 
 class TrainingDataResponse(BaseModel):
     training_plans: List[TrainingDataModel]
@@ -98,9 +97,10 @@ class SlideSequence(BaseModel):
     name: Optional[str] = None
     hotspotType: Optional[str] = None
     coordinates: Optional[HotspotCoordinates] = None
-    settings: Optional[HotspotSettings] = None
+    settings: Optional[Dict[str, Any]] = None
     role: Optional[str] = None
     text: Optional[str] = None
+    options: Optional[List[str]] = None
 
 
 class SlideImage(BaseModel):
