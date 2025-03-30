@@ -56,16 +56,64 @@ class StartAudioSimulationPreviewResponse(BaseModel):
     access_token: str
 
 
-
 class StartChatPreviewResponse(BaseModel):
     response: str
-    
 
 
 class ScriptSentence(BaseModel):
     script_sentence: str
     role: str
     keywords: list[str]
+
+
+class HotspotCoordinates(BaseModel):
+    x: float
+    y: float
+    width: float
+    height: float
+
+
+class HotspotSettings(BaseModel):
+    font: str
+    fontSize: int
+    buttonColor: str
+    textColor: str
+    timeoutDuration: int
+    highlightField: bool
+    enableHotkey: bool
+
+
+class Hotspot(BaseModel):
+    type: str
+    id: str
+    name: str
+    hotspotType: str
+    coordinates: HotspotCoordinates
+    settings: HotspotSettings
+
+
+class SlideSequence(BaseModel):
+    type: str
+    id: str
+    name: Optional[str] = None
+    hotspotType: Optional[str] = None
+    coordinates: Optional[HotspotCoordinates] = None
+    settings: Optional[HotspotSettings] = None
+    role: Optional[str] = None
+    text: Optional[str] = None
+
+
+class SlideImage(BaseModel):
+    data: str  # Base64 encoded image data
+    contentType: str  # e.g., "image/png", "image/jpeg"
+
+
+class SlideData(BaseModel):
+    imageId: str
+    imageName: str
+    imageUrl: Optional[str] = None  # URL for stored image
+    imageData: Optional[SlideImage] = None  # Image data for upload
+    sequence: List[SlideSequence]
 
 
 class SimulationData(BaseModel):
@@ -87,6 +135,7 @@ class SimulationData(BaseModel):
     division_id: str
     department_id: str
     script: list[ScriptSentence]
+    slidesData: list[SlideData]
 
 
 class FetchSimulationsResponse(BaseModel):
@@ -231,3 +280,13 @@ class FetchAssignedPlansResponse(BaseModel):
     modules: List[ModuleDetails]
     simulations: List[SimulationDetails]
     stats: Stats
+
+
+class SlideImageData(BaseModel):
+    image_id: str
+    image_data: bytes
+
+
+class StartVisualAudioPreviewResponse(BaseModel):
+    simulation: SimulationData
+    images: List[SlideImageData] = []

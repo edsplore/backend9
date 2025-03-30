@@ -11,11 +11,12 @@ from api.schemas.requests import (
     StartAudioSimulationPreviewRequest, StartChatPreviewRequest,
     StartAudioSimulationRequest, StartChatSimulationRequest,
     EndAudioSimulationRequest, EndChatSimulationRequest,
-    FetchSimulationsRequest)
+    FetchSimulationsRequest, StartVisualAudioPreviewRequest)
 from api.schemas.responses import (
     CreateSimulationResponse, UpdateSimulationResponse,
     StartAudioSimulationPreviewResponse, StartChatPreviewResponse,
-    StartSimulationResponse, EndSimulationResponse, FetchSimulationsResponse)
+    StartSimulationResponse, EndSimulationResponse, FetchSimulationsResponse,
+    StartVisualAudioPreviewResponse, SlideImageData)
 from config import RETELL_API_KEY, AZURE_OPENAI_DEPLOYMENT_NAME, AZURE_OPENAI_KEY, AZURE_OPENAI_BASE_URL
 from semantic_kernel import Kernel
 from semantic_kernel.connectors.ai.open_ai import AzureChatCompletion
@@ -48,9 +49,9 @@ class SimulationController:
             max_tokens=2000)
 
     async def create_simulation(
-        self,
-        simulation_request: CreateSimulationRequest,
-        slides: List[UploadFile] = None) -> CreateSimulationResponse:
+            self,
+            simulation_request: CreateSimulationRequest,
+            slides: List[UploadFile] = None) -> CreateSimulationResponse:
         if not simulation_request.user_id:
             raise HTTPException(status_code=400, detail="Missing 'userId'")
         if not simulation_request.name:
@@ -62,7 +63,7 @@ class SimulationController:
                                 detail="Missing 'departmentId'")
         if not simulation_request.script:
             raise HTTPException(status_code=400, detail="Missing 'script'")
-    
+
         result = await self.service.create_simulation(simulation_request,
                                                       slides)
         return CreateSimulationResponse(id=result["id"],
@@ -70,8 +71,8 @@ class SimulationController:
                                         prompt=result["prompt"])
 
     async def update_simulation(
-        self, sim_id: str,
-        request: UpdateSimulationRequest) -> UpdateSimulationResponse:
+            self, sim_id: str,
+            request: UpdateSimulationRequest) -> UpdateSimulationResponse:
         if not request.user_id:
             raise HTTPException(status_code=400, detail="Missing 'userId'")
         result = await self.service.update_simulation(sim_id, request)
@@ -90,9 +91,28 @@ class SimulationController:
         return StartAudioSimulationPreviewResponse(
             access_token=result["access_token"])
 
+    async def start_visual_audio_preview(
+        self, request: StartVisualAudioPreviewRequest
+    ) -> StartVisualAudioPreviewResponse:
+        if not request.user_id:
+            raise HTTPException(status_code=400, detail="Missing 'userId'")
+        if not request.sim_id:
+            raise HTTPException(status_code=400, detail="Missing 'simId'")
+
+        result = await self.service.start_visual_audio_preview(
+            request.sim_id, request.user_id)
+
+        return StartVisualAudioPreviewResponse(
+            simulation=result.simulation,
+            images=[
+                SlideImageData(image_id=img.image_id,
+                               image_data=img.image_data)
+                for img in result.images
+            ])
+
     async def start_chat_preview(
-        self,
-        request: StartChatPreviewRequest) -> StartChatPreviewResponse:
+            self,
+            request: StartChatPreviewRequest) -> StartChatPreviewResponse:
         if not request.user_id:
             raise HTTPException(status_code=400, detail="Missing 'userId'")
         if not request.sim_id:
@@ -453,8 +473,8 @@ class SimulationController:
                                 detail=f"Error calculating scores: {str(e)}")
 
     async def fetch_simulations(
-        self,
-        request: FetchSimulationsRequest) -> FetchSimulationsResponse:
+            self,
+            request: FetchSimulationsRequest) -> FetchSimulationsResponse:
         if not request.user_id:
             raise HTTPException(status_code=400, detail="Missing 'userId'")
         simulations = await self.service.fetch_simulations(request.user_id)
@@ -466,7 +486,7 @@ controller = SimulationController()
 
 @router.post("/simulations/create", tags=["Simulations", "Create"])
 async def create_simulation(req: Request,
-    slides: List[UploadFile] = File(None)):
+                            slides: List[UploadFile] = File(None)):
     # Check the content type
     content_type = req.headers.get("content-type", "")
     if "application/json" in content_type:
@@ -506,7 +526,7 @@ async def create_simulation(req: Request,
             if key.startswith("slides["):
                 slides_files.append(value)
         print("DEBUG: Extracted slides files:", slides_files)
-        
+
     # Parse the data into a Pydantic model
     from api.schemas.requests import CreateSimulationRequest
     try:
@@ -516,9 +536,9 @@ async def create_simulation(req: Request,
     except Exception as e:
         print("DEBUG: Error parsing CreateSimulationRequest:", e)
         raise HTTPException(status_code=422, detail="Request validation error")
-    
+
     return await controller.create_simulation(simulation_request, slides_files)
-    
+
 
 @router.put("/simulations/{sim_id}/update", tags=["Simulations", "Update"])
 async def update_simulation(
@@ -571,3 +591,12 @@ async def end_chat_simulation(
 async def fetch_simulations(
         request: FetchSimulationsRequest) -> FetchSimulationsResponse:
     return await controller.fetch_simulations(request)
+
+
+@router.post("/simulations/start-visual-audio-preview",
+             tags=["Simulations", "Visual Audio"])
+async def start_visual_audio_preview(
+    request: StartVisualAudioPreviewRequest
+) -> StartVisualAudioPreviewResponse:
+    """Start a visual-audio simulation preview"""
+    return await controller.start_visual_audio_preview(request)
