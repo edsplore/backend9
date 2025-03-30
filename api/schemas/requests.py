@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Optional, Dict, Any, Union
 
 
 class ChatHistoryItem(BaseModel):
@@ -77,16 +77,6 @@ class ScriptSentence(BaseModel):
     keywords: list[str]
 
 
-class HotspotSettings(BaseModel):
-    font: str
-    fontSize: int
-    buttonColor: str
-    textColor: str
-    timeoutDuration: int
-    highlightField: bool
-    enableHotkey: bool
-
-
 class HotspotCoordinates(BaseModel):
     x: float
     y: float
@@ -100,14 +90,8 @@ class Hotspot(BaseModel):
     name: str
     hotspotType: str
     coordinates: HotspotCoordinates
-    settings: HotspotSettings
-
-
-class Message(BaseModel):
-    type: str
-    id: str
-    role: str
-    text: str
+    settings: Dict[str, Any]
+    options: Optional[List[str]] = None
 
 
 class SlideSequence(BaseModel):
@@ -116,7 +100,8 @@ class SlideSequence(BaseModel):
     name: Optional[str] = None
     hotspotType: Optional[str] = None
     coordinates: Optional[HotspotCoordinates] = None
-    settings: Optional[HotspotSettings] = None
+    settings: Optional[Dict[str, Any]] = None
+    options: Optional[List[str]] = None
     role: Optional[str] = None
     text: Optional[str] = None
 
