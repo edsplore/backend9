@@ -1,4 +1,4 @@
-from typing import Dict, List
+from typing import Dict, List, Optional
 from datetime import datetime
 from bson import ObjectId
 from infrastructure.database import Database
@@ -115,3 +115,59 @@ class TrainingPlanService:
             raise HTTPException(
                 status_code=500,
                 detail=f"Error fetching training plans: {str(e)}")
+
+    async def get_training_plan_by_id(self, training_plan_id: str) -> Optional[TrainingPlanData]:
+        """Fetch a single training plan by ID"""
+        try:
+            # Convert string ID to ObjectId
+            training_plan_id_object = ObjectId(training_plan_id)
+
+            # Find the training plan
+            doc = await self.db.training_plans.find_one({"_id": training_plan_id_object})
+
+            if not doc:
+                return None
+
+            # Calculate total estimated time from all objects
+            total_estimated_time = 0
+
+            for obj in doc.get("addedObject", []):
+                try:
+                    if obj["type"] == "module":
+                        # Get module's simulations and their times
+                        module = await self.db.modules.find_one(
+                            {"_id": ObjectId(obj["id"])})
+                        if module:
+                            for sim_id in module.get("simulationIds", []):
+                                sim = await self.db.simulations.find_one(
+                                    {"_id": ObjectId(sim_id)})
+                                if sim and "estimatedTimeToAttemptInMins" in sim:
+                                    total_estimated_time += sim[
+                                        "estimatedTimeToAttemptInMins"]
+                    elif obj["type"] == "simulation":
+                        # Get simulation time directly
+                        sim = await self.db.simulations.find_one(
+                            {"_id": ObjectId(obj["id"])})
+                        if sim and "estimatedTimeToAttemptInMins" in sim:
+                            total_estimated_time += sim[
+                                "estimatedTimeToAttemptInMins"]
+                except Exception:
+                    # Skip if object not found or invalid ID
+                    continue
+
+            return TrainingPlanData(
+                id=str(doc["_id"]),
+                name=doc.get("name", ""),
+                tags=doc.get("tags", []),
+                added_object=doc.get("addedObject", []),
+                created_by=doc.get("createdBy", ""),
+                created_at=doc.get("createdAt", datetime.utcnow()).isoformat(),
+                last_modified_by=doc.get("lastModifiedBy", ""),
+                last_modified_at=doc.get("lastModifiedAt",
+                                         datetime.utcnow()).isoformat(),
+                estimated_time=total_estimated_time)
+
+        except Exception as e:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Error fetching training plan: {str(e)}")

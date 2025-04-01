@@ -149,7 +149,7 @@ class CreateSimulationRequest(BaseModel):
     division_id: str
     department_id: str
     type: str
-    script: list[ScriptSentence]
+    script: Optional[list[ScriptSentence]] = None
     tags: list[str]
     slidesData: Optional[List[SlideData]] = None
 
@@ -160,7 +160,7 @@ class UpdateSimulationRequest(BaseModel):
     division_id: str | None = None
     department_id: str | None = None
     type: str | None = None
-    script: list[ScriptSentence] | None = None
+    script: Optional[list[ScriptSentence]] | None = None
     tags: list[str] | None = None
     status: str | None = None
     lvl1: SimulationLevel | None = None
@@ -272,5 +272,15 @@ class FetchAssignedPlansRequest(BaseModel):
 
 
 class StartVisualAudioPreviewRequest(BaseModel):
+    user_id: str
+    sim_id: str
+
+
+class StartVisualChatPreviewRequest(BaseModel):
+    user_id: str
+    sim_id: str
+
+
+class StartVisualPreviewRequest(BaseModel):
     user_id: str
     sim_id: str

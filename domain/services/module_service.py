@@ -1,4 +1,4 @@
-from typing import Dict, List
+from typing import Dict, List, Optional
 from datetime import datetime
 from bson import ObjectId
 from infrastructure.database import Database
@@ -85,3 +85,44 @@ class ModuleService:
         except Exception as e:
             raise HTTPException(status_code=500,
                                 detail=f"Error fetching modules: {str(e)}")
+
+    async def get_module_by_id(self, module_id: str) -> Optional[ModuleData]:
+        """Fetch a single module by ID"""
+        try:
+            # Convert string ID to ObjectId
+            module_id_object = ObjectId(module_id)
+
+            # Find the module
+            doc = await self.db.modules.find_one({"_id": module_id_object})
+
+            if not doc:
+                return None
+
+            # Calculate total estimated time from simulations
+            total_estimated_time = 0
+            for sim_id in doc.get("simulationIds", []):
+                try:
+                    sim = await self.db.simulations.find_one(
+                        {"_id": ObjectId(sim_id)})
+                    if sim and "estimatedTimeToAttemptInMins" in sim:
+                        total_estimated_time += sim["estimatedTimeToAttemptInMins"]
+                except Exception:
+                    # Skip if simulation not found or invalid ID
+                    continue
+
+            return ModuleData(
+                id=str(doc["_id"]),
+                name=doc.get("name", ""),
+                tags=doc.get("tags", []),
+                simulations_id=doc.get("simulationIds", []),
+                created_by=doc.get("createdBy", ""),
+                created_at=doc.get("createdAt", datetime.utcnow()).isoformat(),
+                last_modified_by=doc.get("lastModifiedBy", ""),
+                last_modified_at=doc.get("lastModifiedAt",
+                                         datetime.utcnow()).isoformat(),
+                estimated_time=total_estimated_time)
+
+        except Exception as e:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Error fetching module: {str(e)}")

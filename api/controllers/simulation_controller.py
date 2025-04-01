@@ -11,12 +11,14 @@ from api.schemas.requests import (
     StartAudioSimulationPreviewRequest, StartChatPreviewRequest,
     StartAudioSimulationRequest, StartChatSimulationRequest,
     EndAudioSimulationRequest, EndChatSimulationRequest,
-    FetchSimulationsRequest, StartVisualAudioPreviewRequest)
+    FetchSimulationsRequest, StartVisualAudioPreviewRequest,
+    StartVisualChatPreviewRequest, StartVisualPreviewRequest)
 from api.schemas.responses import (
     CreateSimulationResponse, UpdateSimulationResponse,
     StartAudioSimulationPreviewResponse, StartChatPreviewResponse,
     StartSimulationResponse, EndSimulationResponse, FetchSimulationsResponse,
-    StartVisualAudioPreviewResponse, SlideImageData)
+    StartVisualAudioPreviewResponse, SlideImageData,
+    StartVisualChatPreviewResponse, StartVisualPreviewResponse, SimulationData)
 from config import RETELL_API_KEY, AZURE_OPENAI_DEPLOYMENT_NAME, AZURE_OPENAI_KEY, AZURE_OPENAI_BASE_URL
 from semantic_kernel import Kernel
 from semantic_kernel.connectors.ai.open_ai import AzureChatCompletion
@@ -52,17 +54,6 @@ class SimulationController:
             self,
             simulation_request: CreateSimulationRequest,
             slides: List[UploadFile] = None) -> CreateSimulationResponse:
-        if not simulation_request.user_id:
-            raise HTTPException(status_code=400, detail="Missing 'userId'")
-        if not simulation_request.name:
-            raise HTTPException(status_code=400, detail="Missing 'name'")
-        if not simulation_request.division_id:
-            raise HTTPException(status_code=400, detail="Missing 'divisionId'")
-        if not simulation_request.department_id:
-            raise HTTPException(status_code=400,
-                                detail="Missing 'departmentId'")
-        if not simulation_request.script:
-            raise HTTPException(status_code=400, detail="Missing 'script'")
 
         result = await self.service.create_simulation(simulation_request,
                                                       slides)
@@ -102,6 +93,8 @@ class SimulationController:
         result = await self.service.start_visual_audio_preview(
             request.sim_id, request.user_id)
 
+        print(result.simulation)
+
         return StartVisualAudioPreviewResponse(
             simulation=result.simulation,
             images=[
@@ -109,6 +102,50 @@ class SimulationController:
                                image_data=img.image_data)
                 for img in result.images
             ])
+
+    async def start_visual_chat_preview(
+        self, request: StartVisualChatPreviewRequest
+    ) -> StartVisualChatPreviewResponse:
+        if not request.user_id:
+            raise HTTPException(status_code=400, detail="Missing 'userId'")
+        if not request.sim_id:
+            raise HTTPException(status_code=400, detail="Missing 'simId'")
+
+        result = await self.service.start_visual_chat_preview(
+            request.sim_id, request.user_id)
+
+        print(result.simulation)
+
+        return StartVisualChatPreviewResponse(
+            simulation=result.simulation,
+            images=[
+                SlideImageData(image_id=img.image_id,
+                               image_data=img.image_data)
+                for img in result.images
+            ])
+
+
+    async def start_visual_preview(
+        self, request: StartVisualPreviewRequest
+    ) -> StartVisualPreviewResponse:
+        if not request.user_id:
+            raise HTTPException(status_code=400, detail="Missing 'userId'")
+        if not request.sim_id:
+            raise HTTPException(status_code=400, detail="Missing 'simId'")
+
+        result = await self.service.start_visual_preview(
+            request.sim_id, request.user_id)
+
+        print(result.simulation)
+
+        return StartVisualPreviewResponse(
+            simulation=result.simulation,
+            images=[
+                SlideImageData(image_id=img.image_id,
+                               image_data=img.image_data)
+                for img in result.images
+            ])
+
 
     async def start_chat_preview(
             self,
@@ -480,6 +517,17 @@ class SimulationController:
         simulations = await self.service.fetch_simulations(request.user_id)
         return FetchSimulationsResponse(simulations=simulations)
 
+    async def get_simulation_by_id(self, simulation_id: str) -> SimulationData:
+        """Get a single simulation by ID"""
+        if not simulation_id:
+            raise HTTPException(status_code=400, detail="Missing 'id'")
+    
+        simulation = await self.service.get_simulation_by_id(simulation_id)
+        if not simulation:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Simulation with id {simulation_id} not found")
+        return simulation
 
 controller = SimulationController()
 
@@ -600,3 +648,25 @@ async def start_visual_audio_preview(
 ) -> StartVisualAudioPreviewResponse:
     """Start a visual-audio simulation preview"""
     return await controller.start_visual_audio_preview(request)
+
+
+@router.post("/simulations/start-visual-chat-preview",
+             tags=["Simulations", "Visual Chat"])
+async def start_visual_chat_preview(
+        request: StartVisualChatPreviewRequest
+) -> StartVisualChatPreviewResponse:
+    """Start a visual-chat simulation preview"""
+    return await controller.start_visual_chat_preview(request)
+
+
+@router.post("/simulations/start-visual-preview",
+             tags=["Simulations", "Visual"])
+async def start_visual_preview(
+        request: StartVisualPreviewRequest) -> StartVisualPreviewResponse:
+    """Start a visual-chat simulation preview"""
+    return await controller.start_visual_preview(request)
+
+@router.get("/simulations/fetch/{simulation_id}", tags=["Simulations", "Read"])
+async def get_simulation_by_id(simulation_id: str) -> SimulationData:
+    """Get a single simulation by ID"""
+    return await controller.get_simulation_by_id(simulation_id)
