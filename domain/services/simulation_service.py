@@ -1,4 +1,4 @@
-from typing import Dict, List
+from typing import Dict, List, Optional
 import json
 import aiohttp
 import base64
@@ -18,7 +18,7 @@ from semantic_kernel.contents.chat_history import ChatHistory
 from semantic_kernel.connectors.ai.open_ai.prompt_execution_settings.azure_chat_prompt_execution_settings import (
     AzureChatPromptExecutionSettings, )
 
-from api.schemas.responses import StartVisualAudioPreviewResponse, SimulationData
+from api.schemas.responses import StartVisualAudioPreviewResponse, StartVisualChatPreviewResponse, StartVisualPreviewResponse, SimulationData
 from bson import ObjectId
 
 
@@ -127,22 +127,34 @@ class SimulationService:
         try:
             # Create simulation document
             simulation_doc = {
-                "name": request.name,
-                "divisionId": request.division_id,
-                "departmentId": request.department_id,
-                "type": request.type,
-                "script": [s.dict() for s in request.script],
-                "lastModifiedBy": request.user_id,
-                "lastModified": datetime.utcnow(),
-                "createdBy": request.user_id,
-                "createdOn": datetime.utcnow(),
-                "status": "draft",
-                "version": 1,
-                "tags": request.tags
+                "name":
+                request.name,
+                "divisionId":
+                request.division_id,
+                "departmentId":
+                request.department_id,
+                "type":
+                request.type,
+                "script":
+                [s.dict() for s in request.script] if request.script else None,
+                "lastModifiedBy":
+                request.user_id,
+                "lastModified":
+                datetime.utcnow(),
+                "createdBy":
+                request.user_id,
+                "createdOn":
+                datetime.utcnow(),
+                "status":
+                "draft",
+                "version":
+                1,
+                "tags":
+                request.tags
             }
-
             # Handle slides data and slides files for visual-audio type
-            if request.type == "visual-audio" and request.slidesData:
+            if (request.type == "visual-audio" or request.type == "visual-chat"
+                    or request.type == "visual") and request.slidesData:
                 processed_slides = []
                 if slides is None or len(slides) != len(request.slidesData):
                     raise HTTPException(
@@ -434,6 +446,144 @@ class SimulationService:
                 status_code=500,
                 detail=f"Error starting visual-audio preview: {str(e)}")
 
+    async def start_visual_chat_preview(
+            self, sim_id: str, user_id: str) -> StartVisualChatPreviewResponse:
+        try:
+            sim_id_object = ObjectId(sim_id)
+
+            simulation_doc = await self.db.simulations.find_one(
+                {"_id": sim_id_object})
+            if not simulation_doc:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Simulation with id {sim_id} not found")
+
+            # 🧠 Normalize fields for Pydantic model
+            simulation = SimulationData(
+                id=str(simulation_doc["_id"]),
+                sim_name=simulation_doc.get("name", ""),
+                version=str(simulation_doc.get("version", "1")),
+                sim_type=simulation_doc.get("type", ""),
+                status=simulation_doc.get("status", ""),
+                tags=simulation_doc.get("tags", []),
+                est_time=str(
+                    simulation_doc.get("estimatedTimeToAttemptInMins", "")),
+                last_modified=simulation_doc.get(
+                    "lastModified", datetime.utcnow()).isoformat(),
+                modified_by=simulation_doc.get("lastModifiedBy", ""),
+                created_on=simulation_doc.get("createdOn",
+                                              datetime.utcnow()).isoformat(),
+                created_by=simulation_doc.get("createdBy", ""),
+                islocked=simulation_doc.get("isLocked", False),
+                division_id=simulation_doc.get("divisionId", ""),
+                department_id=simulation_doc.get("departmentId", ""),
+                script=simulation_doc.get("script", []),
+                lvl1=simulation_doc.get("lvl1", {}),
+                lvl2=simulation_doc.get("lvl2", {}),
+                lvl3=simulation_doc.get("lvl3", {}),
+                slidesData=simulation_doc.get("slidesData", []))
+
+            # 🖼️ Collect any referenced images from slides
+            images = []
+            if simulation_doc.get("slidesData"):
+                for slide in simulation_doc["slidesData"]:
+                    if slide.get("imageUrl"):
+                        try:
+                            image_id = slide["imageUrl"].split("/")[-1]
+                            image_doc = await self.db.images.find_one(
+                                {"_id": ObjectId(image_id)})
+                            if image_doc:
+                                images.append({
+                                    "image_id":
+                                    slide["imageId"],
+                                    "image_data":
+                                    base64.b64encode(
+                                        image_doc["data"]).decode("utf-8")
+                                })
+                        except Exception as image_err:
+                            print(
+                                f"⚠️ Failed to load image for slide: {image_err}"
+                            )
+
+            return StartVisualChatPreviewResponse(simulation=simulation,
+                                                  images=images)
+
+        except HTTPException as he:
+            raise he
+        except Exception as e:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Error starting visual-chat preview: {str(e)}")
+
+    async def start_visual_preview(self, sim_id: str,
+                                   user_id: str) -> StartVisualPreviewResponse:
+        try:
+            sim_id_object = ObjectId(sim_id)
+
+            simulation_doc = await self.db.simulations.find_one(
+                {"_id": sim_id_object})
+            if not simulation_doc:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Simulation with id {sim_id} not found")
+
+            # 🧠 Normalize fields for Pydantic model
+            simulation = SimulationData(
+                id=str(simulation_doc["_id"]),
+                sim_name=simulation_doc.get("name", ""),
+                version=str(simulation_doc.get("version", "1")),
+                sim_type=simulation_doc.get("type", ""),
+                status=simulation_doc.get("status", ""),
+                tags=simulation_doc.get("tags", []),
+                est_time=str(
+                    simulation_doc.get("estimatedTimeToAttemptInMins", "")),
+                last_modified=simulation_doc.get(
+                    "lastModified", datetime.utcnow()).isoformat(),
+                modified_by=simulation_doc.get("lastModifiedBy", ""),
+                created_on=simulation_doc.get("createdOn",
+                                              datetime.utcnow()).isoformat(),
+                created_by=simulation_doc.get("createdBy", ""),
+                islocked=simulation_doc.get("isLocked", False),
+                division_id=simulation_doc.get("divisionId", ""),
+                department_id=simulation_doc.get("departmentId", ""),
+                script=simulation_doc.get("script", []),
+                lvl1=simulation_doc.get("lvl1", {}),
+                lvl2=simulation_doc.get("lvl2", {}),
+                lvl3=simulation_doc.get("lvl3", {}),
+                slidesData=simulation_doc.get("slidesData", []))
+
+            # 🖼️ Collect any referenced images from slides
+            images = []
+            if simulation_doc.get("slidesData"):
+                for slide in simulation_doc["slidesData"]:
+                    if slide.get("imageUrl"):
+                        try:
+                            image_id = slide["imageUrl"].split("/")[-1]
+                            image_doc = await self.db.images.find_one(
+                                {"_id": ObjectId(image_id)})
+                            if image_doc:
+                                images.append({
+                                    "image_id":
+                                    slide["imageId"],
+                                    "image_data":
+                                    base64.b64encode(
+                                        image_doc["data"]).decode("utf-8")
+                                })
+                        except Exception as image_err:
+                            print(
+                                f"⚠️ Failed to load image for slide: {image_err}"
+                            )
+
+            return StartVisualPreviewResponse(simulation=simulation,
+                                              images=images)
+
+        except HTTPException as he:
+            raise he
+        except Exception as e:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Error starting visual preview: {str(e)}")
+
     async def _create_retell_llm(self, prompt: str) -> Dict:
         """Create a new Retell LLM"""
         try:
@@ -618,7 +768,8 @@ class SimulationService:
                     islocked=doc.get("isLocked", False),
                     division_id=doc.get("divisionId", ""),
                     department_id=doc.get("departmentId", ""),
-                    script=doc.get("script", None))
+                    script=doc.get("script", None),
+                    slidesData=doc.get("slidesData", None))
                 simulations.append(simulation)
 
             return simulations
@@ -626,3 +777,41 @@ class SimulationService:
         except Exception as e:
             raise HTTPException(status_code=500,
                                 detail=f"Error fetching simulations: {str(e)}")
+
+
+    async def get_simulation_by_id(self, simulation_id: str) -> Optional[SimulationData]:
+        """Fetch a single simulation by ID"""
+        try:
+            # Convert string ID to ObjectId
+            simulation_id_object = ObjectId(simulation_id)
+    
+            # Find the simulation
+            doc = await self.db.simulations.find_one({"_id": simulation_id_object})
+    
+            if not doc:
+                return None
+    
+            return SimulationData(
+                id=str(doc["_id"]),
+                sim_name=doc.get("name", ""),
+                version=str(doc.get("version", "1")),
+                lvl1=doc.get("lvl1", {}),
+                lvl2=doc.get("lvl2", {}),
+                lvl3=doc.get("lvl3", {}),
+                sim_type=doc.get("type", ""),
+                status=doc.get("status", ""),
+                tags=doc.get("tags", []),
+                est_time=str(doc.get("estimatedTimeToAttemptInMins", "")),
+                last_modified=doc.get("lastModified", datetime.utcnow()).isoformat(),
+                modified_by=doc.get("lastModifiedBy", ""),
+                created_on=doc.get("createdOn", datetime.utcnow()).isoformat(),
+                created_by=doc.get("createdBy", ""),
+                islocked=doc.get("isLocked", False),
+                division_id=doc.get("divisionId", ""),
+                department_id=doc.get("departmentId", ""),
+                script=doc.get("script", None))
+    
+        except Exception as e:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Error fetching simulation: {str(e)}")

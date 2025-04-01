@@ -1,7 +1,8 @@
 from fastapi import APIRouter, HTTPException
 from domain.services.training_plan_service import TrainingPlanService
 from api.schemas.requests import CreateTrainingPlanRequest, FetchTrainingPlansRequest
-from api.schemas.responses import CreateTrainingPlanResponse, FetchTrainingPlansResponse
+from api.schemas.responses import CreateTrainingPlanResponse, FetchTrainingPlansResponse, TrainingPlanData
+
 
 router = APIRouter()
 
@@ -37,6 +38,17 @@ class TrainingPlanController:
             request.user_id)
         return FetchTrainingPlansResponse(training_plans=training_plans)
 
+    async def get_training_plan_by_id(self, training_plan_id: str) -> TrainingPlanData:
+        if not training_plan_id:
+            raise HTTPException(status_code=400, detail="Missing 'id'")
+
+        training_plan = await self.service.get_training_plan_by_id(training_plan_id)
+        if not training_plan:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Training plan with id {training_plan_id} not found")
+        return training_plan
+
 
 controller = TrainingPlanController()
 
@@ -51,3 +63,9 @@ async def create_training_plan(
 async def fetch_training_plans(
         request: FetchTrainingPlansRequest) -> FetchTrainingPlansResponse:
     return await controller.fetch_training_plans(request)
+
+
+@router.get("/training-plans/fetch/{training_plan_id}", tags=["Training Plans", "Read"])
+async def get_training_plan_by_id(training_plan_id: str) -> TrainingPlanData:
+    """Get a single training plan by ID"""
+    return await controller.get_training_plan_by_id(training_plan_id)

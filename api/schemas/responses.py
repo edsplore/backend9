@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from domain.models.training import TrainingDataModel
 from domain.models.playback import SimulationAttemptModel, AttemptAnalyticsModel
 
+
 class TrainingDataResponse(BaseModel):
     training_plans: List[TrainingDataModel]
     stats: dict
@@ -113,7 +114,7 @@ class SlideData(BaseModel):
     imageName: str
     imageUrl: Optional[str] = None  # URL for stored image
     imageData: Optional[SlideImage] = None  # Image data for upload
-    sequence: List[SlideSequence]
+    sequence: Optional[List[SlideSequence]] = None
 
 
 class SimulationData(BaseModel):
@@ -134,8 +135,8 @@ class SimulationData(BaseModel):
     islocked: bool
     division_id: str
     department_id: str
-    script: list[ScriptSentence]
-    slidesData: list[SlideData]
+    script: Optional[list[ScriptSentence]] = None
+    slidesData: Optional[list[SlideData]] = None
 
 
 class FetchSimulationsResponse(BaseModel):
@@ -288,5 +289,14 @@ class SlideImageData(BaseModel):
 
 
 class StartVisualAudioPreviewResponse(BaseModel):
+    simulation: SimulationData
+    images: List[SlideImageData] = []
+
+
+class StartVisualChatPreviewResponse(BaseModel):
+    simulation: SimulationData
+    images: List[SlideImageData] = []
+
+class StartVisualPreviewResponse(BaseModel):
     simulation: SimulationData
     images: List[SlideImageData] = []
