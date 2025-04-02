@@ -37,6 +37,7 @@ class StartSimulationResponse(BaseModel):
     status: str
     access_token: Optional[str] = None  # For audio simulations
     response: Optional[str] = None  # For chat simulations
+    call_id: Optional[str] = None  # For simulations
 
 
 class EndSimulationResponse(BaseModel):
