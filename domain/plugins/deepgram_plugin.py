@@ -28,6 +28,7 @@ class DeepgramPlugin:
                     raise Exception("Failed to process audio with Deepgram")
 
                 result = await response.json()
+                print(result)
                 return result.get('results', {}).get('channels', [{}])[0].get(
                     'alternatives',
                     [{}])[0].get('paragraphs').get('transcript', '')

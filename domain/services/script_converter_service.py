@@ -51,9 +51,9 @@ class ScriptConverterService:
 
         # Configure execution settings
         self.execution_settings = AzureChatPromptExecutionSettings(
-            service_id="azure_gpt4", # Add config values
+            service_id="azure_gpt4",  # Add config values
             ai_model_id=AZURE_OPENAI_DEPLOYMENT_NAME,
-            temperature=0.7, #test temperature
+            temperature=0.7,  #test temperature
             top_p=1.0,
             max_tokens=2000,
             response_format=MyResponseSchema)

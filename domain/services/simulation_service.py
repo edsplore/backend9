@@ -647,6 +647,7 @@ class SimulationService:
         """Generate simulation prompt using Azure OpenAI"""
         try:
             history = ChatHistory()
+            print(history)
 
             # First, add the system prompt
             system_message = (
@@ -778,19 +779,20 @@ class SimulationService:
             raise HTTPException(status_code=500,
                                 detail=f"Error fetching simulations: {str(e)}")
 
-
-    async def get_simulation_by_id(self, simulation_id: str) -> Optional[SimulationData]:
+    async def get_simulation_by_id(
+            self, simulation_id: str) -> Optional[SimulationData]:
         """Fetch a single simulation by ID"""
         try:
             # Convert string ID to ObjectId
             simulation_id_object = ObjectId(simulation_id)
-    
+
             # Find the simulation
-            doc = await self.db.simulations.find_one({"_id": simulation_id_object})
-    
+            doc = await self.db.simulations.find_one(
+                {"_id": simulation_id_object})
+
             if not doc:
                 return None
-    
+
             return SimulationData(
                 id=str(doc["_id"]),
                 sim_name=doc.get("name", ""),
@@ -802,7 +804,8 @@ class SimulationService:
                 status=doc.get("status", ""),
                 tags=doc.get("tags", []),
                 est_time=str(doc.get("estimatedTimeToAttemptInMins", "")),
-                last_modified=doc.get("lastModified", datetime.utcnow()).isoformat(),
+                last_modified=doc.get("lastModified",
+                                      datetime.utcnow()).isoformat(),
                 modified_by=doc.get("lastModifiedBy", ""),
                 created_on=doc.get("createdOn", datetime.utcnow()).isoformat(),
                 created_by=doc.get("createdBy", ""),
@@ -810,8 +813,7 @@ class SimulationService:
                 division_id=doc.get("divisionId", ""),
                 department_id=doc.get("departmentId", ""),
                 script=doc.get("script", None))
-    
+
         except Exception as e:
-            raise HTTPException(
-                status_code=500,
-                detail=f"Error fetching simulation: {str(e)}")
+            raise HTTPException(status_code=500,
+                                detail=f"Error fetching simulation: {str(e)}")

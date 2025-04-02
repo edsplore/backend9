@@ -57,6 +57,7 @@ class SimulationController:
 
         result = await self.service.create_simulation(simulation_request,
                                                       slides)
+        print (result)
         return CreateSimulationResponse(id=result["id"],
                                         status=result["status"],
                                         prompt=result["prompt"])
@@ -217,7 +218,8 @@ class SimulationController:
             return StartSimulationResponse(
                 id=str(result.inserted_id),
                 status="success",
-                access_token=web_call["access_token"])
+                access_token=web_call["access_token"],
+                call_id=web_call["call_id"])
 
         except Exception as e:
             raise HTTPException(

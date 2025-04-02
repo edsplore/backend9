@@ -6,7 +6,7 @@ load_dotenv()
 # Provide default values if environment variables are not set
 MONGO_URI = os.getenv("mongo-url", "mongodb://localhost:27017")
 DB_NAME = os.getenv("db-name", "everai_simulator")  # Default database name if not set
-DEEPGRAM_API_KEY = os.getenv("DEEPGRAM_API_KEY", "90b109a0bc690efde72b6e9da892d9371885cb8f")
+DEEPGRAM_API_KEY = os.getenv("DEEPGRAM_API_KEY", "450fb5d939d4756fe8c057540226f05bce7e5ea8")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "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")
 
 RETELL_API_KEY = os.getenv("RETELL_API_KEY", "key_c98334da2d625bae2d5c9a24d33f")
