@@ -149,9 +149,7 @@ class CreateSimulationRequest(BaseModel):
     division_id: str
     department_id: str
     type: str
-    script: Optional[list[ScriptSentence]] = None
     tags: list[str]
-    slidesData: Optional[List[SlideData]] = None
 
 
 class UpdateSimulationRequest(BaseModel):

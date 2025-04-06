@@ -52,24 +52,25 @@ class SimulationController:
 
     async def create_simulation(
             self,
-            simulation_request: CreateSimulationRequest,
-            slides: List[UploadFile] = None) -> CreateSimulationResponse:
-
-        result = await self.service.create_simulation(simulation_request,
-                                                      slides)
-        print (result)
-        return CreateSimulationResponse(id=result["id"],
-                                        status=result["status"],
-                                        prompt=result["prompt"])
+            request: CreateSimulationRequest) -> CreateSimulationResponse:
+        """Create a new simulation"""
+        try:
+            result = await self.service.create_simulation(request)
+            return CreateSimulationResponse(id=result["id"],
+                                            status=result["status"])
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
 
     async def update_simulation(
             self, sim_id: str,
             request: UpdateSimulationRequest) -> UpdateSimulationResponse:
-        if not request.user_id:
-            raise HTTPException(status_code=400, detail="Missing 'userId'")
+        """Update an existing simulation"""
         result = await self.service.update_simulation(sim_id, request)
-        return UpdateSimulationResponse(id=result["id"],
-                                        status=result["status"])
+        return UpdateSimulationResponse(
+            id=result["id"],
+            status=result["status"],
+            document=result["document"]  # Include the document field
+        )
 
     async def start_audio_simulation_preview(
         self, request: StartAudioSimulationPreviewRequest
@@ -125,10 +126,9 @@ class SimulationController:
                 for img in result.images
             ])
 
-
     async def start_visual_preview(
-        self, request: StartVisualPreviewRequest
-    ) -> StartVisualPreviewResponse:
+            self,
+            request: StartVisualPreviewRequest) -> StartVisualPreviewResponse:
         if not request.user_id:
             raise HTTPException(status_code=400, detail="Missing 'userId'")
         if not request.sim_id:
@@ -139,14 +139,13 @@ class SimulationController:
 
         print(result.simulation)
 
-        return StartVisualPreviewResponse(
-            simulation=result.simulation,
-            images=[
-                SlideImageData(image_id=img.image_id,
-                               image_data=img.image_data)
-                for img in result.images
-            ])
-
+        return StartVisualPreviewResponse(simulation=result.simulation,
+                                          images=[
+                                              SlideImageData(
+                                                  image_id=img.image_id,
+                                                  image_data=img.image_data)
+                                              for img in result.images
+                                          ])
 
     async def start_chat_preview(
             self,
@@ -523,7 +522,7 @@ class SimulationController:
         """Get a single simulation by ID"""
         if not simulation_id:
             raise HTTPException(status_code=400, detail="Missing 'id'")
-    
+
         simulation = await self.service.get_simulation_by_id(simulation_id)
         if not simulation:
             raise HTTPException(
@@ -531,69 +530,15 @@ class SimulationController:
                 detail=f"Simulation with id {simulation_id} not found")
         return simulation
 
+
 controller = SimulationController()
-
-
-@router.post("/simulations/create", tags=["Simulations", "Create"])
-async def create_simulation(req: Request,
-                            slides: List[UploadFile] = File(None)):
-    # Check the content type
-    content_type = req.headers.get("content-type", "")
-    if "application/json" in content_type:
-        # Pure JSON payload: no files are expected
-        data = await req.json()
-        slides_files = []  # No file uploads in JSON case
-    else:
-        # Assume multipart/form-data
-        form_data = await req.form()
-        print("DEBUG: Received form data:")
-        for key, value in form_data.items():
-            print(f"  {key}: {value}")
-        # Convert form data to a dictionary
-        data = dict(form_data)
-        import json
-        if "script" in data:
-            try:
-                data["script"] = json.loads(data["script"])
-            except Exception as e:
-                print("DEBUG: Could not parse 'script':", e)
-        if "slidesData" in data:
-            try:
-                data["slidesData"] = json.loads(data["slidesData"])
-            except Exception as e:
-                print("DEBUG: Could not parse 'slidesData':", e)
-        if "tags" in data:
-            try:
-                data["tags"] = json.loads(data["tags"])
-            except Exception as e:
-                print("DEBUG: Could not parse 'tags':", e)
-        print("DEBUG: Data dictionary after JSON parsing:")
-        for key, value in data.items():
-            print(f"  {key}: {value}")
-        # Manually extract file uploads from keys like "slides[0]", "slides[1]", etc.
-        slides_files = []
-        for key, value in form_data.multi_items():
-            if key.startswith("slides["):
-                slides_files.append(value)
-        print("DEBUG: Extracted slides files:", slides_files)
-
-    # Parse the data into a Pydantic model
-    from api.schemas.requests import CreateSimulationRequest
-    try:
-        simulation_request = CreateSimulationRequest.parse_obj(data)
-        print("DEBUG: Successfully parsed CreateSimulationRequest:")
-        print(simulation_request)
-    except Exception as e:
-        print("DEBUG: Error parsing CreateSimulationRequest:", e)
-        raise HTTPException(status_code=422, detail="Request validation error")
-
-    return await controller.create_simulation(simulation_request, slides_files)
 
 
 @router.put("/simulations/{sim_id}/update", tags=["Simulations", "Update"])
 async def update_simulation(
         sim_id: str,
         request: UpdateSimulationRequest) -> UpdateSimulationResponse:
+    """Update an existing simulation"""
     return await controller.update_simulation(sim_id, request)
 
 
@@ -668,7 +613,15 @@ async def start_visual_preview(
     """Start a visual-chat simulation preview"""
     return await controller.start_visual_preview(request)
 
+
 @router.get("/simulations/fetch/{simulation_id}", tags=["Simulations", "Read"])
 async def get_simulation_by_id(simulation_id: str) -> SimulationData:
     """Get a single simulation by ID"""
     return await controller.get_simulation_by_id(simulation_id)
+
+
+@router.post("/simulations/create", tags=["Simulations", "Create"])
+async def create_simulation(
+        request: CreateSimulationRequest) -> CreateSimulationResponse:
+    """Create a new simulation"""
+    return await controller.create_simulation(request)

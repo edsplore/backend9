@@ -24,12 +24,12 @@ class ScriptResponse(BaseModel):
 class CreateSimulationResponse(BaseModel):
     id: str
     status: str
-    prompt: str
 
 
 class UpdateSimulationResponse(BaseModel):
     id: str
     status: str
+    document: Dict[str, Any]
 
 
 class StartSimulationResponse(BaseModel):
@@ -297,6 +297,7 @@ class StartVisualAudioPreviewResponse(BaseModel):
 class StartVisualChatPreviewResponse(BaseModel):
     simulation: SimulationData
     images: List[SlideImageData] = []
+
 
 class StartVisualPreviewResponse(BaseModel):
     simulation: SimulationData
