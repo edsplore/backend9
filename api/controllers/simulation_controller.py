@@ -62,15 +62,18 @@ class SimulationController:
             raise HTTPException(status_code=500, detail=str(e))
 
     async def update_simulation(
-            self, sim_id: str,
-            request: UpdateSimulationRequest) -> UpdateSimulationResponse:
+        self, sim_id: str, request: UpdateSimulationRequest,
+        slides: List[UploadFile] = None) -> UpdateSimulationResponse:
         """Update an existing simulation"""
-        result = await self.service.update_simulation(sim_id, request)
+        if not request.user_id:
+            raise HTTPException(status_code=400, detail="Missing 'userId'")
+    
+    
+        result = await self.service.update_simulation(sim_id, request, slides)
         return UpdateSimulationResponse(
             id=result["id"],
             status=result["status"],
-            document=result["document"]  # Include the document field
-        )
+            document=result["document"])
 
     async def start_audio_simulation_preview(
         self, request: StartAudioSimulationPreviewRequest

@@ -10,7 +10,7 @@ from config import (AZURE_OPENAI_DEPLOYMENT_NAME, AZURE_OPENAI_KEY,
 from infrastructure.database import Database
 from api.schemas.requests import CreateSimulationRequest, UpdateSimulationRequest
 from api.schemas.responses import SimulationData
-from fastapi import HTTPException, UploadFile
+from fastapi import HTTPException, UploadFile, File
 from semantic_kernel import Kernel
 from semantic_kernel.connectors.ai.open_ai import AzureChatCompletion
 from semantic_kernel.connectors.ai.function_choice_behavior import FunctionChoiceBehavior
@@ -147,13 +147,17 @@ class SimulationService:
             raise HTTPException(status_code=500,
                                 detail=f"Error creating simulation: {str(e)}")
 
-    async def update_simulation(self, sim_id: str,
-        request: UpdateSimulationRequest) -> Dict:
+    async def update_simulation(
+        self,
+        sim_id: str,
+        request: UpdateSimulationRequest,
+        slides: List[UploadFile] = File(None)
+    ) -> Dict:
         """Update an existing simulation"""
         try:
             # Convert string ID to ObjectId
             sim_id_object = ObjectId(sim_id)
-        
+
             # Get existing simulation
             existing_sim = await self.db.simulations.find_one(
                 {"_id": sim_id_object})
@@ -161,17 +165,17 @@ class SimulationService:
                 raise HTTPException(
                     status_code=404,
                     detail=f"Simulation with id {sim_id} not found")
-        
+
             # Build update document
             update_doc = {}
-        
+
             # Helper function to add field if it exists in request
             def add_if_exists(field_name: str,
-                camel_case_name: str | None = None):
+                              camel_case_name: str | None = None):
                 value = getattr(request, field_name)
                 if value is not None:
                     update_doc[camel_case_name or field_name] = value
-        
+
             # Map request fields to document fields
             field_mappings = {
                 "name": "name",
@@ -198,127 +202,198 @@ class SimulationService:
                 "assistant_id": "assistantId",
                 "slides": "slides"
             }
-        
+
             # Add fields from mappings
             for field, doc_field in field_mappings.items():
                 add_if_exists(field, doc_field)
-        
+
             # Get simulation type
-            sim_type = request.type if request.type else existing_sim.get("type")
-        
+            sim_type = request.type if request.type else existing_sim.get(
+                "type")
+
             # Handle script and generate prompt for audio and chat types
             if request.script is not None:
                 update_doc["script"] = [s.dict() for s in request.script]
                 if sim_type in ["audio", "chat"]:
-                    prompt = await self._generate_simulation_prompt(request.script)
+                    prompt = await self._generate_simulation_prompt(
+                        request.script)
                     update_doc["prompt"] = prompt
-        
+
             # Handle slides data and images for visual types
             if request.slidesData is not None and sim_type in [
-                "visual-audio", "visual-chat", "visual"
+                    "visual-audio", "visual-chat", "visual"
             ]:
                 processed_slides = []
-                for slide in request.slidesData:
-                    slide_dict = slide.dict()
-                    # Only process image if new image data is provided
-                    if slide_dict.get("imageData"):
-                        processed_slide = await self._store_slide_image(slide_dict)
-                    else:
-                    # Keep existing image URL if no new image
-                        processed_slide = slide_dict
-                        processed_slides.append(processed_slide)
-        
+
+                # Handle uploaded files if present
+                if slides:
+                    for i, slide in enumerate(request.slidesData):
+                        if i < len(slides):
+                            # Process uploaded file
+                            slide_dict = slide.dict()
+                            processed_slide = await self._store_slide_file(
+                                slide_dict, slides[i])
+                            processed_slides.append(processed_slide)
+                        else:
+                            # Process remaining slides normally
+                            slide_dict = slide.dict()
+                            if slide_dict.get("imageData"):
+                                processed_slide = await self._store_slide_image(
+                                    slide_dict)
+                                processed_slides.append(processed_slide)
+                            else:
+                                processed_slides.append(slide_dict)
+                else:
+                    # Process slides without uploaded files
+                    for slide in request.slidesData:
+                        slide_dict = slide.dict()
+                        if slide_dict.get("imageData"):
+                            processed_slide = await self._store_slide_image(
+                                slide_dict)
+                            processed_slides.append(processed_slide)
+                        else:
+                            processed_slides.append(slide_dict)
+
                 update_doc["slidesData"] = processed_slides
-        
             if request.lvl1 is not None:
                 update_doc["lvl1"] = {
-                    "isEnabled": request.lvl1.is_enabled,
-                    "enablePractice": request.lvl1.enable_practice,
-                    "hideAgentScript": request.lvl1.hide_agent_script,
-                    "hideCustomerScript": request.lvl1.hide_customer_script,
-                    "hideKeywordScores": request.lvl1.hide_keyword_scores,
-                    "hideSentimentScores": request.lvl1.hide_sentiment_scores,
-                    "hideHighlights": request.lvl1.hide_highlights,
-                    "hideCoachingTips": request.lvl1.hide_coaching_tips,
+                    "isEnabled":
+                    request.lvl1.is_enabled,
+                    "enablePractice":
+                    request.lvl1.enable_practice,
+                    "hideAgentScript":
+                    request.lvl1.hide_agent_script,
+                    "hideCustomerScript":
+                    request.lvl1.hide_customer_script,
+                    "hideKeywordScores":
+                    request.lvl1.hide_keyword_scores,
+                    "hideSentimentScores":
+                    request.lvl1.hide_sentiment_scores,
+                    "hideHighlights":
+                    request.lvl1.hide_highlights,
+                    "hideCoachingTips":
+                    request.lvl1.hide_coaching_tips,
                     "enablePostSimulationSurvey":
                     request.lvl1.enable_post_simulation_survey,
                     "aiPoweredPausesAndFeedback":
                     request.lvl1.ai_powered_pauses_and_feedback
                 }
-        
+
             if request.lvl2 is not None:
-                update_doc["lvl2"] = {"isEnabled": request.lvl2.is_enabled}
-        
+                update_doc["lvl2"] = {
+                    "isEnabled":
+                    request.lvl2.is_enabled,
+                    "enablePractice":
+                    request.lvl2.enable_practice,
+                    "hideAgentScript":
+                    request.lvl2.hide_agent_script,
+                    "hideCustomerScript":
+                    request.lvl2.hide_customer_script,
+                    "hideKeywordScores":
+                    request.lvl2.hide_keyword_scores,
+                    "hideSentimentScores":
+                    request.lvl2.hide_sentiment_scores,
+                    "hideHighlights":
+                    request.lvl2.hide_highlights,
+                    "hideCoachingTips":
+                    request.lvl2.hide_coaching_tips,
+                    "enablePostSimulationSurvey":
+                    request.lvl2.enable_post_simulation_survey,
+                    "aiPoweredPausesAndFeedback":
+                    request.lvl2.ai_powered_pauses_and_feedback
+                }
+
             if request.lvl3 is not None:
-                update_doc["lvl3"] = {"isEnabled": request.lvl3.is_enabled}
-        
+                update_doc["lvl3"] = {
+                    "isEnabled":
+                    request.lvl3.is_enabled,
+                    "enablePractice":
+                    request.lvl3.enable_practice,
+                    "hideAgentScript":
+                    request.lvl3.hide_agent_script,
+                    "hideCustomerScript":
+                    request.lvl3.hide_customer_script,
+                    "hideKeywordScores":
+                    request.lvl3.hide_keyword_scores,
+                    "hideSentimentScores":
+                    request.lvl3.hide_sentiment_scores,
+                    "hideHighlights":
+                    request.lvl3.hide_highlights,
+                    "hideCoachingTips":
+                    request.lvl3.hide_coaching_tips,
+                    "enablePostSimulationSurvey":
+                    request.lvl3.enable_post_simulation_survey,
+                    "aiPoweredPausesAndFeedback":
+                    request.lvl3.ai_powered_pauses_and_feedback
+                }
+
             if request.simulation_scoring_metrics is not None:
                 update_doc["simulationScoringMetrics"] = {
                     "isEnabled": request.simulation_scoring_metrics.is_enabled,
                     "keywordScore":
                     request.simulation_scoring_metrics.keyword_score,
-                    "clickScore": request.simulation_scoring_metrics.click_score
+                    "clickScore":
+                    request.simulation_scoring_metrics.click_score
                 }
-        
+
             if request.sim_practice is not None:
                 update_doc["simPractice"] = {
                     "isUnlimited": request.sim_practice.is_unlimited,
                     "preRequisiteLimit":
                     request.sim_practice.pre_requisite_limit
                 }
-        
+
             # Handle voice-related fields based on simulation type
             if sim_type == "audio":
                 if request.voice_id is not None:
                     update_doc["voiceId"] = request.voice_id
-            
+
                 if request.voice_speed is not None:
                     update_doc["voice_speed"] = request.voice_speed
-            
+
                 # Create LLM and Agent if prompt is updated
                 if "prompt" in update_doc:
                     # Create Retell LLM
                     llm_response = await self._create_retell_llm(
                         update_doc["prompt"])
                     update_doc["llmId"] = llm_response["llm_id"]
-                
+
                     # Create Retell Agent
                     agent_response = await self._create_retell_agent(
-                        llm_response["llm_id"],
-                        request.voice_id or "11labs-Adrian")
+                        llm_response["llm_id"], request.voice_id
+                        or "11labs-Adrian")
                     update_doc["agentId"] = agent_response["agent_id"]
-        
+
             # Add metadata
             update_doc["lastModified"] = datetime.utcnow()
             update_doc["lastModifiedBy"] = request.user_id
-        
+
             # Update database
             result = await self.db.simulations.update_one(
                 {"_id": sim_id_object}, {"$set": update_doc})
-        
+
             if result.modified_count == 0:
                 raise HTTPException(status_code=500,
-                    detail="Failed to update simulation")
-        
+                                    detail="Failed to update simulation")
+
             # Fetch the updated document
             updated_simulation = await self.db.simulations.find_one(
                 {"_id": sim_id_object})
-        
+
             # Convert ObjectId to string for the response
             updated_simulation["_id"] = str(updated_simulation["_id"])
-        
+
             return {
                 "id": sim_id,
                 "status": "success",
                 "document": updated_simulation
             }
-    
+
         except HTTPException as he:
             raise he
         except Exception as e:
             raise HTTPException(status_code=500,
-                detail=f"Error updating simulation: {str(e)}")
-
+                                detail=f"Error updating simulation: {str(e)}")
 
     async def start_visual_audio_preview(
             self, sim_id: str,
