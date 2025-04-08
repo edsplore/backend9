@@ -136,6 +136,7 @@ class SimulationData(BaseModel):
     islocked: bool
     division_id: str
     department_id: str
+    voice_id: Optional[str] = None
     script: Optional[list[ScriptSentence]] = None
     slidesData: Optional[list[SlideData]] = None
 
@@ -302,3 +303,8 @@ class StartVisualChatPreviewResponse(BaseModel):
 class StartVisualPreviewResponse(BaseModel):
     simulation: SimulationData
     images: List[SlideImageData] = []
+
+
+class SimulationByIDResponse(BaseModel):
+    simulation: SimulationData
+    images: Optional[List[SlideImageData]] = None
