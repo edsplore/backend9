@@ -41,7 +41,7 @@ class SimulationService:
             ai_model_id=AZURE_OPENAI_DEPLOYMENT_NAME,
             temperature=0.1,
             top_p=1.0,
-            max_tokens=5000)
+            max_tokens=4096)
 
     async def _store_slide_file(self, slide_data: dict,
                                 file: UploadFile) -> dict:
@@ -148,15 +148,24 @@ class SimulationService:
             raise HTTPException(status_code=500,
                                 detail=f"Error creating simulation: {str(e)}")
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> 367cdc7 (Edit simulation flow changes to update API)
     async def update_simulation(
         self,
         sim_id: str,
         request: UpdateSimulationRequest,
+<<<<<<< HEAD
         slides: List[UploadFile] = File(None)
     ) -> Dict:
         """Update an existing simulation"""
 
+=======
+        slides_files: Dict[str, UploadFile] = None,
+    ) -> Dict:
+        """Update an existing simulation (service)."""
+>>>>>>> 367cdc7 (Edit simulation flow changes to update API)
         try:
             from bson import ObjectId
 
@@ -208,7 +217,7 @@ class SimulationService:
                 "version": "version",
                 "assistant_id": "assistantId",
                 "slides": "slides",
-                "voice_id": "voice_id"
+                "voice_id": "voice_id",
             }
 
             # Add fields from mappings
@@ -228,20 +237,20 @@ class SimulationService:
                         request.script)
                     update_doc["prompt"] = prompt
 
+<<<<<<< HEAD
             # Handle slides data and images for visual types
 
+=======
+            # Modified section for slidesData processing
+>>>>>>> 367cdc7 (Edit simulation flow changes to update API)
             if request.slidesData is not None and sim_type in [
-                    "visual-audio", "visual-chat", "visual"
+                    "visual-audio",
+                    "visual-chat",
+                    "visual",
             ]:
-                if slides is None or len(slides) != len(request.slidesData):
-                    raise HTTPException(
-                        status_code=400,
-                        detail=
-                        "Mismatch between slidesData and slides files provided"
-                    )
-
                 processed_slides = []
 
+<<<<<<< HEAD
                 # Handle uploaded files if present
                 if slides:
                     for i, slide in enumerate(request.slidesData):
@@ -270,6 +279,33 @@ class SimulationService:
                             processed_slides.append(processed_slide)
                         else:
                             processed_slides.append(slide_dict)
+=======
+                # Make sure we have some files to process
+                if slides_files and len(slides_files) > 0:
+                    for slide in request.slidesData:
+                        slide_dict = slide.dict()
+                        # Remove base64 so we rely on the actual file upload
+                        slide_dict.pop("imageData", None)
+
+                        # Check if we have a file for this slide's imageId
+                        image_id = slide_dict.get("imageId")
+                        if image_id in slides_files:
+                            # Process the updated file
+                            file_obj = slides_files[image_id]
+                            processed_slide = await self._store_slide_file(
+                                slide_dict, file_obj)
+                            processed_slides.append(processed_slide)
+                        else:
+                            # No file update for this slide, just use the existing data
+                            processed_slides.append(slide_dict)
+                else:
+                    # No files to update, just use the slidesData as is
+                    processed_slides = [
+                        slide.dict() for slide in request.slidesData
+                    ]
+                    for slide_dict in processed_slides:
+                        slide_dict.pop("imageData", None)
+>>>>>>> 367cdc7 (Edit simulation flow changes to update API)
 
                 update_doc["slidesData"] = processed_slides
 
@@ -294,7 +330,7 @@ class SimulationService:
                     "enablePostSimulationSurvey":
                     request.lvl1.enable_post_simulation_survey,
                     "aiPoweredPausesAndFeedback":
-                    request.lvl1.ai_powered_pauses_and_feedback
+                    request.lvl1.ai_powered_pauses_and_feedback,
                 }
 
             if request.lvl2 is not None:
@@ -318,7 +354,7 @@ class SimulationService:
                     "enablePostSimulationSurvey":
                     request.lvl2.enable_post_simulation_survey,
                     "aiPoweredPausesAndFeedback":
-                    request.lvl2.ai_powered_pauses_and_feedback
+                    request.lvl2.ai_powered_pauses_and_feedback,
                 }
 
             if request.lvl3 is not None:
@@ -342,7 +378,7 @@ class SimulationService:
                     "enablePostSimulationSurvey":
                     request.lvl3.enable_post_simulation_survey,
                     "aiPoweredPausesAndFeedback":
-                    request.lvl3.ai_powered_pauses_and_feedback
+                    request.lvl3.ai_powered_pauses_and_feedback,
                 }
 
 
@@ -352,7 +388,7 @@ class SimulationService:
                     "keywordScore":
                     request.simulation_scoring_metrics.keyword_score,
                     "clickScore":
-                    request.simulation_scoring_metrics.click_score
+                    request.simulation_scoring_metrics.click_score,
                 }
 
 
@@ -360,11 +396,22 @@ class SimulationService:
                 update_doc["simPractice"] = {
                     "isUnlimited": request.sim_practice.is_unlimited,
                     "preRequisiteLimit":
-                    request.sim_practice.pre_requisite_limit
+                    request.sim_practice.pre_requisite_limit,
                 }
 
+<<<<<<< HEAD
             # Handle voice-related fields based on simulation type
 
+=======
+            update_doc[
+                "simulationCompletionRepetition"] = request.simulation_completion_repetition
+            update_doc[
+                "simulationMaxRepetition"] = request.simulation_max_repetition
+            update_doc[
+                "finalSimulationScoreCriteria"] = request.final_simulation_score_criteria
+
+            # Handle voice settings for audio
+>>>>>>> 367cdc7 (Edit simulation flow changes to update API)
             if sim_type == "audio":
                 if request.voice_id is not None:
                     update_doc["voiceId"] = request.voice_id
@@ -898,7 +945,20 @@ class SimulationService:
                 lvl1=simulation_doc.get("lvl1", {}),
                 lvl2=simulation_doc.get("lvl2", {}),
                 lvl3=simulation_doc.get("lvl3", {}),
-                slidesData=simulation_doc.get("slidesData", []))
+                slidesData=simulation_doc.get("slidesData", []),
+                key_objectives=simulation_doc.get("keyObjectives", []),
+                overview_video=simulation_doc.get("overviewVideo", ""),
+                quick_tips=simulation_doc.get("quickTips", []),
+                final_simulation_score_criteria=simulation_doc.get(
+                    "finalSimulationScoreCriteria", ""),
+                simulation_completion_repetition=simulation_doc.get(
+                    "simulationCompletionRepetition", 1),
+                simulation_max_repetition=simulation_doc.get(
+                    "simulationMaxRepetition", 1),
+                simulation_scoring_metrics=simulation_doc.get(
+                    "simulationScoringMetrics", {}),
+                sim_practice=simulation_doc.get("simPractice", {}),
+                prompt=simulation_doc.get("prompt", ""))
 
             # 🖼️ Collect any referenced images from slides
             images = []

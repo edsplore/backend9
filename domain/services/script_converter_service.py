@@ -150,6 +150,8 @@ class ScriptConverterService:
             # Add user content
             history.add_user_message(content)
 
+            print("history: ", history)
+
             # Get response from Azure OpenAI
             result = await self.chat_completion.get_chat_message_content(
                 history, settings=self.execution_settings)
@@ -186,6 +188,8 @@ class ScriptConverterService:
 
             # Add user content
             history.add_user_message(content)
+
+            print("history: ", history)
 
             # Get response from Azure OpenAI
             result = await self.chat_completion.get_chat_message_content(

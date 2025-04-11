@@ -2,7 +2,7 @@ from typing import List, Optional, Dict, Any
 from pydantic import BaseModel
 from domain.models.training import TrainingDataModel
 from domain.models.playback import SimulationAttemptModel, AttemptAnalyticsModel
-
+from api.schemas.requests import SimulationScoringMetrics, SimulationPractice
 
 class TrainingDataResponse(BaseModel):
     training_plans: List[TrainingDataModel]
@@ -139,7 +139,18 @@ class SimulationData(BaseModel):
     voice_id: Optional[str] = None
     script: Optional[list[ScriptSentence]] = None
     slidesData: Optional[list[SlideData]] = None
-
+    prompt: Optional[str] = None
+    key_objectives: list[str] | None = None
+    overview_video: str | None = None
+    quick_tips: list[str] | None = None
+    simulation_completion_repetition: int | None = None
+    simulation_max_repetition: int | None = None
+    final_simulation_score_criteria: str | None = None
+    simulation_scoring_metrics: SimulationScoringMetrics | None = None
+    sim_practice: SimulationPractice | None = None
+    estimated_time_to_attempt_in_mins: int | None = None
+    mood: str | None = None
+    voice_speed: str | None = None
 
 class FetchSimulationsResponse(BaseModel):
     simulations: List[SimulationData]

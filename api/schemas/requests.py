@@ -186,7 +186,6 @@ class UpdateSimulationRequest(BaseModel):
     slides: dict | None = None
     slidesData: Optional[List[SlideData]] = None
 
-
 class StartAudioSimulationPreviewRequest(BaseModel):
     user_id: str
     sim_id: str

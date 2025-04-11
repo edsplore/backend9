@@ -548,18 +548,15 @@ async def update_simulation(
     Can handle both JSON (no files) and multipart/form-data (with files).
     """
     content_type = req.headers.get("content-type", "").lower()
-
     if "application/json" in content_type:
         # JSON body
         data = await req.json()
-        slides_files = []
+        slides_files = {}  # Changed: Dictionary instead of list
     else:
         # Multipart/form-data
         form_data = await req.form()
         data = dict(form_data)
-
         # Fields that might be JSON strings (list/array, dict/object).
-        # Adjust as needed for your specific model fields.
         json_fields = [
             "script",
             "slidesData",
@@ -572,7 +569,6 @@ async def update_simulation(
             "simulation_scoring_metrics",
             "sim_practice",
         ]
-
         import json
         for field_name in json_fields:
             if field_name in data and isinstance(data[field_name], str):
@@ -581,11 +577,16 @@ async def update_simulation(
                 except Exception as e:
                     print(f"DEBUG: Could not parse '{field_name}': {e}")
 
-        # Extract slides files from keys like slides[0], slides[1], etc.
-        slides_files = []
+        # Changed: Extract slides files using new naming convention
+        slides_files = {}  # Dictionary to map image IDs to files
         for key, value in form_data.multi_items():
-            if key.startswith("slides["):
-                slides_files.append(value)
+            if key.startswith("slide_"):
+                # Extract the image ID from the key name (after "slide_")
+                image_id = key[6:]  # Removes "slide_" prefix
+                slides_files[image_id] = value
+                print(
+                    f"DEBUG: Found file for image ID {image_id}: {value.filename}"
+                )
 
     # Parse into Pydantic model
     from api.schemas.requests import UpdateSimulationRequest
