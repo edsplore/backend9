@@ -17,7 +17,7 @@ from api.schemas.responses import (
     CreateSimulationResponse, UpdateSimulationResponse,
     StartAudioSimulationPreviewResponse, StartChatPreviewResponse,
     StartSimulationResponse, EndSimulationResponse, FetchSimulationsResponse,
-    StartVisualAudioPreviewResponse, SlideImageData,
+    StartVisualAudioPreviewResponse, SlideImageData, SimulationByIDResponse,
     StartVisualChatPreviewResponse, StartVisualPreviewResponse, SimulationData)
 from config import RETELL_API_KEY, AZURE_OPENAI_DEPLOYMENT_NAME, AZURE_OPENAI_KEY, AZURE_OPENAI_BASE_URL
 from semantic_kernel import Kernel
@@ -74,6 +74,7 @@ class SimulationController:
             id=result["id"],
             status=result["status"],
             document=result["document"])
+
 
     async def start_audio_simulation_preview(
         self, request: StartAudioSimulationPreviewRequest
@@ -521,7 +522,8 @@ class SimulationController:
         simulations = await self.service.fetch_simulations(request.user_id)
         return FetchSimulationsResponse(simulations=simulations)
 
-    async def get_simulation_by_id(self, simulation_id: str) -> SimulationData:
+    async def get_simulation_by_id(
+            self, simulation_id: str) -> SimulationByIDResponse:
         """Get a single simulation by ID"""
         if not simulation_id:
             raise HTTPException(status_code=400, detail="Missing 'id'")
@@ -539,10 +541,63 @@ controller = SimulationController()
 
 @router.put("/simulations/{sim_id}/update", tags=["Simulations", "Update"])
 async def update_simulation(
-        sim_id: str,
-        request: UpdateSimulationRequest) -> UpdateSimulationResponse:
-    """Update an existing simulation"""
-    return await controller.update_simulation(sim_id, request)
+    sim_id: str, req: Request, slides: List[UploadFile] = File(None)
+) -> UpdateSimulationResponse:
+    """
+    Update an existing simulation.
+    Can handle both JSON (no files) and multipart/form-data (with files).
+    """
+    content_type = req.headers.get("content-type", "").lower()
+
+    if "application/json" in content_type:
+        # JSON body
+        data = await req.json()
+        slides_files = []
+    else:
+        # Multipart/form-data
+        form_data = await req.form()
+        data = dict(form_data)
+
+        # Fields that might be JSON strings (list/array, dict/object).
+        # Adjust as needed for your specific model fields.
+        json_fields = [
+            "script",
+            "slidesData",
+            "tags",
+            "quick_tips",
+            "key_objectives",
+            "lvl1",
+            "lvl2",
+            "lvl3",
+            "simulation_scoring_metrics",
+            "sim_practice",
+        ]
+
+        import json
+        for field_name in json_fields:
+            if field_name in data and isinstance(data[field_name], str):
+                try:
+                    data[field_name] = json.loads(data[field_name])
+                except Exception as e:
+                    print(f"DEBUG: Could not parse '{field_name}': {e}")
+
+        # Extract slides files from keys like slides[0], slides[1], etc.
+        slides_files = []
+        for key, value in form_data.multi_items():
+            if key.startswith("slides["):
+                slides_files.append(value)
+
+    # Parse into Pydantic model
+    from api.schemas.requests import UpdateSimulationRequest
+    try:
+        update_request = UpdateSimulationRequest.parse_obj(data)
+    except Exception as e:
+        print("DEBUG: Error parsing UpdateSimulationRequest:", e)
+        raise HTTPException(status_code=422, detail="Request validation error")
+
+    # Forward to controller
+    return await controller.update_simulation(sim_id, update_request,
+                                              slides_files)
 
 
 @router.post("/simulations/start-audio-preview", tags=["Simulations", "Audio"])
@@ -618,7 +673,7 @@ async def start_visual_preview(
 
 
 @router.get("/simulations/fetch/{simulation_id}", tags=["Simulations", "Read"])
-async def get_simulation_by_id(simulation_id: str) -> SimulationData:
+async def get_simulation_by_id(simulation_id: str) -> SimulationByIDResponse:
     """Get a single simulation by ID"""
     return await controller.get_simulation_by_id(simulation_id)
 
