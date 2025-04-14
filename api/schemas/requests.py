@@ -186,6 +186,7 @@ class UpdateSimulationRequest(BaseModel):
     slides: dict | None = None
     slidesData: Optional[List[SlideData]] = None
 
+
 class StartAudioSimulationPreviewRequest(BaseModel):
     user_id: str
     sim_id: str
@@ -208,6 +209,13 @@ class CreateModuleRequest(BaseModel):
     simulations: list[str]
 
 
+class UpdateModuleRequest(BaseModel):
+    user_id: str
+    module_name: Optional[str] = None
+    tags: Optional[list[str]] = None
+    simulations: Optional[list[str]] = None
+
+
 class FetchModulesRequest(BaseModel):
     user_id: str
 
@@ -222,6 +230,13 @@ class CreateTrainingPlanRequest(BaseModel):
     training_plan_name: str
     tags: list[str]
     added_object: list[AddedObject]
+
+
+class UpdateTrainingPlanRequest(BaseModel):
+    user_id: str
+    training_plan_name: Optional[str] = None
+    tags: Optional[list[str]] = None
+    added_object: Optional[list[AddedObject]] = None
 
 
 class FetchTrainingPlansRequest(BaseModel):
@@ -262,6 +277,21 @@ class CreateAssignmentRequest(BaseModel):
     end_date: str
     team_id: List[Team]
     trainee_id: List[str] = []
+
+
+class CloneSimulationRequest(BaseModel):
+    user_id: str
+    simulation_id: str
+
+
+class CloneTrainingPlanRequest(BaseModel):
+    user_id: str
+    training_plan_id: str
+
+
+class CloneModuleRequest(BaseModel):
+    user_id: str
+    module_id: str
 
 
 class FetchAssignedPlansRequest(BaseModel):

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException
 from domain.services.training_plan_service import TrainingPlanService
-from api.schemas.requests import CreateTrainingPlanRequest, FetchTrainingPlansRequest
+from api.schemas.requests import CreateTrainingPlanRequest, FetchTrainingPlansRequest, CloneTrainingPlanRequest, UpdateTrainingPlanRequest
 from api.schemas.responses import CreateTrainingPlanResponse, FetchTrainingPlansResponse, TrainingPlanData
 
 
@@ -49,6 +49,24 @@ class TrainingPlanController:
                 detail=f"Training plan with id {training_plan_id} not found")
         return training_plan
 
+    async def clone_training_plan(self, request: CloneTrainingPlanRequest) -> CreateTrainingPlanResponse:
+        """Clone an existing training plan"""
+        if not request.user_id:
+            raise HTTPException(status_code=400, detail="Missing 'userId'")
+        if not request.training_plan_id:
+            raise HTTPException(status_code=400, detail="Missing 'trainingPlanId'")
+
+        result = await self.service.clone_training_plan(request)
+        return CreateTrainingPlanResponse(id=result["id"], status=result["status"])
+
+    async def update_training_plan(self, training_plan_id: str, request: UpdateTrainingPlanRequest) -> TrainingPlanData:
+        """Update an existing training plan"""
+        if not request.user_id:
+            raise HTTPException(status_code=400, detail="Missing 'userId'")
+
+        result = await self.service.update_training_plan(training_plan_id, request)
+        return result
+
 
 controller = TrainingPlanController()
 
@@ -57,6 +75,18 @@ controller = TrainingPlanController()
 async def create_training_plan(
         request: CreateTrainingPlanRequest) -> CreateTrainingPlanResponse:
     return await controller.create_training_plan(request)
+
+
+@router.post("/training-plans/clone", tags=["Training Plans", "Create"])
+async def clone_training_plan(request: CloneTrainingPlanRequest) -> CreateTrainingPlanResponse:
+    """Clone an existing training plan"""
+    return await controller.clone_training_plan(request)
+
+
+@router.put("/training-plans/{training_plan_id}/update", tags=["Training Plans", "Update"])
+async def update_training_plan(training_plan_id: str, request: UpdateTrainingPlanRequest) -> TrainingPlanData:
+    """Update an existing training plan"""
+    return await controller.update_training_plan(training_plan_id, request)
 
 
 @router.post("/training-plans/fetch", tags=["Training Plans", "Read"])

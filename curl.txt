@@ -60,6 +60,17 @@ curl -X POST \
 fetch one simulation
 curl -X GET "https://1d1af155-4b31-443e-b7f4-734bf003281a-00-6px8vaye8p33.pike.replit.dev/simulations/fetch/67f28addafcc2af2327f6d67"
 
+curl -X GET "https://1d1af155-4b31-443e-b7f4-734bf003281a-00-6px8vaye8p33.pike.replit.dev/simulations/fetch/67978cc544831733ed7d9edf"
+
+
+Clone Simulation
+curl -X POST 'https://1d1af155-4b31-443e-b7f4-734bf003281a-00-6px8vaye8p33.pike.repl.co/simulations/clone' \
+-H 'Content-Type: application/json' \
+-d '{
+    "user_id": "user123",
+    "simulation_id": "67978cc544831733ed7d9edf"
+}'
+
 
 curl -X GET "https://1d1af155-4b31-443e-b7f4-734bf003281a-00-6px8vaye8p33.pike.replit.dev/simulations/fetch/67ed9851afcc2af2327f6cfe"
 
@@ -88,6 +99,7 @@ curl -X GET "https://1d1af155-4b31-443e-b7f4-734bf003281a-00-6px8vaye8p33.pike.r
 fetch one module
 curl -X GET "https://1d1af155-4b31-443e-b7f4-734bf003281a-00-6px8vaye8p33.pike.replit.dev/modules/fetch/679fbdee5559cd7938101903"
 
+clone modules
 
   create training plans
 
@@ -127,7 +139,12 @@ curl -X GET "https://1d1af155-4b31-443e-b7f4-734bf003281a-00-6px8vaye8p33.pike.r
 fetch one training plan
 curl -X GET "https://1d1af155-4b31-443e-b7f4-734bf003281a-00-6px8vaye8p33.pike.replit.dev/training-plans/fetch/67d832cd28de0c9cb5f52d1d"
 
-
+curl -X POST 'https://1d1af155-4b31-443e-b7f4-734bf003281a-00-6px8vaye8p33.pike.repl.co/training-plans/clone' \
+-H 'Content-Type: application/json' \
+-d '{
+    "user_id": "user123",
+    "training_plan_id": "67f3de8c3c79d05221c05ed0"
+}'
 // Assignment
 
 Create Assignment

@@ -144,8 +144,7 @@ class ScriptConverterService:
                 "Convert the following text into a natural conversation between a user and an assistant. "
                 "Return the result as a JSON object with a 'script' array containing objects with 'role' and "
                 "'message' fields. The conversation should flow naturally and make sense. There are only two "
-                "roles 'Customer' and 'Trainee' in the conversation. The user is always the Customer and the "
-                "Trainee is always the assistant.")
+                "roles 'Customer' and 'Trainee' in the conversation. The conversation should mostly start with the Trainee. Something like, 'Thanks for calling, how can I help you today?'")
 
             # Add user content
             history.add_user_message(content)

@@ -12,7 +12,7 @@ from api.schemas.requests import (
     StartAudioSimulationRequest, StartChatSimulationRequest,
     EndAudioSimulationRequest, EndChatSimulationRequest,
     FetchSimulationsRequest, StartVisualAudioPreviewRequest,
-    StartVisualChatPreviewRequest, StartVisualPreviewRequest)
+    StartVisualChatPreviewRequest, StartVisualPreviewRequest, CloneSimulationRequest)
 from api.schemas.responses import (
     CreateSimulationResponse, UpdateSimulationResponse,
     StartAudioSimulationPreviewResponse, StartChatPreviewResponse,
@@ -60,6 +60,16 @@ class SimulationController:
                                             status=result["status"])
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
+            
+    async def clone_simulation(self, request: CloneSimulationRequest) -> CreateSimulationResponse:
+        """Clone an existing simulation"""
+        if not request.user_id:
+            raise HTTPException(status_code=400, detail="Missing 'userId'")
+        if not request.simulation_id:
+            raise HTTPException(status_code=400, detail="Missing 'simulationId'")
+
+        result = await self.service.clone_simulation(request)
+        return CreateSimulationResponse(id=result["id"], status=result["status"])
 
     async def update_simulation(
         self, sim_id: str, request: UpdateSimulationRequest,
@@ -684,3 +694,9 @@ async def create_simulation(
         request: CreateSimulationRequest) -> CreateSimulationResponse:
     """Create a new simulation"""
     return await controller.create_simulation(request)
+
+
+@router.post("/simulations/clone", tags=["Simulations", "Create"])
+async def clone_simulation(request: CloneSimulationRequest) -> CreateSimulationResponse:
+    """Clone an existing simulation"""
+    return await controller.clone_simulation(request)
