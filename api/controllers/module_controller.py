@@ -3,6 +3,10 @@ from domain.services.module_service import ModuleService
 from api.schemas.requests import CreateModuleRequest, FetchModulesRequest, CloneModuleRequest, UpdateModuleRequest
 from api.schemas.responses import CreateModuleResponse, FetchModulesResponse, ModuleData
 
+from utils.logger import Logger
+
+logger = Logger.get_logger(__name__)
+
 router = APIRouter()
 
 
@@ -10,57 +14,110 @@ class ModuleController:
 
     def __init__(self):
         self.service = ModuleService()
+        logger.info("ModuleController initialized.")
 
     async def create_module(
             self, request: CreateModuleRequest) -> CreateModuleResponse:
-        if not request.user_id:
-            raise HTTPException(status_code=400, detail="Missing 'userId'")
-        if not request.module_name:
-            raise HTTPException(status_code=400, detail="Missing 'moduleName'")
-        if not request.simulations:
-            raise HTTPException(status_code=400,
-                                detail="Missing 'simulations'")
+        logger.info("Request received to create a new module.")
+        logger.debug(f"Request data: {request.dict()}")
 
-        result = await self.service.create_module(request)
-        return CreateModuleResponse(id=result["id"], status=result["status"])
+        try:
+            if not request.user_id:
+                logger.warning("Missing 'userId' in create_module request.")
+                raise HTTPException(status_code=400, detail="Missing 'userId'")
+            if not request.module_name:
+                logger.warning(
+                    "Missing 'moduleName' in create_module request.")
+                raise HTTPException(status_code=400,
+                                    detail="Missing 'moduleName'")
+            if not request.simulations:
+                logger.warning(
+                    "Missing 'simulations' in create_module request.")
+                raise HTTPException(status_code=400,
+                                    detail="Missing 'simulations'")
+
+            result = await self.service.create_module(request)
+            logger.info(f"Module created with ID: {result['id']}")
+            return CreateModuleResponse(id=result["id"],
+                                        status=result["status"])
+        except Exception as e:
+            logger.error(f"Error creating module: {str(e)}", exc_info=True)
+            raise
 
     async def fetch_modules(
             self, request: FetchModulesRequest) -> FetchModulesResponse:
-        if not request.user_id:
-            raise HTTPException(status_code=400, detail="Missing 'userId'")
+        logger.info(f"Fetching modules for user_id: {request.user_id}")
+        try:
+            if not request.user_id:
+                logger.warning("Missing 'userId' in fetch_modules request.")
+                raise HTTPException(status_code=400, detail="Missing 'userId'")
 
-        modules = await self.service.fetch_modules(request.user_id)
-        return FetchModulesResponse(modules=modules)
+            modules = await self.service.fetch_modules(request.user_id)
+            logger.info(f"Fetched {len(modules)} modules.")
+            return FetchModulesResponse(modules=modules)
+        except Exception as e:
+            logger.error(f"Error fetching modules: {str(e)}", exc_info=True)
+            raise
 
     async def get_module_by_id(self, module_id: str) -> ModuleData:
-        """Get a single module by ID"""
-        if not module_id:
-            raise HTTPException(status_code=400, detail="Missing 'id'")
+        logger.info(f"Fetching module by ID: {module_id}")
+        try:
+            if not module_id:
+                logger.warning("Missing 'id' in get_module_by_id request.")
+                raise HTTPException(status_code=400, detail="Missing 'id'")
 
-        module = await self.service.get_module_by_id(module_id)
-        if not module:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Module with id {module_id} not found")
-        return module
+            module = await self.service.get_module_by_id(module_id)
+            if not module:
+                logger.warning(f"Module with ID {module_id} not found.")
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Module with id {module_id} not found")
 
-    async def clone_module(self, request: CloneModuleRequest) -> CreateModuleResponse:
-        """Clone an existing module"""
-        if not request.user_id:
-            raise HTTPException(status_code=400, detail="Missing 'userId'")
-        if not request.module_id:
-            raise HTTPException(status_code=400, detail="Missing 'moduleId'")
+            logger.info(f"Module with ID {module_id} fetched successfully.")
+            return module
+        except Exception as e:
+            logger.error(f"Error fetching module by ID: {str(e)}",
+                         exc_info=True)
+            raise
 
-        result = await self.service.clone_module(request)
-        return CreateModuleResponse(id=result["id"], status=result["status"])
+    async def clone_module(
+            self, request: CloneModuleRequest) -> CreateModuleResponse:
+        logger.info("Cloning module.")
+        logger.debug(f"Clone request data: {request.dict()}")
 
-    async def update_module(self, module_id: str, request: UpdateModuleRequest) -> ModuleData:
-        """Update an existing module"""
-        if not request.user_id:
-            raise HTTPException(status_code=400, detail="Missing 'userId'")
+        try:
+            if not request.user_id:
+                logger.warning("Missing 'userId' in clone_module request.")
+                raise HTTPException(status_code=400, detail="Missing 'userId'")
+            if not request.module_id:
+                logger.warning("Missing 'moduleId' in clone_module request.")
+                raise HTTPException(status_code=400,
+                                    detail="Missing 'moduleId'")
 
-        result = await self.service.update_module(module_id, request)
-        return result
+            result = await self.service.clone_module(request)
+            logger.info(f"Module cloned. New ID: {result['id']}")
+            return CreateModuleResponse(id=result["id"],
+                                        status=result["status"])
+        except Exception as e:
+            logger.error(f"Error cloning module: {str(e)}", exc_info=True)
+            raise
+
+    async def update_module(self, module_id: str,
+                            request: UpdateModuleRequest) -> ModuleData:
+        logger.info(f"Updating module with ID: {module_id}")
+        logger.debug(f"Update request: {request.dict()}")
+
+        try:
+            if not request.user_id:
+                logger.warning("Missing 'userId' in update_module request.")
+                raise HTTPException(status_code=400, detail="Missing 'userId'")
+
+            result = await self.service.update_module(module_id, request)
+            logger.info(f"Module {module_id} updated successfully.")
+            return result
+        except Exception as e:
+            logger.error(f"Error updating module: {str(e)}", exc_info=True)
+            raise
 
 
 controller = ModuleController()
@@ -78,7 +135,8 @@ async def clone_module(request: CloneModuleRequest) -> CreateModuleResponse:
 
 
 @router.put("/modules/{module_id}/update", tags=["Modules", "Update"])
-async def update_module(module_id: str, request: UpdateModuleRequest) -> ModuleData:
+async def update_module(module_id: str,
+                        request: UpdateModuleRequest) -> ModuleData:
     """Update an existing module"""
     return await controller.update_module(module_id, request)
 

@@ -8,7 +8,9 @@ import traceback
 from config import (AZURE_OPENAI_DEPLOYMENT_NAME, AZURE_OPENAI_KEY,
                     AZURE_OPENAI_BASE_URL, RETELL_API_KEY)
 from infrastructure.database import Database
-from api.schemas.requests import CreateSimulationRequest, UpdateSimulationRequest, CloneSimulationRequest
+from api.schemas.requests import (CreateSimulationRequest,
+                                  UpdateSimulationRequest,
+                                  CloneSimulationRequest)
 from api.schemas.responses import SimulationByIDResponse, SimulationData
 from fastapi import HTTPException, UploadFile
 from semantic_kernel import Kernel
@@ -18,42 +20,86 @@ from semantic_kernel.contents.chat_history import ChatHistory
 from semantic_kernel.connectors.ai.open_ai.prompt_execution_settings.azure_chat_prompt_execution_settings import (
     AzureChatPromptExecutionSettings, )
 
-from api.schemas.responses import StartVisualAudioPreviewResponse, StartVisualChatPreviewResponse, StartVisualPreviewResponse, SimulationData, SimulationByIDResponse
+from api.schemas.responses import (StartVisualAudioPreviewResponse,
+                                   StartVisualChatPreviewResponse,
+                                   StartVisualPreviewResponse, SimulationData,
+                                   SimulationByIDResponse)
 from bson import ObjectId
+
+from utils.logger import Logger
+
+# Add after imports
+logger = Logger.get_logger(__name__)
 
 
 class SimulationService:
 
-    def __init__(self):
-        self.db = Database()
+    # def __init__(self):
+    #     self.db = Database()
+    #     # Initialize Azure OpenAI chat completion
+    #     self.kernel = Kernel()
+    #     self.chat_completion = AzureChatCompletion(
+    #         service_id="azure_gpt4",
+    #         deployment_name=AZURE_OPENAI_DEPLOYMENT_NAME,
+    #         endpoint=AZURE_OPENAI_BASE_URL,
+    #         api_key=AZURE_OPENAI_KEY)
+    #     self.kernel.add_service(self.chat_completion)
+    #     self.execution_settings = AzureChatPromptExecutionSettings(
+    #         service_id="azure_gpt4",
+    #         ai_model_id=AZURE_OPENAI_DEPLOYMENT_NAME,
+    #         temperature=0.1,
+    #         top_p=1.0,
+    #         max_tokens=4096)
 
-        # Initialize Azure OpenAI chat completion
-        self.kernel = Kernel()
-        self.chat_completion = AzureChatCompletion(
-            service_id="azure_gpt4",
-            deployment_name=AZURE_OPENAI_DEPLOYMENT_NAME,
-            endpoint=AZURE_OPENAI_BASE_URL,
-            api_key=AZURE_OPENAI_KEY)
-        self.kernel.add_service(self.chat_completion)
-        self.execution_settings = AzureChatPromptExecutionSettings(
-            service_id="azure_gpt4",
-            ai_model_id=AZURE_OPENAI_DEPLOYMENT_NAME,
-            temperature=0.1,
-            top_p=1.0,
-            max_tokens=4096)
+    def __init__(self):
+        logger.info("Initializing SimulationService...")
+
+        try:
+            logger.debug("Connecting to database...")
+            self.db = Database()
+            logger.info("Database initialized successfully.")
+        except Exception as e:
+            logger.error("Failed to initialize database.")
+            logger.exception(e)
+
+        try:
+            logger.debug("Initializing Semantic Kernel...")
+            self.kernel = Kernel()
+
+            logger.debug("Setting up AzureChatCompletion service...")
+            self.chat_completion = AzureChatCompletion(
+                service_id="azure_gpt4",
+                deployment_name=AZURE_OPENAI_DEPLOYMENT_NAME,
+                endpoint=AZURE_OPENAI_BASE_URL,
+                api_key=AZURE_OPENAI_KEY)
+
+            logger.debug("Adding AzureChatCompletion to Kernel...")
+            self.kernel.add_service(self.chat_completion)
+            logger.info("AzureChatCompletion added to Kernel successfully.")
+
+            logger.debug("Configuring execution settings...")
+            self.execution_settings = AzureChatPromptExecutionSettings(
+                service_id="azure_gpt4",
+                ai_model_id=AZURE_OPENAI_DEPLOYMENT_NAME,
+                temperature=0.1,
+                top_p=1.0,
+                max_tokens=4096)
+            logger.info("Execution settings configured successfully.")
+
+        except Exception as e:
+            logger.error(
+                "Error during Semantic Kernel or AzureChatCompletion setup.")
+            logger.exception(e)
+
+        logger.info("SimulationService initialized.")
 
     async def _store_slide_file(self, slide_data: dict,
                                 file: UploadFile) -> dict:
         """Store slide file in MongoDB and return updated slide data"""
+        logger.info("Storing slide file in MongoDB.")
+        logger.debug(f"Slide data: {slide_data}, File: {file.filename}")
         try:
-            print(
-                f"DEBUG: Attempting to store slide file for slide with imageId: {slide_data.get('imageId')}"
-            )
             file_bytes = await file.read()
-            print(
-                f"DEBUG: Read {len(file_bytes)} bytes from file '{file.filename}'"
-            )
-
             # Build the document to insert
             image_doc = {
                 "imageId": slide_data["imageId"],
@@ -62,11 +108,14 @@ class SimulationService:
                 "data": file_bytes,
                 "uploadedAt": datetime.utcnow()
             }
-            print("DEBUG: Inserting image document into MongoDB:", image_doc)
+
+            logger.debug(f"Image doc being inserted: {image_doc}")
 
             # Insert into the images collection
             result = await self.db.images.insert_one(image_doc)
-            print("DEBUG: Image inserted with id:", result.inserted_id)
+
+            logger.info(
+                f"Image inserted successfully, id={result.inserted_id}")
 
             # Build the image URL
             image_url = f"/api/images/{result.inserted_id}"
@@ -77,14 +126,15 @@ class SimulationService:
             return slide_data_copy
 
         except Exception as e:
-            print("DEBUG: Exception in _store_slide_file:")
-            traceback.print_exc(
-            )  # Print full traceback to help diagnose the error
+            logger.error(f"Error in _store_slide_file: {str(e)}",
+                         exc_info=True)
             raise HTTPException(status_code=500,
                                 detail=f"Error storing slide file: {str(e)}")
 
     async def _store_slide_image(self, slide_data: dict) -> dict:
         """Store image data in MongoDB and return updated slide data"""
+        logger.info("Storing slide image in MongoDB.")
+        logger.debug(f"Slide data: {slide_data}")
         if not slide_data.get("imageData"):
             return slide_data
 
@@ -111,18 +161,22 @@ class SimulationService:
             slide_data_copy = slide_data.copy()
             slide_data_copy["imageUrl"] = image_url
             if "imageData" in slide_data_copy:
-                del slide_data_copy[
-                    "imageData"]  # Remove the image data after storing
+                del slide_data_copy["imageData"]
 
+            logger.info(
+                f"Slide image stored successfully, id={result.inserted_id}")
             return slide_data_copy
 
         except Exception as e:
+            logger.error(f"Error storing image data: {str(e)}", exc_info=True)
             raise HTTPException(status_code=500,
                                 detail=f"Error storing image: {str(e)}")
 
     async def create_simulation(self,
                                 request: CreateSimulationRequest) -> Dict:
         """Create a new simulation"""
+        logger.info(f"Creating new simulation for user: {request.user_id}")
+        logger.debug(f"CreateSimulationRequest data: {request.dict()}")
         try:
             # Create simulation document
             simulation_doc = {
@@ -141,14 +195,22 @@ class SimulationService:
 
             # Insert into database
             result = await self.db.simulations.insert_one(simulation_doc)
+            logger.info(
+                f"Successfully created simulation with ID: {result.inserted_id}"
+            )
             return {"id": str(result.inserted_id), "status": "success"}
 
         except Exception as e:
+            logger.error(f"Error creating simulation: {str(e)}", exc_info=True)
             raise HTTPException(status_code=500,
                                 detail=f"Error creating simulation: {str(e)}")
 
     async def clone_simulation(self, request: CloneSimulationRequest) -> Dict:
         """Clone an existing simulation"""
+        logger.info(
+            f"Cloning simulation for user: {request.user_id}, sim_id={request.simulation_id}"
+        )
+        logger.debug(f"CloneSimulationRequest data: {request.dict()}")
         try:
             # Get existing simulation
             sim_id_object = ObjectId(request.simulation_id)
@@ -156,18 +218,17 @@ class SimulationService:
                 {"_id": sim_id_object})
 
             if not existing_sim:
+                logger.warning(
+                    f"Simulation {request.simulation_id} not found for cloning."
+                )
                 raise HTTPException(
                     status_code=404,
                     detail=
                     f"Simulation with id {request.simulation_id} not found")
 
-            # Create new simulation document with data from existing one
             new_sim = existing_sim.copy()
-
-            # Remove _id so a new one will be generated
             new_sim.pop("_id")
 
-            # Update metadata
             new_sim["name"] = f"{existing_sim['name']} (Copy)"
             new_sim["createdBy"] = request.user_id
             new_sim["createdOn"] = datetime.utcnow()
@@ -175,14 +236,18 @@ class SimulationService:
             new_sim["lastModified"] = datetime.utcnow()
             new_sim["status"] = "draft"
 
-            # Insert new simulation
             result = await self.db.simulations.insert_one(new_sim)
-
+            logger.info(
+                f"Simulation cloned successfully. New ID: {result.inserted_id}"
+            )
             return {"id": str(result.inserted_id), "status": "success"}
 
         except HTTPException as he:
+            logger.error(f"HTTPException in clone_simulation: {he.detail}",
+                         exc_info=True)
             raise he
         except Exception as e:
+            logger.error(f"Error cloning simulation: {str(e)}", exc_info=True)
             raise HTTPException(status_code=500,
                                 detail=f"Error cloning simulation: {str(e)}")
 
@@ -193,6 +258,11 @@ class SimulationService:
         slides_files: Dict[str, UploadFile] = None,
     ) -> Dict:
         """Update an existing simulation (service)."""
+        logger.info(
+            f"Updating simulation {sim_id} for user: {request.user_id}")
+        logger.debug(
+            f"UpdateSimulationRequest data: {request.dict()}, slides_files keys={list(slides_files.keys()) if slides_files else 'No Files'}"
+        )
         try:
             from bson import ObjectId
 
@@ -200,20 +270,19 @@ class SimulationService:
             existing_sim = await self.db.simulations.find_one(
                 {"_id": sim_id_object})
             if not existing_sim:
+                logger.warning(f"Simulation {sim_id} not found during update.")
                 raise HTTPException(
                     status_code=404,
                     detail=f"Simulation with id {sim_id} not found")
 
-            # Build update_doc
             update_doc = {}
 
-            # Helper to add fields if they exist
-            def add_if_exists(field_name: str, doc_field: str | None = None):
+            def add_if_exists(field_name: str,
+                              doc_field: Optional[str] = None):
                 value = getattr(request, field_name)
                 if value is not None:
                     update_doc[doc_field or field_name] = value
 
-            # Field mappings from request -> doc
             field_mappings = {
                 "name": "name",
                 "division_id": "divisionId",
@@ -243,46 +312,36 @@ class SimulationService:
             for field, doc_field in field_mappings.items():
                 add_if_exists(field, doc_field)
 
-            # Determine final sim type (existing or from request)
             sim_type = request.type if request.type else existing_sim.get(
                 "type")
 
-            # Handle script/prompt generation for audio/chat
             if request.script is not None:
+                logger.debug("Updating script.")
                 update_doc["script"] = [s.dict() for s in request.script]
                 if sim_type in ["audio", "chat"]:
                     prompt = await self._generate_simulation_prompt(
                         request.script)
                     update_doc["prompt"] = prompt
 
-            # Modified section for slidesData processing
             if request.slidesData is not None and sim_type in [
-                    "visual-audio",
-                    "visual-chat",
-                    "visual",
+                    "visual-audio", "visual-chat", "visual"
             ]:
                 processed_slides = []
+                logger.debug("Processing slidesData for visual simulation.")
 
-                # Make sure we have some files to process
                 if slides_files and len(slides_files) > 0:
                     for slide in request.slidesData:
                         slide_dict = slide.dict()
-                        # Remove base64 so we rely on the actual file upload
                         slide_dict.pop("imageData", None)
-
-                        # Check if we have a file for this slide's imageId
                         image_id = slide_dict.get("imageId")
                         if image_id in slides_files:
-                            # Process the updated file
                             file_obj = slides_files[image_id]
                             processed_slide = await self._store_slide_file(
                                 slide_dict, file_obj)
                             processed_slides.append(processed_slide)
                         else:
-                            # No file update for this slide, just use the existing data
                             processed_slides.append(slide_dict)
                 else:
-                    # No files to update, just use the slidesData as is
                     processed_slides = [
                         slide.dict() for slide in request.slidesData
                     ]
@@ -292,6 +351,7 @@ class SimulationService:
                 update_doc["slidesData"] = processed_slides
 
             if request.lvl1 is not None:
+                logger.debug("Updating lvl1 configuration.")
                 update_doc["lvl1"] = {
                     "isEnabled":
                     request.lvl1.is_enabled,
@@ -316,6 +376,7 @@ class SimulationService:
                 }
 
             if request.lvl2 is not None:
+                logger.debug("Updating lvl2 configuration.")
                 update_doc["lvl2"] = {
                     "isEnabled":
                     request.lvl2.is_enabled,
@@ -340,6 +401,7 @@ class SimulationService:
                 }
 
             if request.lvl3 is not None:
+                logger.debug("Updating lvl3 configuration.")
                 update_doc["lvl3"] = {
                     "isEnabled":
                     request.lvl3.is_enabled,
@@ -363,8 +425,8 @@ class SimulationService:
                     request.lvl3.ai_powered_pauses_and_feedback,
                 }
 
-            # Handle simulation_scoring_metrics
             if request.simulation_scoring_metrics is not None:
+                logger.debug("Updating simulation scoring metrics.")
                 update_doc["simulationScoringMetrics"] = {
                     "isEnabled": request.simulation_scoring_metrics.is_enabled,
                     "keywordScore":
@@ -373,8 +435,8 @@ class SimulationService:
                     request.simulation_scoring_metrics.click_score,
                 }
 
-            # Handle sim_practice
             if request.sim_practice is not None:
+                logger.debug("Updating sim practice configuration.")
                 update_doc["simPractice"] = {
                     "isUnlimited": request.sim_practice.is_unlimited,
                     "preRequisiteLimit":
@@ -388,16 +450,18 @@ class SimulationService:
             update_doc[
                 "finalSimulationScoreCriteria"] = request.final_simulation_score_criteria
 
-            # Handle voice settings for audio
             if sim_type == "audio":
                 if request.voice_id is not None:
+                    logger.debug(f"Setting voice_id to {request.voice_id}")
                     update_doc["voiceId"] = request.voice_id
 
                 if request.voice_speed is not None:
+                    logger.debug(
+                        f"Setting voice_speed to {request.voice_speed}")
                     update_doc["voice_speed"] = request.voice_speed
 
-                # If prompt is updated, recreate LLM + Agent
                 if "prompt" in update_doc:
+                    logger.debug("Creating Retell LLM due to updated prompt.")
                     llm_response = await self._create_retell_llm(
                         update_doc["prompt"])
                     update_doc["llmId"] = llm_response["llm_id"]
@@ -407,23 +471,24 @@ class SimulationService:
                         llm_response["llm_id"], agent_voice_id)
                     update_doc["agentId"] = agent_response["agent_id"]
 
-            # lastModified & lastModifiedBy
             update_doc["lastModified"] = datetime.utcnow()
             update_doc["lastModifiedBy"] = request.user_id
 
-            # Perform the DB update
+            logger.debug(
+                f"Final update document for simulation {sim_id}: {update_doc}")
             result = await self.db.simulations.update_one(
                 {"_id": sim_id_object}, {"$set": update_doc})
 
             if result.modified_count == 0:
+                logger.error(
+                    "Failed to update simulation; no documents modified.")
                 raise HTTPException(status_code=500,
                                     detail="Failed to update simulation")
 
-            # Fetch the updated document
             updated_simulation = await self.db.simulations.find_one(
                 {"_id": sim_id_object})
             updated_simulation["_id"] = str(updated_simulation["_id"])
-
+            logger.info(f"Simulation {sim_id} updated successfully.")
             return {
                 "id": sim_id,
                 "status": "success",
@@ -431,25 +496,30 @@ class SimulationService:
             }
 
         except HTTPException as he:
+            logger.error(f"HTTPException in update_simulation: {he.detail}",
+                         exc_info=True)
             raise he
         except Exception as e:
+            logger.error(f"Error updating simulation: {str(e)}", exc_info=True)
             raise HTTPException(status_code=500,
                                 detail=f"Error updating simulation: {str(e)}")
 
     async def start_visual_audio_preview(
             self, sim_id: str,
             user_id: str) -> StartVisualAudioPreviewResponse:
+        logger.info(f"Starting visual-audio preview for simulation {sim_id}")
         try:
             sim_id_object = ObjectId(sim_id)
 
             simulation_doc = await self.db.simulations.find_one(
                 {"_id": sim_id_object})
             if not simulation_doc:
+                logger.warning(
+                    f"Simulation {sim_id} not found for visual-audio preview.")
                 raise HTTPException(
                     status_code=404,
                     detail=f"Simulation with id {sim_id} not found")
 
-            # 🧠 Normalize fields for Pydantic model
             simulation = SimulationData(
                 id=str(simulation_doc["_id"]),
                 sim_name=simulation_doc.get("name", ""),
@@ -475,7 +545,6 @@ class SimulationService:
                 lvl3=simulation_doc.get("lvl3", {}),
                 slidesData=simulation_doc.get("slidesData", []))
 
-            # 🖼️ Collect any referenced images from slides
             images = []
             if simulation_doc.get("slidesData"):
                 for slide in simulation_doc["slidesData"]:
@@ -493,33 +562,42 @@ class SimulationService:
                                         image_doc["data"]).decode("utf-8")
                                 })
                         except Exception as image_err:
-                            print(
-                                f"⚠️ Failed to load image for slide: {image_err}"
-                            )
+                            logger.warning(
+                                f"Failed to load image for slide: {image_err}")
 
+            logger.info(
+                f"Visual-audio preview for sim {sim_id} prepared successfully."
+            )
             return StartVisualAudioPreviewResponse(simulation=simulation,
                                                    images=images)
 
         except HTTPException as he:
+            logger.error(
+                f"HTTPException in start_visual_audio_preview: {he.detail}",
+                exc_info=True)
             raise he
         except Exception as e:
+            logger.error(f"Error starting visual-audio preview: {str(e)}",
+                         exc_info=True)
             raise HTTPException(
                 status_code=500,
                 detail=f"Error starting visual-audio preview: {str(e)}")
 
     async def start_visual_chat_preview(
             self, sim_id: str, user_id: str) -> StartVisualChatPreviewResponse:
+        logger.info(f"Starting visual-chat preview for simulation {sim_id}")
         try:
             sim_id_object = ObjectId(sim_id)
 
             simulation_doc = await self.db.simulations.find_one(
                 {"_id": sim_id_object})
             if not simulation_doc:
+                logger.warning(
+                    f"Simulation {sim_id} not found for visual-chat preview.")
                 raise HTTPException(
                     status_code=404,
                     detail=f"Simulation with id {sim_id} not found")
 
-            # 🧠 Normalize fields for Pydantic model
             simulation = SimulationData(
                 id=str(simulation_doc["_id"]),
                 sim_name=simulation_doc.get("name", ""),
@@ -544,7 +622,6 @@ class SimulationService:
                 lvl3=simulation_doc.get("lvl3", {}),
                 slidesData=simulation_doc.get("slidesData", []))
 
-            # 🖼️ Collect any referenced images from slides
             images = []
             if simulation_doc.get("slidesData"):
                 for slide in simulation_doc["slidesData"]:
@@ -562,33 +639,41 @@ class SimulationService:
                                         image_doc["data"]).decode("utf-8")
                                 })
                         except Exception as image_err:
-                            print(
-                                f"⚠️ Failed to load image for slide: {image_err}"
-                            )
+                            logger.warning(
+                                f"Failed to load image for slide: {image_err}")
 
+            logger.info(
+                f"Visual-chat preview for sim {sim_id} prepared successfully.")
             return StartVisualChatPreviewResponse(simulation=simulation,
                                                   images=images)
 
         except HTTPException as he:
+            logger.error(
+                f"HTTPException in start_visual_chat_preview: {he.detail}",
+                exc_info=True)
             raise he
         except Exception as e:
+            logger.error(f"Error starting visual-chat preview: {str(e)}",
+                         exc_info=True)
             raise HTTPException(
                 status_code=500,
                 detail=f"Error starting visual-chat preview: {str(e)}")
 
     async def start_visual_preview(self, sim_id: str,
                                    user_id: str) -> StartVisualPreviewResponse:
+        logger.info(f"Starting visual preview for simulation {sim_id}")
         try:
             sim_id_object = ObjectId(sim_id)
 
             simulation_doc = await self.db.simulations.find_one(
                 {"_id": sim_id_object})
             if not simulation_doc:
+                logger.warning(
+                    f"Simulation {sim_id} not found for visual preview.")
                 raise HTTPException(
                     status_code=404,
                     detail=f"Simulation with id {sim_id} not found")
 
-            # 🧠 Normalize fields for Pydantic model
             simulation = SimulationData(
                 id=str(simulation_doc["_id"]),
                 sim_name=simulation_doc.get("name", ""),
@@ -613,7 +698,6 @@ class SimulationService:
                 lvl3=simulation_doc.get("lvl3", {}),
                 slidesData=simulation_doc.get("slidesData", []))
 
-            # 🖼️ Collect any referenced images from slides
             images = []
             if simulation_doc.get("slidesData"):
                 for slide in simulation_doc["slidesData"]:
@@ -631,22 +715,29 @@ class SimulationService:
                                         image_doc["data"]).decode("utf-8")
                                 })
                         except Exception as image_err:
-                            print(
-                                f"⚠️ Failed to load image for slide: {image_err}"
-                            )
+                            logger.warning(
+                                f"Failed to load image for slide: {image_err}")
 
+            logger.info(
+                f"Visual preview for sim {sim_id} prepared successfully.")
             return StartVisualPreviewResponse(simulation=simulation,
                                               images=images)
 
         except HTTPException as he:
+            logger.error(f"HTTPException in start_visual_preview: {he.detail}",
+                         exc_info=True)
             raise he
         except Exception as e:
+            logger.error(f"Error starting visual preview: {str(e)}",
+                         exc_info=True)
             raise HTTPException(
                 status_code=500,
                 detail=f"Error starting visual preview: {str(e)}")
 
     async def _create_retell_llm(self, prompt: str) -> Dict:
         """Create a new Retell LLM"""
+        logger.info("Creating Retell LLM.")
+        logger.debug(f"Prompt: {prompt[:100]}...")  # Show first 100 chars
         try:
             async with aiohttp.ClientSession() as session:
                 headers = {
@@ -661,18 +752,26 @@ class SimulationService:
                         headers=headers,
                         json=data) as response:
                     if response.status != 201:
+                        logger.error(
+                            f"Failed to create Retell LLM. Status: {response.status}"
+                        )
                         raise HTTPException(
                             status_code=response.status,
                             detail="Failed to create Retell LLM")
 
-                    return await response.json()
+                    resp_json = await response.json()
+                    logger.info("Retell LLM created successfully.")
+                    return resp_json
 
         except Exception as e:
+            logger.error(f"Error creating Retell LLM: {str(e)}", exc_info=True)
             raise HTTPException(status_code=500,
                                 detail=f"Error creating Retell LLM: {str(e)}")
 
     async def _create_retell_agent(self, llm_id: str, voice_id: str) -> Dict:
         """Create a new Retell Agent"""
+        logger.info("Creating Retell Agent.")
+        logger.debug(f"LLM ID: {llm_id}, Voice ID: {voice_id}")
         try:
             async with aiohttp.ClientSession() as session:
                 headers = {
@@ -693,24 +792,31 @@ class SimulationService:
                         headers=headers,
                         json=data) as response:
                     if response.status != 201:
+                        logger.error(
+                            f"Failed to create Retell Agent. Status: {response.status}"
+                        )
                         raise HTTPException(
                             status_code=response.status,
                             detail="Failed to create Retell Agent")
 
-                    return await response.json()
+                    resp_json = await response.json()
+                    logger.info("Retell Agent created successfully.")
+                    return resp_json
 
         except Exception as e:
+            logger.error(f"Error creating Retell Agent: {str(e)}",
+                         exc_info=True)
             raise HTTPException(
                 status_code=500,
                 detail=f"Error creating Retell Agent: {str(e)}")
 
     async def _generate_simulation_prompt(self, script: List[Dict]) -> str:
         """Generate simulation prompt using Azure OpenAI"""
+        logger.info("Generating simulation prompt from script.")
+        logger.debug(f"Script length: {len(script)} items.")
         try:
             history = ChatHistory()
-            print(history)
 
-            # First, add the system prompt
             system_message = (
                 "Create a detailed prompt for an AI agent. You will be given a script of a dialog between a customer "
                 "and a customer service agent. You need to create a prompt so that the AI should play the role of the customer. "
@@ -719,27 +825,19 @@ class SimulationService:
                 "then the AI should invent details and answer smartly.")
             history.add_system_message(system_message)
 
-            # Then, add the user message with the conversation script
             conversation = "\n".join(
-                [f"{s.role}: {s.script_sentence}" for s in script])
+                [f"{s['role']}: {s['script_sentence']}" for s in script])
             inputprompt = f"Script: {conversation}"
-
-            print("input", inputprompt)
-
-            # Add user content
             history.add_user_message(inputprompt)
 
-            print("input prompt pushed")
-
-            # Get response from Azure OpenAI
             result = await self.chat_completion.get_chat_message_content(
                 history, settings=self.execution_settings)
-
-            print("result", result)
-
+            logger.info("Simulation prompt generated successfully.")
             return str(result)
 
         except Exception as e:
+            logger.error(f"Error generating simulation prompt: {str(e)}",
+                         exc_info=True)
             raise HTTPException(
                 status_code=500,
                 detail=f"Error generating simulation prompt: {str(e)}")
@@ -747,39 +845,50 @@ class SimulationService:
     async def start_audio_simulation_preview(self, sim_id: str,
                                              user_id: str) -> Dict:
         """Start an audio simulation preview"""
+        logger.info(
+            f"Starting audio simulation preview for sim_id={sim_id}, user_id={user_id}"
+        )
         try:
-            # Convert string ID to ObjectId
             sim_id_object = ObjectId(sim_id)
-
-            # Get simulation
             simulation = await self.db.simulations.find_one(
                 {"_id": sim_id_object})
             if not simulation:
+                logger.warning(
+                    f"Simulation {sim_id} not found for audio preview.")
                 raise HTTPException(
                     status_code=404,
                     detail=f"Simulation with id {sim_id} not found")
 
-            # Get agent_id
             agent_id = simulation.get("agentId")
             if not agent_id:
+                logger.warning(
+                    "Simulation does not have an agent configured for audio preview."
+                )
                 raise HTTPException(
                     status_code=400,
                     detail="Simulation does not have an agent configured")
 
-            # Create web call
             web_call = await self._create_web_call(agent_id)
-
+            logger.info(
+                f"Audio simulation preview created. Access token: {web_call['access_token']}"
+            )
             return {"access_token": web_call["access_token"]}
 
         except HTTPException as he:
+            logger.error(
+                f"HTTPException in start_audio_simulation_preview: {he.detail}",
+                exc_info=True)
             raise he
         except Exception as e:
+            logger.error(f"Error starting audio simulation preview: {str(e)}",
+                         exc_info=True)
             raise HTTPException(
                 status_code=500,
                 detail=f"Error starting audio simulation preview: {str(e)}")
 
     async def _create_web_call(self, agent_id: str) -> Dict:
         """Create a web call using Retell API"""
+        logger.info(f"Creating web call for agent_id={agent_id}")
         try:
             async with aiohttp.ClientSession() as session:
                 headers = {
@@ -794,17 +903,24 @@ class SimulationService:
                         headers=headers,
                         json=data) as response:
                     if response.status != 201:
+                        logger.error(
+                            f"Failed to create web call. Status: {response.status}"
+                        )
                         raise HTTPException(status_code=response.status,
                                             detail="Failed to create web call")
 
-                    return await response.json()
+                    resp_json = await response.json()
+                    logger.info("Web call created successfully.")
+                    return resp_json
 
         except Exception as e:
+            logger.error(f"Error creating web call: {str(e)}", exc_info=True)
             raise HTTPException(status_code=500,
                                 detail=f"Error creating web call: {str(e)}")
 
     async def fetch_simulations(self, user_id: str) -> List[SimulationData]:
         """Fetch all simulations"""
+        logger.info(f"Fetching all simulations for user_id={user_id}")
         try:
             cursor = self.db.simulations.find({})
             simulations = []
@@ -834,65 +950,30 @@ class SimulationService:
                     slidesData=doc.get("slidesData", None))
                 simulations.append(simulation)
 
+            logger.info(f"Total simulations fetched: {len(simulations)}")
             return simulations
 
         except Exception as e:
+            logger.error(f"Error fetching simulations: {str(e)}",
+                         exc_info=True)
             raise HTTPException(status_code=500,
                                 detail=f"Error fetching simulations: {str(e)}")
 
-    # async def get_simulation_by_id(
-    #         self, simulation_id: str) -> Optional[SimulationData]:
-    #     """Fetch a single simulation by ID"""
-    #     try:
-    #         # Convert string ID to ObjectId
-    #         simulation_id_object = ObjectId(simulation_id)
-
-    #         # Find the simulation
-    #         doc = await self.db.simulations.find_one(
-    #             {"_id": simulation_id_object})
-
-    #         if not doc:
-    #             return None
-
-    #         return SimulationData(
-    #             id=str(doc["_id"]),
-    #             sim_name=doc.get("name", ""),
-    #             version=str(doc.get("version", "1")),
-    #             lvl1=doc.get("lvl1", {}),
-    #             lvl2=doc.get("lvl2", {}),
-    #             lvl3=doc.get("lvl3", {}),
-    #             sim_type=doc.get("type", ""),
-    #             status=doc.get("status", ""),
-    #             tags=doc.get("tags", []),
-    #             est_time=str(doc.get("estimatedTimeToAttemptInMins", "")),
-    #             last_modified=doc.get("lastModified",
-    #                                   datetime.utcnow()).isoformat(),
-    #             modified_by=doc.get("lastModifiedBy", ""),
-    #             created_on=doc.get("createdOn", datetime.utcnow()).isoformat(),
-    #             created_by=doc.get("createdBy", ""),
-    #             islocked=doc.get("isLocked", False),
-    #             division_id=doc.get("divisionId", ""),
-    #             department_id=doc.get("departmentId", ""),
-    #             script=doc.get("script", None),
-    #             slidesData=doc.get("slidesData", None))
-
-    #     except Exception as e:
-    #         raise HTTPException(status_code=500,
-    #                             detail=f"Error fetching simulation: {str(e)}")
-
     async def get_simulation_by_id(self,
                                    sim_id: str) -> SimulationByIDResponse:
+        logger.info(f"Fetching simulation by ID: {sim_id}")
         try:
             sim_id_object = ObjectId(sim_id)
 
             simulation_doc = await self.db.simulations.find_one(
                 {"_id": sim_id_object})
             if not simulation_doc:
+                logger.warning(
+                    f"Simulation {sim_id} not found when fetching by ID.")
                 raise HTTPException(
                     status_code=404,
                     detail=f"Simulation with id {sim_id} not found")
 
-            # 🧠 Normalize fields for Pydantic model
             simulation = SimulationData(
                 id=str(simulation_doc["_id"]),
                 sim_name=simulation_doc.get("name", ""),
@@ -931,7 +1012,6 @@ class SimulationService:
                 sim_practice=simulation_doc.get("simPractice", {}),
                 prompt=simulation_doc.get("prompt", ""))
 
-            # 🖼️ Collect any referenced images from slides
             images = []
             if simulation_doc.get("slidesData"):
                 for slide in simulation_doc["slidesData"]:
@@ -949,15 +1029,19 @@ class SimulationService:
                                         image_doc["data"]).decode("utf-8")
                                 })
                         except Exception as image_err:
-                            print(
-                                f"⚠️ Failed to load image for slide: {image_err}"
-                            )
+                            logger.warning(
+                                f"Failed to load image for slide: {image_err}")
 
+            logger.info(f"Simulation {sim_id} fetched successfully.")
             return SimulationByIDResponse(simulation=simulation, images=images)
 
         except HTTPException as he:
+            logger.error(f"HTTPException in get_simulation_by_id: {he.detail}",
+                         exc_info=True)
             raise he
         except Exception as e:
+            logger.error(f"Error fetching simulation by ID: {str(e)}",
+                         exc_info=True)
             raise HTTPException(
                 status_code=500,
                 detail=f"Error starting visual preview: {str(e)}")
