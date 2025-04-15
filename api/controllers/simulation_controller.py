@@ -63,11 +63,6 @@ class SimulationController:
             
     async def clone_simulation(self, request: CloneSimulationRequest) -> CreateSimulationResponse:
         """Clone an existing simulation"""
-        if not request.user_id:
-            raise HTTPException(status_code=400, detail="Missing 'userId'")
-        if not request.simulation_id:
-            raise HTTPException(status_code=400, detail="Missing 'simulationId'")
-
         result = await self.service.clone_simulation(request)
         return CreateSimulationResponse(id=result["id"], status=result["status"])
 
@@ -75,10 +70,6 @@ class SimulationController:
         self, sim_id: str, request: UpdateSimulationRequest,
         slides: List[UploadFile] = None) -> UpdateSimulationResponse:
         """Update an existing simulation"""
-        if not request.user_id:
-            raise HTTPException(status_code=400, detail="Missing 'userId'")
-    
-    
         result = await self.service.update_simulation(sim_id, request, slides)
         return UpdateSimulationResponse(
             id=result["id"],
@@ -89,10 +80,7 @@ class SimulationController:
     async def start_audio_simulation_preview(
         self, request: StartAudioSimulationPreviewRequest
     ) -> StartAudioSimulationPreviewResponse:
-        if not request.user_id:
-            raise HTTPException(status_code=400, detail="Missing 'userId'")
-        if not request.sim_id:
-            raise HTTPException(status_code=400, detail="Missing 'simId'")
+
         result = await self.service.start_audio_simulation_preview(
             request.sim_id, request.user_id)
         return StartAudioSimulationPreviewResponse(
@@ -101,10 +89,6 @@ class SimulationController:
     async def start_visual_audio_preview(
         self, request: StartVisualAudioPreviewRequest
     ) -> StartVisualAudioPreviewResponse:
-        if not request.user_id:
-            raise HTTPException(status_code=400, detail="Missing 'userId'")
-        if not request.sim_id:
-            raise HTTPException(status_code=400, detail="Missing 'simId'")
 
         result = await self.service.start_visual_audio_preview(
             request.sim_id, request.user_id)
@@ -122,10 +106,6 @@ class SimulationController:
     async def start_visual_chat_preview(
         self, request: StartVisualChatPreviewRequest
     ) -> StartVisualChatPreviewResponse:
-        if not request.user_id:
-            raise HTTPException(status_code=400, detail="Missing 'userId'")
-        if not request.sim_id:
-            raise HTTPException(status_code=400, detail="Missing 'simId'")
 
         result = await self.service.start_visual_chat_preview(
             request.sim_id, request.user_id)
@@ -143,10 +123,6 @@ class SimulationController:
     async def start_visual_preview(
             self,
             request: StartVisualPreviewRequest) -> StartVisualPreviewResponse:
-        if not request.user_id:
-            raise HTTPException(status_code=400, detail="Missing 'userId'")
-        if not request.sim_id:
-            raise HTTPException(status_code=400, detail="Missing 'simId'")
 
         result = await self.service.start_visual_preview(
             request.sim_id, request.user_id)
@@ -164,10 +140,7 @@ class SimulationController:
     async def start_chat_preview(
             self,
             request: StartChatPreviewRequest) -> StartChatPreviewResponse:
-        if not request.user_id:
-            raise HTTPException(status_code=400, detail="Missing 'userId'")
-        if not request.sim_id:
-            raise HTTPException(status_code=400, detail="Missing 'simId'")
+
         if request.message == "":
             sim_id_object = ObjectId(request.sim_id)
             simulation = await self.db.simulations.find_one(
@@ -527,16 +500,13 @@ class SimulationController:
     async def fetch_simulations(
             self,
             request: FetchSimulationsRequest) -> FetchSimulationsResponse:
-        if not request.user_id:
-            raise HTTPException(status_code=400, detail="Missing 'userId'")
+
         simulations = await self.service.fetch_simulations(request.user_id)
         return FetchSimulationsResponse(simulations=simulations)
 
     async def get_simulation_by_id(
             self, simulation_id: str) -> SimulationByIDResponse:
         """Get a single simulation by ID"""
-        if not simulation_id:
-            raise HTTPException(status_code=400, detail="Missing 'id'")
 
         simulation = await self.service.get_simulation_by_id(simulation_id)
         if not simulation:
