@@ -21,9 +21,6 @@ class ListController:
         logger.debug(f"Request data: {request.dict()}")
     
         try:
-            if not request.user_id:
-                logger.warning("Missing 'userId' in training plans request.")
-                raise HTTPException(status_code=400, detail="Missing 'userId'")
     
             training_plans = await self.service.list_training_plans(request.user_id)
             logger.info(f"Fetched {len(training_plans)} training plans for user {request.user_id}")
@@ -38,9 +35,6 @@ class ListController:
         logger.debug(f"Request data: {request.dict()}")
     
         try:
-            if not request.user_id:
-                logger.warning("Missing 'userId' in modules request.")
-                raise HTTPException(status_code=400, detail="Missing 'userId'")
     
             modules = await self.service.list_modules(request.user_id)
             logger.info(f"Fetched {len(modules)} modules for user {request.user_id}")
@@ -55,9 +49,6 @@ class ListController:
         logger.debug(f"Request data: {request.dict()}")
     
         try:
-            if not request.user_id:
-                logger.warning("Missing 'userId' in simulations request.")
-                raise HTTPException(status_code=400, detail="Missing 'userId'")
     
             simulations = await self.service.list_simulations(request.user_id)
             logger.info(f"Fetched {len(simulations)} simulations for user {request.user_id}")

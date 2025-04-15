@@ -23,12 +23,6 @@ class ScriptConverterController:
         logger.debug(f"user_id: {user_id}, filename: {audio_file.filename if audio_file else 'None'}")
     
         try:
-            if not user_id:
-                logger.warning("Missing 'userId' in convert_audio_to_script request.")
-                raise HTTPException(status_code=400, detail="Missing 'userId'")
-            if not audio_file:
-                logger.warning("Missing audio file in convert_audio_to_script request.")
-                raise HTTPException(status_code=400, detail="Missing audio file")
     
             script = await self.service.convert_audio_to_script(user_id, audio_file)
             logger.info(f"Successfully converted audio to script for user_id: {user_id}")
@@ -42,12 +36,6 @@ class ScriptConverterController:
         logger.debug(f"user_id: {user_id}, prompt: {prompt[:50]}...")
     
         try:
-            if not user_id:
-                logger.warning("Missing 'userId' in convert_text_to_script request.")
-                raise HTTPException(status_code=400, detail="Missing 'userId'")
-            if not prompt:
-                logger.warning("Missing 'prompt' in convert_text_to_script request.")
-                raise HTTPException(status_code=400, detail="Missing 'prompt'")
     
             script = await self.service.convert_text_to_script(user_id, prompt)
             logger.info(f"Successfully converted text to script for user_id: {user_id}")
@@ -61,12 +49,6 @@ class ScriptConverterController:
         logger.debug(f"user_id: {user_id}, filename: {file.filename if file else 'None'}")
     
         try:
-            if not user_id:
-                logger.warning("Missing 'userId' in convert_file_to_script request.")
-                raise HTTPException(status_code=400, detail="Missing 'userId'")
-            if not file:
-                logger.warning("Missing 'file' in convert_file_to_script request.")
-                raise HTTPException(status_code=400, detail="Missing file")
     
             script = await self.service.convert_file_to_script(user_id, file)
             logger.info(f"Successfully converted file to script for user_id: {user_id}")

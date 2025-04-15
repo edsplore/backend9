@@ -71,27 +71,12 @@ class SimulationController:
         except Exception as e:
             logger.error(f"Error creating simulation: {e}", exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
-<<<<<<< HEAD
-            
-    async def clone_simulation(self, request: CloneSimulationRequest) -> CreateSimulationResponse:
-        """Clone an existing simulation"""
-        result = await self.service.clone_simulation(request)
-        return CreateSimulationResponse(id=result["id"], status=result["status"])
-=======
 
     async def clone_simulation(
             self, request: CloneSimulationRequest) -> CreateSimulationResponse:
         """Clone an existing simulation"""
         logger.info("Received request to clone a simulation.")
         try:
-            if not request.user_id:
-                logger.warning("Missing 'userId' in clone_simulation request.")
-                raise HTTPException(status_code=400, detail="Missing 'userId'")
-            if not request.simulation_id:
-                logger.warning(
-                    "Missing 'simulationId' in clone_simulation request.")
-                raise HTTPException(status_code=400,
-                                    detail="Missing 'simulationId'")
 
             result = await self.service.clone_simulation(request)
             logger.info(f"Simulation cloned. New ID: {result['id']}")
@@ -100,7 +85,6 @@ class SimulationController:
         except Exception as e:
             logger.error(f"Error cloning simulation: {e}", exc_info=True)
             raise
->>>>>>> 2b821713bc30bb84146395eb4fc5afa4336074e2
 
     async def update_simulation(
             self,
@@ -108,20 +92,9 @@ class SimulationController:
             request: UpdateSimulationRequest,
             slides: List[UploadFile] = None) -> UpdateSimulationResponse:
         """Update an existing simulation"""
-<<<<<<< HEAD
-        result = await self.service.update_simulation(sim_id, request, slides)
-        return UpdateSimulationResponse(
-            id=result["id"],
-            status=result["status"],
-            document=result["document"])
-=======
+
         logger.info(f"Received request to update simulation with ID: {sim_id}")
         try:
-            if not request.user_id:
-                logger.warning(
-                    "Missing 'userId' in update_simulation request.")
-                raise HTTPException(status_code=400, detail="Missing 'userId'")
->>>>>>> 2b821713bc30bb84146395eb4fc5afa4336074e2
 
             result = await self.service.update_simulation(
                 sim_id, request, slides)
@@ -136,25 +109,9 @@ class SimulationController:
     async def start_audio_simulation_preview(
         self, request: StartAudioSimulationPreviewRequest
     ) -> StartAudioSimulationPreviewResponse:
-<<<<<<< HEAD
 
-        result = await self.service.start_audio_simulation_preview(
-            request.sim_id, request.user_id)
-        return StartAudioSimulationPreviewResponse(
-            access_token=result["access_token"])
-=======
         logger.info("Received request to start audio simulation preview.")
         try:
-            if not request.user_id:
-                logger.warning(
-                    "Missing 'userId' in start_audio_simulation_preview request."
-                )
-                raise HTTPException(status_code=400, detail="Missing 'userId'")
-            if not request.sim_id:
-                logger.warning(
-                    "Missing 'simId' in start_audio_simulation_preview request."
-                )
-                raise HTTPException(status_code=400, detail="Missing 'simId'")
 
             result = await self.service.start_audio_simulation_preview(
                 request.sim_id, request.user_id)
@@ -167,24 +124,13 @@ class SimulationController:
             logger.error(f"Error starting audio simulation preview: {e}",
                          exc_info=True)
             raise
->>>>>>> 2b821713bc30bb84146395eb4fc5afa4336074e2
 
     async def start_visual_audio_preview(
         self, request: StartVisualAudioPreviewRequest
     ) -> StartVisualAudioPreviewResponse:
-<<<<<<< HEAD
-=======
+
         logger.info("Received request to start visual-audio preview.")
         try:
-            if not request.user_id:
-                logger.warning(
-                    "Missing 'userId' in start_visual_audio_preview request.")
-                raise HTTPException(status_code=400, detail="Missing 'userId'")
-            if not request.sim_id:
-                logger.warning(
-                    "Missing 'simId' in start_visual_audio_preview request.")
-                raise HTTPException(status_code=400, detail="Missing 'simId'")
->>>>>>> 2b821713bc30bb84146395eb4fc5afa4336074e2
 
             result = await self.service.start_visual_audio_preview(
                 request.sim_id, request.user_id)
@@ -204,19 +150,8 @@ class SimulationController:
     async def start_visual_chat_preview(
         self, request: StartVisualChatPreviewRequest
     ) -> StartVisualChatPreviewResponse:
-<<<<<<< HEAD
-=======
         logger.info("Received request to start visual-chat preview.")
         try:
-            if not request.user_id:
-                logger.warning(
-                    "Missing 'userId' in start_visual_chat_preview request.")
-                raise HTTPException(status_code=400, detail="Missing 'userId'")
-            if not request.sim_id:
-                logger.warning(
-                    "Missing 'simId' in start_visual_chat_preview request.")
-                raise HTTPException(status_code=400, detail="Missing 'simId'")
->>>>>>> 2b821713bc30bb84146395eb4fc5afa4336074e2
 
             result = await self.service.start_visual_chat_preview(
                 request.sim_id, request.user_id)
@@ -236,19 +171,9 @@ class SimulationController:
     async def start_visual_preview(
             self,
             request: StartVisualPreviewRequest) -> StartVisualPreviewResponse:
-<<<<<<< HEAD
-=======
+
         logger.info("Received request to start visual preview.")
         try:
-            if not request.user_id:
-                logger.warning(
-                    "Missing 'userId' in start_visual_preview request.")
-                raise HTTPException(status_code=400, detail="Missing 'userId'")
-            if not request.sim_id:
-                logger.warning(
-                    "Missing 'simId' in start_visual_preview request.")
-                raise HTTPException(status_code=400, detail="Missing 'simId'")
->>>>>>> 2b821713bc30bb84146395eb4fc5afa4336074e2
 
             result = await self.service.start_visual_preview(
                 request.sim_id, request.user_id)
@@ -267,38 +192,9 @@ class SimulationController:
     async def start_chat_preview(
             self,
             request: StartChatPreviewRequest) -> StartChatPreviewResponse:
-<<<<<<< HEAD
 
-        if request.message == "":
-            sim_id_object = ObjectId(request.sim_id)
-            simulation = await self.db.simulations.find_one(
-                {"_id": sim_id_object})
-            if not simulation:
-                raise HTTPException(
-                    status_code=404,
-                    detail=f"Simulation with id {request.sim_id} not found")
-            script = simulation.get("script", [])
-            if script and len(script) > 0:
-                first_entry = script[0]
-                if first_entry.get("role").lower() == "customer":
-                    return StartChatPreviewResponse(
-                        response=first_entry.get("script_sentence", ""))
-            return StartChatPreviewResponse(response="")
-        else:
-            result = await self.chat_service.start_chat(
-                request.user_id, request.sim_id, request.message)
-            return StartChatPreviewResponse(response=result["response"])
-=======
         logger.info("Received request to start chat preview.")
         try:
-            if not request.user_id:
-                logger.warning(
-                    "Missing 'userId' in start_chat_preview request.")
-                raise HTTPException(status_code=400, detail="Missing 'userId'")
-            if not request.sim_id:
-                logger.warning(
-                    "Missing 'simId' in start_chat_preview request.")
-                raise HTTPException(status_code=400, detail="Missing 'simId'")
 
             if request.message == "":
                 logger.debug(
@@ -332,7 +228,6 @@ class SimulationController:
         except Exception as e:
             logger.error(f"Error starting chat preview: {e}", exc_info=True)
             raise
->>>>>>> 2b821713bc30bb84146395eb4fc5afa4336074e2
 
     async def start_audio_simulation(
             self,
@@ -675,17 +570,9 @@ class SimulationController:
     async def fetch_simulations(
             self,
             request: FetchSimulationsRequest) -> FetchSimulationsResponse:
-<<<<<<< HEAD
 
-        simulations = await self.service.fetch_simulations(request.user_id)
-        return FetchSimulationsResponse(simulations=simulations)
-=======
         logger.info("Received request to fetch simulations.")
         try:
-            if not request.user_id:
-                logger.warning(
-                    "Missing 'userId' in fetch_simulations request.")
-                raise HTTPException(status_code=400, detail="Missing 'userId'")
 
             simulations = await self.service.fetch_simulations(request.user_id)
             logger.info(f"Fetched {len(simulations)} simulation(s).")
@@ -693,20 +580,13 @@ class SimulationController:
         except Exception as e:
             logger.error(f"Error fetching simulations: {e}", exc_info=True)
             raise
->>>>>>> 2b821713bc30bb84146395eb4fc5afa4336074e2
 
     async def get_simulation_by_id(
             self, simulation_id: str) -> SimulationByIDResponse:
         """Get a single simulation by ID"""
-<<<<<<< HEAD
-=======
         logger.info(
             f"Received request to get simulation by ID: {simulation_id}")
         try:
-            if not simulation_id:
-                logger.warning("Missing 'id' in get_simulation_by_id request.")
-                raise HTTPException(status_code=400, detail="Missing 'id'")
->>>>>>> 2b821713bc30bb84146395eb4fc5afa4336074e2
 
             simulation = await self.service.get_simulation_by_id(simulation_id)
             if not simulation:

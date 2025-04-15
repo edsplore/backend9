@@ -9,18 +9,17 @@ router = APIRouter()
 
 
 class VoiceController:
+
     def __init__(self):
         self.service = VoiceService()
         logger.info("VoiceController initialized.")
 
-    async def list_voices(self, request: ListVoicesRequest) -> ListVoicesResponse:
+    async def list_voices(self,
+                          request: ListVoicesRequest) -> ListVoicesResponse:
         logger.info("Received request to list voices.")
         logger.debug(f"Request data: {request.dict()}")
 
         try:
-            if not request.user_id:
-                logger.warning("Missing 'userId' in list_voices request.")
-                raise HTTPException(status_code=400, detail="Missing 'userId'")
 
             voices = await self.service.list_voices()
             logger.info(f"Fetched {len(voices)} voices successfully.")

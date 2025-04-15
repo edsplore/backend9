@@ -21,21 +21,6 @@ class AssignmentController:
         logger.info("Received request to create assignment.")
         logger.debug(f"Request data: {request.dict()}")
         try:
-            if not request.user_id:
-                logger.warning("Missing 'userId' in request.")
-                raise HTTPException(status_code=400, detail="Missing 'userId'")
-            if not request.name:
-                logger.warning("Missing 'name' in request.")
-                raise HTTPException(status_code=400, detail="Missing 'name'")
-            if not request.type:
-                logger.warning("Missing 'type' in request.")
-                raise HTTPException(status_code=400, detail="Missing 'type'")
-            if not request.start_date:
-                logger.warning("Missing 'start_date' in request.")
-                raise HTTPException(status_code=400, detail="Missing 'start_date'")
-            if not request.end_date:
-                logger.warning("Missing 'end_date' in request.")
-                raise HTTPException(status_code=400, detail="Missing 'end_date'")
     
             result = await self.service.create_assignment(request)
             logger.info(f"Assignment created successfully: {result}")
@@ -60,9 +45,6 @@ class AssignmentController:
             request: FetchAssignedPlansRequest) -> FetchAssignedPlansResponse:
         logger.info(f"Fetching assigned plans for user_id={request.user_id}")
         try:
-            if not request.user_id:
-                logger.warning("Missing 'userId' in fetch_assigned_plans request.")
-                raise HTTPException(status_code=400, detail="Missing 'userId'")
             response = await self.service.fetch_assigned_plans(request.user_id)
             logger.debug(f"Assigned plans: {response}")
             return response

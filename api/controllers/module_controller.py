@@ -22,19 +22,6 @@ class ModuleController:
         logger.debug(f"Request data: {request.dict()}")
 
         try:
-            if not request.user_id:
-                logger.warning("Missing 'userId' in create_module request.")
-                raise HTTPException(status_code=400, detail="Missing 'userId'")
-            if not request.module_name:
-                logger.warning(
-                    "Missing 'moduleName' in create_module request.")
-                raise HTTPException(status_code=400,
-                                    detail="Missing 'moduleName'")
-            if not request.simulations:
-                logger.warning(
-                    "Missing 'simulations' in create_module request.")
-                raise HTTPException(status_code=400,
-                                    detail="Missing 'simulations'")
 
             result = await self.service.create_module(request)
             logger.info(f"Module created with ID: {result['id']}")
@@ -48,9 +35,6 @@ class ModuleController:
             self, request: FetchModulesRequest) -> FetchModulesResponse:
         logger.info(f"Fetching modules for user_id: {request.user_id}")
         try:
-            if not request.user_id:
-                logger.warning("Missing 'userId' in fetch_modules request.")
-                raise HTTPException(status_code=400, detail="Missing 'userId'")
 
             modules = await self.service.fetch_modules(request.user_id)
             logger.info(f"Fetched {len(modules)} modules.")
@@ -62,9 +46,6 @@ class ModuleController:
     async def get_module_by_id(self, module_id: str) -> ModuleData:
         logger.info(f"Fetching module by ID: {module_id}")
         try:
-            if not module_id:
-                logger.warning("Missing 'id' in get_module_by_id request.")
-                raise HTTPException(status_code=400, detail="Missing 'id'")
 
             module = await self.service.get_module_by_id(module_id)
             if not module:
@@ -86,13 +67,6 @@ class ModuleController:
         logger.debug(f"Clone request data: {request.dict()}")
 
         try:
-            if not request.user_id:
-                logger.warning("Missing 'userId' in clone_module request.")
-                raise HTTPException(status_code=400, detail="Missing 'userId'")
-            if not request.module_id:
-                logger.warning("Missing 'moduleId' in clone_module request.")
-                raise HTTPException(status_code=400,
-                                    detail="Missing 'moduleId'")
 
             result = await self.service.clone_module(request)
             logger.info(f"Module cloned. New ID: {result['id']}")
@@ -108,9 +82,6 @@ class ModuleController:
         logger.debug(f"Update request: {request.dict()}")
 
         try:
-            if not request.user_id:
-                logger.warning("Missing 'userId' in update_module request.")
-                raise HTTPException(status_code=400, detail="Missing 'userId'")
 
             result = await self.service.update_module(module_id, request)
             logger.info(f"Module {module_id} updated successfully.")

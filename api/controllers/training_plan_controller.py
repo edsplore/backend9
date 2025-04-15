@@ -30,15 +30,6 @@ class TrainingPlanController:
         logger.debug(f"Request: {request.dict()}")
 
         try:
-            if not request.user_id:
-                logger.warning("Missing 'userId' in create_training_plan request.")
-                raise HTTPException(status_code=400, detail="Missing 'userId'")
-            if not request.training_plan_name:
-                logger.warning("Missing 'trainingPlanName' in request.")
-                raise HTTPException(status_code=400, detail="Missing 'trainingPlanName'")
-            if not request.added_object:
-                logger.warning("Missing 'addedObject' in request.")
-                raise HTTPException(status_code=400, detail="Missing 'addedObject'")
 
             result = await self.service.create_training_plan(request)
             logger.info(f"Training plan created with ID: {result['id']}")
@@ -52,9 +43,6 @@ class TrainingPlanController:
             request: FetchTrainingPlansRequest) -> FetchTrainingPlansResponse:
         logger.info(f"Fetching training plans for user_id: {request.user_id}")
         try:
-            if not request.user_id:
-                logger.warning("Missing 'userId' in fetch_training_plans request.")
-                raise HTTPException(status_code=400, detail="Missing 'userId'")
 
             training_plans = await self.service.fetch_training_plans(request.user_id)
             logger.info(f"Fetched {len(training_plans)} training plans.")
@@ -66,9 +54,6 @@ class TrainingPlanController:
     async def get_training_plan_by_id(self, training_plan_id: str) -> TrainingPlanData:
         logger.info(f"Fetching training plan by ID: {training_plan_id}")
         try:
-            if not training_plan_id:
-                logger.warning("Missing 'id' in get_training_plan_by_id request.")
-                raise HTTPException(status_code=400, detail="Missing 'id'")
 
             training_plan = await self.service.get_training_plan_by_id(training_plan_id)
             if not training_plan:
@@ -89,12 +74,6 @@ class TrainingPlanController:
         logger.debug(f"Request: {request.dict()}")
 
         try:
-            if not request.user_id:
-                logger.warning("Missing 'userId' in clone_training_plan request.")
-                raise HTTPException(status_code=400, detail="Missing 'userId'")
-            if not request.training_plan_id:
-                logger.warning("Missing 'trainingPlanId' in request.")
-                raise HTTPException(status_code=400, detail="Missing 'trainingPlanId'")
 
             result = await self.service.clone_training_plan(request)
             logger.info(f"Training plan cloned. New ID: {result['id']}")
@@ -108,9 +87,6 @@ class TrainingPlanController:
         logger.debug(f"Update data: {request.dict()}")
 
         try:
-            if not request.user_id:
-                logger.warning("Missing 'userId' in update_training_plan request.")
-                raise HTTPException(status_code=400, detail="Missing 'userId'")
 
             result = await self.service.update_training_plan(training_plan_id, request)
             logger.info(f"Training plan {training_plan_id} updated successfully.")

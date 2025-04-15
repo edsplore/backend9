@@ -17,9 +17,6 @@ class TrainingController:
         logger.debug(f"user_id: {user_id}")
 
         try:
-            if not user_id:
-                logger.warning("Missing 'id' in training data request.")
-                raise HTTPException(status_code=400, detail="Missing 'id'")
 
             data = await self.service.get_training_data(user_id)
             logger.info(f"Training data fetched successfully for user_id: {user_id}")

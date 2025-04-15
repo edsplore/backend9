@@ -19,9 +19,6 @@ class PlaybackController:
         logger.debug(f"Request data: {request.dict()}")
 
         try:
-            if not request.user_id:
-                logger.warning("Missing 'user_id' in get_attempts request.")
-                raise HTTPException(status_code=400, detail="Missing 'id'")
 
             attempts = await self.service.get_attempts(request.user_id)
             logger.info(f"Fetched {len(attempts)} attempts for user {request.user_id}")
@@ -35,13 +32,6 @@ class PlaybackController:
         logger.debug(f"Request data: {request.dict()}")
 
         try:
-            if not request.user_id:
-                logger.warning("Missing 'userId' in get_attempt_by_id request.")
-                raise HTTPException(status_code=400, detail="Missing 'userId'")
-            if not request.attempt_id:
-                logger.warning("Missing 'attemptId' in get_attempt_by_id request.")
-                raise HTTPException(status_code=400, detail="Missing 'attemptId'")
-
             attempt = await self.service.get_attempt_by_id(request.user_id, request.attempt_id)
 
             if not attempt:
