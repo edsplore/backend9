@@ -11,11 +11,16 @@ from config import (AZURE_OPENAI_DEPLOYMENT_NAME, AZURE_OPENAI_KEY,
 from infrastructure.database import Database
 from fastapi import HTTPException
 
+from utils.logger import Logger  # <-- Import your custom logger
+
+logger = Logger.get_logger(__name__)
+
 
 class ChatService:
 
     def __init__(self):
         self.db = Database()
+        logger.info("ChatService initialized.")
 
         # Initialize Azure OpenAI chat completion
         self.kernel = Kernel()
@@ -31,76 +36,76 @@ class ChatService:
             temperature=0.7,
             top_p=1.0,
             max_tokens=2000)
+        logger.info(
+            "Azure OpenAI chat completion initialized for ChatService.")
 
     async def start_chat(self,
                          user_id: str,
                          sim_id: str,
                          message: Optional[str] = None) -> Dict[str, str]:
         """Start a new chat session"""
+        logger.info("Starting a new chat session.")
+        logger.debug(
+            f"user_id={user_id}, sim_id={sim_id}, initial_message={message}")
         try:
-            # Get simulation
             sim_id_object = ObjectId(sim_id)
             simulation = await self.db.simulations.find_one(
                 {"_id": sim_id_object})
-
             if not simulation:
+                logger.warning(f"Simulation with id {sim_id} not found.")
                 raise HTTPException(
                     status_code=404,
                     detail=f"Simulation with id {sim_id} not found")
 
-            # Get simulation prompt
             prompt = simulation.get("prompt")
             if not prompt:
+                logger.warning(
+                    f"Simulation {sim_id} does not have a prompt configured.")
                 raise HTTPException(
                     status_code=400,
                     detail="Simulation does not have a prompt configured")
 
-            # Create chat history
             history = ChatHistory()
+            system_message = (
+                "You are an AI assistant trained to simulate a customer service scenario. "
+                "Here is your context and behavior guideline:\n\n"
+                f"{prompt}\n\n"
+                "Respond naturally as per this context. Be consistent with the scenario "
+                "and maintain the appropriate tone and style.")
+            history.add_system_message(system_message)
+            logger.debug(
+                f"System message added to chat history: {system_message}")
 
-            # Add system message with simulation prompt
-            history.add_system_message(
-                f"You are an AI assistant trained to simulate a customer service scenario. "
-                f"Here is your context and behavior guideline:\n\n{prompt}\n\n"
-                f"Respond naturally as per this context. Be consistent with the scenario "
-                f"and maintain the appropriate tone and style.")
-
-            # If initial message provided, process it
             response = None
             if message:
+                logger.debug(
+                    "Initial user message detected, requesting AzureChatCompletion."
+                )
                 history.add_user_message(message)
                 response = await self.chat_completion.get_chat_message_content(
                     history, settings=self.execution_settings)
 
-            # Create chat session document
-            # chat_doc = {
-            #     "userId": user_id,
-            #     "simulationId": sim_id,
-            #     "history": [msg.dict() for msg in history.messages],
-            #     "createdAt": datetime.utcnow(),
-            #     "lastModifiedAt": datetime.utcnow()
-            # }
-
-            # # Insert into database
-            # result = await self.db.chat_sessions.insert_one(chat_doc)
-
+            logger.info("Chat session started successfully.")
             return {"response": str(response) if response else ""}
-
         except HTTPException as he:
+            logger.error(f"HTTP error in start_chat: {str(he.detail)}",
+                         exc_info=True)
             raise he
         except Exception as e:
+            logger.error(f"Error starting chat: {str(e)}", exc_info=True)
             raise HTTPException(status_code=500,
                                 detail=f"Error starting chat: {str(e)}")
 
     async def send_message(self, chat_id: str, message: str) -> str:
         """Send a message in an existing chat session"""
+        logger.info(f"Sending message to chat session {chat_id}.")
+        logger.debug(f"Message content: {message}")
         try:
-            # Get chat session
             chat_id_object = ObjectId(chat_id)
             chat_session = await self.db.chat_sessions.find_one(
                 {"_id": chat_id_object})
-
             if not chat_session:
+                logger.warning(f"Chat session with id {chat_id} not found.")
                 raise HTTPException(
                     status_code=404,
                     detail=f"Chat session with id {chat_id} not found")
@@ -117,12 +122,16 @@ class ChatService:
 
             # Add new message
             history.add_user_message(message)
+            logger.debug(
+                "New user message added to history. Requesting AzureChatCompletion..."
+            )
 
             # Get response
             response = await self.chat_completion.get_chat_message_content(
                 history, settings=self.execution_settings)
+            logger.debug(f"AzureChatCompletion returned: {response}")
 
-            # Add response to history
+            # Add assistant response to history
             history.add_assistant_message(str(response))
 
             # Update chat session
@@ -132,11 +141,15 @@ class ChatService:
                     "lastModifiedAt": datetime.utcnow()
                 }
             })
+            logger.info(
+                f"Message sent to chat session {chat_id} successfully.")
 
             return str(response)
-
         except HTTPException as he:
+            logger.error(f"HTTP error in send_message: {str(he.detail)}",
+                         exc_info=True)
             raise he
         except Exception as e:
+            logger.error(f"Error sending message: {str(e)}", exc_info=True)
             raise HTTPException(status_code=500,
                                 detail=f"Error sending message: {str(e)}")

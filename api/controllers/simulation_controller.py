@@ -3,34 +3,41 @@ from typing import Dict, List
 from bson import ObjectId
 from datetime import datetime
 import aiohttp
+from utils.logger import Logger  # <-- Added import for Logger
 from domain.services.simulation_service import SimulationService
 from infrastructure.database import Database
 from domain.services.chat_service import ChatService
+
 from api.schemas.requests import (
     CreateSimulationRequest, UpdateSimulationRequest,
     StartAudioSimulationPreviewRequest, StartChatPreviewRequest,
     StartAudioSimulationRequest, StartChatSimulationRequest,
     EndAudioSimulationRequest, EndChatSimulationRequest,
     FetchSimulationsRequest, StartVisualAudioPreviewRequest,
-    StartVisualChatPreviewRequest, StartVisualPreviewRequest, CloneSimulationRequest)
+    StartVisualChatPreviewRequest, StartVisualPreviewRequest,
+    CloneSimulationRequest)
 from api.schemas.responses import (
     CreateSimulationResponse, UpdateSimulationResponse,
     StartAudioSimulationPreviewResponse, StartChatPreviewResponse,
     StartSimulationResponse, EndSimulationResponse, FetchSimulationsResponse,
     StartVisualAudioPreviewResponse, SlideImageData, SimulationByIDResponse,
     StartVisualChatPreviewResponse, StartVisualPreviewResponse, SimulationData)
-from config import RETELL_API_KEY, AZURE_OPENAI_DEPLOYMENT_NAME, AZURE_OPENAI_KEY, AZURE_OPENAI_BASE_URL
+from config import (RETELL_API_KEY, AZURE_OPENAI_DEPLOYMENT_NAME,
+                    AZURE_OPENAI_KEY, AZURE_OPENAI_BASE_URL)
 from semantic_kernel import Kernel
 from semantic_kernel.connectors.ai.open_ai import AzureChatCompletion
 from semantic_kernel.contents.chat_history import ChatHistory
-from semantic_kernel.connectors.ai.open_ai.prompt_execution_settings.azure_chat_prompt_execution_settings import AzureChatPromptExecutionSettings
+from semantic_kernel.connectors.ai.open_ai.prompt_execution_settings.azure_chat_prompt_execution_settings import (
+    AzureChatPromptExecutionSettings, )
 
+logger = Logger.get_logger(__name__)  # <-- Initialize logger
 router = APIRouter()
 
 
 class SimulationController:
 
     def __init__(self):
+        logger.info("Initializing SimulationController.")
         self.service = SimulationService()
         self.chat_service = ChatService()
         self.db = Database()
@@ -49,97 +56,218 @@ class SimulationController:
             temperature=0.7,
             top_p=1.0,
             max_tokens=2000)
+        logger.info("SimulationController initialized successfully.")
 
     async def create_simulation(
             self,
             request: CreateSimulationRequest) -> CreateSimulationResponse:
         """Create a new simulation"""
+        logger.info("Received request to create a new simulation.")
         try:
             result = await self.service.create_simulation(request)
+            logger.info(f"Simulation created with ID: {result['id']}")
             return CreateSimulationResponse(id=result["id"],
                                             status=result["status"])
         except Exception as e:
+            logger.error(f"Error creating simulation: {e}", exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
+<<<<<<< HEAD
             
     async def clone_simulation(self, request: CloneSimulationRequest) -> CreateSimulationResponse:
         """Clone an existing simulation"""
         result = await self.service.clone_simulation(request)
         return CreateSimulationResponse(id=result["id"], status=result["status"])
+=======
+
+    async def clone_simulation(
+            self, request: CloneSimulationRequest) -> CreateSimulationResponse:
+        """Clone an existing simulation"""
+        logger.info("Received request to clone a simulation.")
+        try:
+            if not request.user_id:
+                logger.warning("Missing 'userId' in clone_simulation request.")
+                raise HTTPException(status_code=400, detail="Missing 'userId'")
+            if not request.simulation_id:
+                logger.warning(
+                    "Missing 'simulationId' in clone_simulation request.")
+                raise HTTPException(status_code=400,
+                                    detail="Missing 'simulationId'")
+
+            result = await self.service.clone_simulation(request)
+            logger.info(f"Simulation cloned. New ID: {result['id']}")
+            return CreateSimulationResponse(id=result["id"],
+                                            status=result["status"])
+        except Exception as e:
+            logger.error(f"Error cloning simulation: {e}", exc_info=True)
+            raise
+>>>>>>> 2b821713bc30bb84146395eb4fc5afa4336074e2
 
     async def update_simulation(
-        self, sim_id: str, request: UpdateSimulationRequest,
-        slides: List[UploadFile] = None) -> UpdateSimulationResponse:
+            self,
+            sim_id: str,
+            request: UpdateSimulationRequest,
+            slides: List[UploadFile] = None) -> UpdateSimulationResponse:
         """Update an existing simulation"""
+<<<<<<< HEAD
         result = await self.service.update_simulation(sim_id, request, slides)
         return UpdateSimulationResponse(
             id=result["id"],
             status=result["status"],
             document=result["document"])
+=======
+        logger.info(f"Received request to update simulation with ID: {sim_id}")
+        try:
+            if not request.user_id:
+                logger.warning(
+                    "Missing 'userId' in update_simulation request.")
+                raise HTTPException(status_code=400, detail="Missing 'userId'")
+>>>>>>> 2b821713bc30bb84146395eb4fc5afa4336074e2
 
+            result = await self.service.update_simulation(
+                sim_id, request, slides)
+            logger.info(f"Simulation {sim_id} updated successfully.")
+            return UpdateSimulationResponse(id=result["id"],
+                                            status=result["status"],
+                                            document=result["document"])
+        except Exception as e:
+            logger.error(f"Error updating simulation: {e}", exc_info=True)
+            raise
 
     async def start_audio_simulation_preview(
         self, request: StartAudioSimulationPreviewRequest
     ) -> StartAudioSimulationPreviewResponse:
+<<<<<<< HEAD
 
         result = await self.service.start_audio_simulation_preview(
             request.sim_id, request.user_id)
         return StartAudioSimulationPreviewResponse(
             access_token=result["access_token"])
+=======
+        logger.info("Received request to start audio simulation preview.")
+        try:
+            if not request.user_id:
+                logger.warning(
+                    "Missing 'userId' in start_audio_simulation_preview request."
+                )
+                raise HTTPException(status_code=400, detail="Missing 'userId'")
+            if not request.sim_id:
+                logger.warning(
+                    "Missing 'simId' in start_audio_simulation_preview request."
+                )
+                raise HTTPException(status_code=400, detail="Missing 'simId'")
+
+            result = await self.service.start_audio_simulation_preview(
+                request.sim_id, request.user_id)
+            logger.info(
+                f"Audio simulation preview started. Access token: {result['access_token']}"
+            )
+            return StartAudioSimulationPreviewResponse(
+                access_token=result["access_token"])
+        except Exception as e:
+            logger.error(f"Error starting audio simulation preview: {e}",
+                         exc_info=True)
+            raise
+>>>>>>> 2b821713bc30bb84146395eb4fc5afa4336074e2
 
     async def start_visual_audio_preview(
         self, request: StartVisualAudioPreviewRequest
     ) -> StartVisualAudioPreviewResponse:
+<<<<<<< HEAD
+=======
+        logger.info("Received request to start visual-audio preview.")
+        try:
+            if not request.user_id:
+                logger.warning(
+                    "Missing 'userId' in start_visual_audio_preview request.")
+                raise HTTPException(status_code=400, detail="Missing 'userId'")
+            if not request.sim_id:
+                logger.warning(
+                    "Missing 'simId' in start_visual_audio_preview request.")
+                raise HTTPException(status_code=400, detail="Missing 'simId'")
+>>>>>>> 2b821713bc30bb84146395eb4fc5afa4336074e2
 
-        result = await self.service.start_visual_audio_preview(
-            request.sim_id, request.user_id)
-
-        print(result.simulation)
-
-        return StartVisualAudioPreviewResponse(
-            simulation=result.simulation,
-            images=[
-                SlideImageData(image_id=img.image_id,
-                               image_data=img.image_data)
-                for img in result.images
-            ])
+            result = await self.service.start_visual_audio_preview(
+                request.sim_id, request.user_id)
+            logger.info("Visual-audio preview started successfully.")
+            return StartVisualAudioPreviewResponse(
+                simulation=result.simulation,
+                images=[
+                    SlideImageData(image_id=img.image_id,
+                                   image_data=img.image_data)
+                    for img in result.images
+                ])
+        except Exception as e:
+            logger.error(f"Error starting visual-audio preview: {e}",
+                         exc_info=True)
+            raise
 
     async def start_visual_chat_preview(
         self, request: StartVisualChatPreviewRequest
     ) -> StartVisualChatPreviewResponse:
+<<<<<<< HEAD
+=======
+        logger.info("Received request to start visual-chat preview.")
+        try:
+            if not request.user_id:
+                logger.warning(
+                    "Missing 'userId' in start_visual_chat_preview request.")
+                raise HTTPException(status_code=400, detail="Missing 'userId'")
+            if not request.sim_id:
+                logger.warning(
+                    "Missing 'simId' in start_visual_chat_preview request.")
+                raise HTTPException(status_code=400, detail="Missing 'simId'")
+>>>>>>> 2b821713bc30bb84146395eb4fc5afa4336074e2
 
-        result = await self.service.start_visual_chat_preview(
-            request.sim_id, request.user_id)
-
-        print(result.simulation)
-
-        return StartVisualChatPreviewResponse(
-            simulation=result.simulation,
-            images=[
-                SlideImageData(image_id=img.image_id,
-                               image_data=img.image_data)
-                for img in result.images
-            ])
+            result = await self.service.start_visual_chat_preview(
+                request.sim_id, request.user_id)
+            logger.info("Visual-chat preview started successfully.")
+            return StartVisualChatPreviewResponse(
+                simulation=result.simulation,
+                images=[
+                    SlideImageData(image_id=img.image_id,
+                                   image_data=img.image_data)
+                    for img in result.images
+                ])
+        except Exception as e:
+            logger.error(f"Error starting visual-chat preview: {e}",
+                         exc_info=True)
+            raise
 
     async def start_visual_preview(
             self,
             request: StartVisualPreviewRequest) -> StartVisualPreviewResponse:
+<<<<<<< HEAD
+=======
+        logger.info("Received request to start visual preview.")
+        try:
+            if not request.user_id:
+                logger.warning(
+                    "Missing 'userId' in start_visual_preview request.")
+                raise HTTPException(status_code=400, detail="Missing 'userId'")
+            if not request.sim_id:
+                logger.warning(
+                    "Missing 'simId' in start_visual_preview request.")
+                raise HTTPException(status_code=400, detail="Missing 'simId'")
+>>>>>>> 2b821713bc30bb84146395eb4fc5afa4336074e2
 
-        result = await self.service.start_visual_preview(
-            request.sim_id, request.user_id)
-
-        print(result.simulation)
-
-        return StartVisualPreviewResponse(simulation=result.simulation,
-                                          images=[
-                                              SlideImageData(
-                                                  image_id=img.image_id,
-                                                  image_data=img.image_data)
-                                              for img in result.images
-                                          ])
+            result = await self.service.start_visual_preview(
+                request.sim_id, request.user_id)
+            logger.info("Visual preview started successfully.")
+            return StartVisualPreviewResponse(
+                simulation=result.simulation,
+                images=[
+                    SlideImageData(image_id=img.image_id,
+                                   image_data=img.image_data)
+                    for img in result.images
+                ])
+        except Exception as e:
+            logger.error(f"Error starting visual preview: {e}", exc_info=True)
+            raise
 
     async def start_chat_preview(
             self,
             request: StartChatPreviewRequest) -> StartChatPreviewResponse:
+<<<<<<< HEAD
 
         if request.message == "":
             sim_id_object = ObjectId(request.sim_id)
@@ -160,32 +288,76 @@ class SimulationController:
             result = await self.chat_service.start_chat(
                 request.user_id, request.sim_id, request.message)
             return StartChatPreviewResponse(response=result["response"])
+=======
+        logger.info("Received request to start chat preview.")
+        try:
+            if not request.user_id:
+                logger.warning(
+                    "Missing 'userId' in start_chat_preview request.")
+                raise HTTPException(status_code=400, detail="Missing 'userId'")
+            if not request.sim_id:
+                logger.warning(
+                    "Missing 'simId' in start_chat_preview request.")
+                raise HTTPException(status_code=400, detail="Missing 'simId'")
+
+            if request.message == "":
+                logger.debug(
+                    "Message is empty. Checking simulation script for first entry."
+                )
+                sim_id_object = ObjectId(request.sim_id)
+                simulation = await self.db.simulations.find_one(
+                    {"_id": sim_id_object})
+                if not simulation:
+                    logger.warning(
+                        f"Simulation with id {request.sim_id} not found.")
+                    raise HTTPException(
+                        status_code=404,
+                        detail=f"Simulation with id {request.sim_id} not found"
+                    )
+                script = simulation.get("script", [])
+                if script and len(script) > 0:
+                    first_entry = script[0]
+                    if first_entry.get("role").lower() == "customer":
+                        logger.debug(
+                            "Returning first script sentence for 'customer' role."
+                        )
+                        return StartChatPreviewResponse(
+                            response=first_entry.get("script_sentence", ""))
+                return StartChatPreviewResponse(response="")
+            else:
+                result = await self.chat_service.start_chat(
+                    request.user_id, request.sim_id, request.message)
+                logger.info("Chat preview started with custom message.")
+                return StartChatPreviewResponse(response=result["response"])
+        except Exception as e:
+            logger.error(f"Error starting chat preview: {e}", exc_info=True)
+            raise
+>>>>>>> 2b821713bc30bb84146395eb4fc5afa4336074e2
 
     async def start_audio_simulation(
             self,
             request: StartAudioSimulationRequest) -> StartSimulationResponse:
         """Start an audio simulation and create progress record"""
+        logger.info("Received request to start audio simulation.")
         try:
-            # Get simulation
             sim_id_object = ObjectId(request.sim_id)
             simulation = await self.db.simulations.find_one(
                 {"_id": sim_id_object})
             if not simulation:
+                logger.warning(
+                    f"Simulation with id {request.sim_id} not found.")
                 raise HTTPException(
                     status_code=404,
                     detail=f"Simulation with id {request.sim_id} not found")
 
-            # Get agent_id
             agent_id = simulation.get("agentId")
             if not agent_id:
+                logger.warning("Simulation does not have an agent configured.")
                 raise HTTPException(
                     status_code=400,
                     detail="Simulation does not have an agent configured")
 
-            # Create web call
             web_call = await self._create_web_call(agent_id)
-
-            # Create progress document
             progress_doc = {
                 "userId": request.user_id,
                 "simulationId": request.sim_id,
@@ -197,17 +369,18 @@ class SimulationController:
                 "createdAt": datetime.utcnow(),
                 "lastModifiedAt": datetime.utcnow()
             }
-
-            # Insert into database
             result = await self.db.user_sim_progress.insert_one(progress_doc)
 
+            logger.info(
+                f"Audio simulation started. call_id={web_call['call_id']}")
             return StartSimulationResponse(
                 id=str(result.inserted_id),
                 status="success",
                 access_token=web_call["access_token"],
                 call_id=web_call["call_id"])
-
         except Exception as e:
+            logger.error(f"Error starting audio simulation: {e}",
+                         exc_info=True)
             raise HTTPException(
                 status_code=500,
                 detail=f"Error starting audio simulation: {str(e)}")
@@ -216,37 +389,41 @@ class SimulationController:
             self,
             request: StartChatSimulationRequest) -> StartSimulationResponse:
         """Start a chat simulation and create/update progress record"""
+        logger.info("Received request to start chat simulation.")
         try:
-            # Get simulation
             sim_id_object = ObjectId(request.sim_id)
             simulation = await self.db.simulations.find_one(
                 {"_id": sim_id_object})
             if not simulation:
+                logger.warning(
+                    f"Simulation with id {request.sim_id} not found.")
                 raise HTTPException(
                     status_code=404,
                     detail=f"Simulation with id {request.sim_id} not found")
 
-            # Get initial chat response if message provided
             chat_response = None
-            if request.message is not None:  # Handle empty string case
+            if request.message is not None:
+                logger.debug(
+                    f"Starting initial chat with message: {request.message}")
                 chat_response = await self.chat_service.start_chat(
                     request.user_id, request.sim_id, request.message)
 
             if request.usersimulationprogress_id:
-                # Update existing progress document
+                logger.info("Updating existing user simulation progress.")
                 progress_id_object = ObjectId(
                     request.usersimulationprogress_id)
                 progress_doc = await self.db.user_sim_progress.find_one(
                     {"_id": progress_id_object})
-
                 if not progress_doc:
+                    logger.warning(
+                        f"Progress document {request.usersimulationprogress_id} not found."
+                    )
                     raise HTTPException(
                         status_code=404,
                         detail=
-                        f"Progress document with id {request.usersimulationprogress_id} not found"
-                    )
+                        (f"Progress document with id {request.usersimulationprogress_id} not found"
+                         ))
 
-                # Update chat history if message provided
                 update_doc = {"lastModifiedAt": datetime.utcnow()}
                 if request.message is not None:
                     chat_history = progress_doc.get("chatHistory", [])
@@ -263,17 +440,16 @@ class SimulationController:
                         })
                     update_doc["chatHistory"] = chat_history
 
-                # Update document
                 await self.db.user_sim_progress.update_one(
                     {"_id": progress_id_object}, {"$set": update_doc})
-
+                logger.info("User simulation progress updated successfully.")
                 return StartSimulationResponse(
                     id=request.usersimulationprogress_id,
                     status="success",
                     response=chat_response["response"]
                     if chat_response else None)
             else:
-                # Create new progress document
+                logger.info("Creating new user simulation progress.")
                 progress_doc = {
                     "userId": request.user_id,
                     "simulationId": request.sim_id,
@@ -285,7 +461,6 @@ class SimulationController:
                     "lastModifiedAt": datetime.utcnow()
                 }
 
-                # Add initial messages if provided
                 if request.message is not None:
                     progress_doc["chatHistory"] = [{
                         "role": "Customer",
@@ -299,83 +474,86 @@ class SimulationController:
                             chat_response["response"]
                         })
 
-                # Insert into database
                 result = await self.db.user_sim_progress.insert_one(
                     progress_doc)
-
+                logger.info(
+                    "New user simulation progress created successfully.")
                 return StartSimulationResponse(
                     id=str(result.inserted_id),
                     status="success",
                     response=chat_response["response"]
                     if chat_response else None)
-
         except Exception as e:
+            logger.error(f"Error starting chat simulation: {e}", exc_info=True)
             raise HTTPException(
                 status_code=500,
                 detail=f"Error starting chat simulation: {str(e)}")
 
     async def _create_web_call(self, agent_id: str) -> Dict:
         """Create a web call using Retell API"""
+        logger.debug(f"Creating web call with agent_id={agent_id}")
         try:
             async with aiohttp.ClientSession() as session:
                 headers = {
-                    'Authorization': f'Bearer {RETELL_API_KEY}',
-                    'Content-Type': 'application/json'
+                    "Authorization": f"Bearer {RETELL_API_KEY}",
+                    "Content-Type": "application/json"
                 }
-
                 data = {"agent_id": agent_id}
 
                 async with session.post(
-                        'https://api.retellai.com/v2/create-web-call',
+                        "https://api.retellai.com/v2/create-web-call",
                         headers=headers,
                         json=data) as response:
                     if response.status != 201:
+                        logger.warning(
+                            f"Failed to create web call. Status: {response.status}"
+                        )
                         raise HTTPException(status_code=response.status,
                                             detail="Failed to create web call")
-
-                    return await response.json()
-
+                    resp_json = await response.json()
+                    logger.debug(f"Web call created successfully: {resp_json}")
+                    return resp_json
         except Exception as e:
+            logger.error(f"Error creating web call: {e}", exc_info=True)
             raise HTTPException(status_code=500,
                                 detail=f"Error creating web call: {str(e)}")
 
     async def end_audio_simulation(
             self, request: EndAudioSimulationRequest) -> EndSimulationResponse:
+        logger.info("Received request to end audio simulation.")
         try:
-            # Get call details from Retell AI
             async with aiohttp.ClientSession() as session:
-                headers = {'Authorization': f'Bearer {RETELL_API_KEY}'}
-                url = f'https://api.retellai.com/v2/get-call/{request.call_id}'
+                headers = {"Authorization": f"Bearer {RETELL_API_KEY}"}
+                url = f"https://api.retellai.com/v2/get-call/{request.call_id}"
 
                 async with session.get(url, headers=headers) as response:
                     if response.status != 200:
+                        logger.warning(
+                            f"Failed to fetch call details. Status: {response.status}"
+                        )
                         raise HTTPException(
                             status_code=response.status,
                             detail="Failed to fetch call details from Retell AI"
                         )
-
                     call_data = await response.json()
 
-            # Get simulation details
             sim = await self.db.simulations.find_one(
                 {"_id": ObjectId(request.simulation_id)})
             if not sim:
+                logger.warning(
+                    f"Simulation {request.simulation_id} not found for end_audio_simulation."
+                )
                 raise HTTPException(
                     status_code=404,
                     detail=
                     f"Simulation with id {request.simulation_id} not found")
 
-            # Calculate scores using Azure OpenAI
             transcript = call_data.get("transcript", "")
             scores = await self._calculate_scores(sim, transcript)
-
             transcriptObject = call_data.get("transcript_object", {})
-
-            # Calculate duration in seconds
             duration = (call_data.get("end_timestamp", 0) -
                         call_data.get("start_timestamp", 0)) // 1000
 
-            # Update user simulation progress
             update_doc = {
                 "status": "completed",
                 "transcript": transcript,
@@ -391,6 +569,9 @@ class SimulationController:
                 {"_id": ObjectId(request.usersimulationprogress_id)},
                 {"$set": update_doc})
 
+            logger.info(
+                f"Audio simulation ended. ID={request.usersimulationprogress_id}"
+            )
             return EndSimulationResponse(id=request.usersimulationprogress_id,
                                          status="success",
                                          scores=scores,
@@ -398,37 +579,34 @@ class SimulationController:
                                          transcript=transcript,
                                          audio_url=call_data.get(
                                              "recording_url", ""))
-
         except HTTPException as he:
             raise he
         except Exception as e:
+            logger.error(f"Error ending audio simulation: {e}", exc_info=True)
             raise HTTPException(
                 status_code=500,
                 detail=f"Error ending audio simulation: {str(e)}")
 
     async def end_chat_simulation(
             self, request: EndChatSimulationRequest) -> EndSimulationResponse:
+        logger.info("Received request to end chat simulation.")
         try:
-            # Get simulation details
             sim = await self.db.simulations.find_one(
                 {"_id": ObjectId(request.simulation_id)})
             if not sim:
+                logger.warning(
+                    f"Simulation {request.simulation_id} not found for end_chat_simulation."
+                )
                 raise HTTPException(
                     status_code=404,
                     detail=
                     f"Simulation with id {request.simulation_id} not found")
 
-            # Convert chat history to transcript format
             transcript = "\n".join(f"{msg.role}: {msg.sentence}"
                                    for msg in request.chat_history)
-
-            # Calculate scores using Azure OpenAI
             scores = await self._calculate_scores(sim, transcript)
-
-            # Calculate duration (for chat, we'll use a default or estimated value)
             duration = 300  # 5 minutes default for chat simulations
 
-            # Update user simulation progress
             update_doc = {
                 "status": "completed",
                 "transcript": transcript,
@@ -443,16 +621,19 @@ class SimulationController:
                 {"_id": ObjectId(request.usersimulationprogress_id)},
                 {"$set": update_doc})
 
+            logger.info(
+                f"Chat simulation ended. ID={request.usersimulationprogress_id}"
+            )
             return EndSimulationResponse(id=request.usersimulationprogress_id,
                                          status="success",
                                          scores=scores,
                                          duration=duration,
                                          transcript=transcript,
                                          audio_url="")
-
         except HTTPException as he:
             raise he
         except Exception as e:
+            logger.error(f"Error ending chat simulation: {e}", exc_info=True)
             raise HTTPException(
                 status_code=500,
                 detail=f"Error ending chat simulation: {str(e)}")
@@ -460,10 +641,9 @@ class SimulationController:
     async def _calculate_scores(self, simulation: Dict,
                                 transcript: str) -> Dict[str, float]:
         """Calculate simulation scores using Azure OpenAI"""
+        logger.debug("Calculating scores with Azure OpenAI.")
         try:
             history = ChatHistory()
-
-            # Add system message with scoring instructions
             system_message = (
                 "You are an AI scoring system. Analyze the following conversation between a customer "
                 "and a trainee based on the given script and criteria. Provide scores for:\n"
@@ -474,46 +654,72 @@ class SimulationController:
                 "5. Energy (0-100): Trainee's energy and enthusiasm\n"
                 "6. Concentration (0-100): Trainee's focus and attention\n\n"
                 "Return ONLY a JSON object with these scores as numbers.")
-
             history.add_system_message(system_message)
 
-            # Add conversation context
             script_text = "\n".join(f"{s['role']}: {s['script_sentence']}"
                                     for s in simulation['script'])
-
-            context = (f"Expected Script:\n{script_text}\n\n"
-                       f"Actual Conversation:\n{transcript}")
+            context = f"Expected Script:\n{script_text}\n\nActual Conversation:\n{transcript}"
             history.add_user_message(context)
 
-            # Get scores from Azure OpenAI
             result = await self.chat_completion.get_chat_message_content(
                 history, settings=self.execution_settings)
-
-            # Parse scores from response
+            logger.debug(f"OpenAI raw score response: {result}")
             scores = eval(str(result))  # Convert string response to dict
+            logger.debug(f"Scores parsed successfully: {scores}")
             return scores
-
         except Exception as e:
+            logger.error(f"Error calculating scores: {e}", exc_info=True)
             raise HTTPException(status_code=500,
                                 detail=f"Error calculating scores: {str(e)}")
 
     async def fetch_simulations(
             self,
             request: FetchSimulationsRequest) -> FetchSimulationsResponse:
+<<<<<<< HEAD
 
         simulations = await self.service.fetch_simulations(request.user_id)
         return FetchSimulationsResponse(simulations=simulations)
+=======
+        logger.info("Received request to fetch simulations.")
+        try:
+            if not request.user_id:
+                logger.warning(
+                    "Missing 'userId' in fetch_simulations request.")
+                raise HTTPException(status_code=400, detail="Missing 'userId'")
+
+            simulations = await self.service.fetch_simulations(request.user_id)
+            logger.info(f"Fetched {len(simulations)} simulation(s).")
+            return FetchSimulationsResponse(simulations=simulations)
+        except Exception as e:
+            logger.error(f"Error fetching simulations: {e}", exc_info=True)
+            raise
+>>>>>>> 2b821713bc30bb84146395eb4fc5afa4336074e2
 
     async def get_simulation_by_id(
             self, simulation_id: str) -> SimulationByIDResponse:
         """Get a single simulation by ID"""
+<<<<<<< HEAD
+=======
+        logger.info(
+            f"Received request to get simulation by ID: {simulation_id}")
+        try:
+            if not simulation_id:
+                logger.warning("Missing 'id' in get_simulation_by_id request.")
+                raise HTTPException(status_code=400, detail="Missing 'id'")
+>>>>>>> 2b821713bc30bb84146395eb4fc5afa4336074e2
 
-        simulation = await self.service.get_simulation_by_id(simulation_id)
-        if not simulation:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Simulation with id {simulation_id} not found")
-        return simulation
+            simulation = await self.service.get_simulation_by_id(simulation_id)
+            if not simulation:
+                logger.warning(
+                    f"Simulation with id {simulation_id} not found.")
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Simulation with id {simulation_id} not found")
+            logger.info(f"Simulation {simulation_id} retrieved successfully.")
+            return simulation
+        except Exception as e:
+            logger.error(f"Error getting simulation by ID: {e}", exc_info=True)
+            raise
 
 
 controller = SimulationController()
@@ -527,16 +733,15 @@ async def update_simulation(
     Update an existing simulation.
     Can handle both JSON (no files) and multipart/form-data (with files).
     """
+    logger.info(f"API endpoint called: PUT /simulations/{sim_id}/update")
     content_type = req.headers.get("content-type", "").lower()
     if "application/json" in content_type:
-        # JSON body
         data = await req.json()
-        slides_files = {}  # Changed: Dictionary instead of list
+        slides_files = {}
     else:
-        # Multipart/form-data
         form_data = await req.form()
         data = dict(form_data)
-        # Fields that might be JSON strings (list/array, dict/object).
+        import json
         json_fields = [
             "script",
             "slidesData",
@@ -549,34 +754,31 @@ async def update_simulation(
             "simulation_scoring_metrics",
             "sim_practice",
         ]
-        import json
         for field_name in json_fields:
             if field_name in data and isinstance(data[field_name], str):
                 try:
                     data[field_name] = json.loads(data[field_name])
                 except Exception as e:
-                    print(f"DEBUG: Could not parse '{field_name}': {e}")
+                    logger.debug(f"Could not parse '{field_name}': {e}")
 
-        # Changed: Extract slides files using new naming convention
-        slides_files = {}  # Dictionary to map image IDs to files
+        slides_files = {}
         for key, value in form_data.multi_items():
             if key.startswith("slide_"):
-                # Extract the image ID from the key name (after "slide_")
-                image_id = key[6:]  # Removes "slide_" prefix
+                image_id = key[6:]
                 slides_files[image_id] = value
-                print(
-                    f"DEBUG: Found file for image ID {image_id}: {value.filename}"
-                )
+                logger.debug(
+                    f"Found file for image ID {image_id}: {value.filename}")
 
-    # Parse into Pydantic model
     from api.schemas.requests import UpdateSimulationRequest
     try:
         update_request = UpdateSimulationRequest.parse_obj(data)
     except Exception as e:
-        print("DEBUG: Error parsing UpdateSimulationRequest:", e)
+        logger.error("Error parsing UpdateSimulationRequest", exc_info=True)
         raise HTTPException(status_code=422, detail="Request validation error")
 
-    # Forward to controller
+    logger.info(
+        f"Forwarding update simulation request to controller for sim_id={sim_id}"
+    )
     return await controller.update_simulation(sim_id, update_request,
                                               slides_files)
 
@@ -585,12 +787,14 @@ async def update_simulation(
 async def start_audio_simulation_preview(
     request: StartAudioSimulationPreviewRequest
 ) -> StartAudioSimulationPreviewResponse:
+    logger.info("API endpoint called: POST /simulations/start-audio-preview")
     return await controller.start_audio_simulation_preview(request)
 
 
 @router.post("/simulations/start-chat-preview", tags=["Simulations", "Chat"])
 async def start_chat_preview(
         request: StartChatPreviewRequest) -> StartChatPreviewResponse:
+    logger.info("API endpoint called: POST /simulations/start-chat-preview")
     return await controller.start_chat_preview(request)
 
 
@@ -598,6 +802,7 @@ async def start_chat_preview(
 async def start_audio_simulation(
         request: StartAudioSimulationRequest) -> StartSimulationResponse:
     """Start an audio simulation"""
+    logger.info("API endpoint called: POST /simulations/start-audio")
     return await controller.start_audio_simulation(request)
 
 
@@ -605,25 +810,28 @@ async def start_audio_simulation(
 async def start_chat_simulation(
         request: StartChatSimulationRequest) -> StartSimulationResponse:
     """Start a chat simulation"""
-    print("test")
+    logger.info("API endpoint called: POST /simulations/start-chat")
     return await controller.start_chat_simulation(request)
 
 
 @router.post("/simulations/end-audio", tags=["Simulations", "End"])
 async def end_audio_simulation(
         request: EndAudioSimulationRequest) -> EndSimulationResponse:
+    logger.info("API endpoint called: POST /simulations/end-audio")
     return await controller.end_audio_simulation(request)
 
 
 @router.post("/simulations/end-chat", tags=["Simulations", "End"])
 async def end_chat_simulation(
         request: EndChatSimulationRequest) -> EndSimulationResponse:
+    logger.info("API endpoint called: POST /simulations/end-chat")
     return await controller.end_chat_simulation(request)
 
 
 @router.post("/simulations/fetch", tags=["Simulations", "Read"])
 async def fetch_simulations(
         request: FetchSimulationsRequest) -> FetchSimulationsResponse:
+    logger.info("API endpoint called: POST /simulations/fetch")
     return await controller.fetch_simulations(request)
 
 
@@ -633,6 +841,8 @@ async def start_visual_audio_preview(
     request: StartVisualAudioPreviewRequest
 ) -> StartVisualAudioPreviewResponse:
     """Start a visual-audio simulation preview"""
+    logger.info(
+        "API endpoint called: POST /simulations/start-visual-audio-preview")
     return await controller.start_visual_audio_preview(request)
 
 
@@ -642,6 +852,8 @@ async def start_visual_chat_preview(
         request: StartVisualChatPreviewRequest
 ) -> StartVisualChatPreviewResponse:
     """Start a visual-chat simulation preview"""
+    logger.info(
+        "API endpoint called: POST /simulations/start-visual-chat-preview")
     return await controller.start_visual_chat_preview(request)
 
 
@@ -650,12 +862,14 @@ async def start_visual_chat_preview(
 async def start_visual_preview(
         request: StartVisualPreviewRequest) -> StartVisualPreviewResponse:
     """Start a visual-chat simulation preview"""
+    logger.info("API endpoint called: POST /simulations/start-visual-preview")
     return await controller.start_visual_preview(request)
 
 
 @router.get("/simulations/fetch/{simulation_id}", tags=["Simulations", "Read"])
 async def get_simulation_by_id(simulation_id: str) -> SimulationByIDResponse:
     """Get a single simulation by ID"""
+    logger.info(f"API endpoint called: GET /simulations/fetch/{simulation_id}")
     return await controller.get_simulation_by_id(simulation_id)
 
 
@@ -663,10 +877,13 @@ async def get_simulation_by_id(simulation_id: str) -> SimulationByIDResponse:
 async def create_simulation(
         request: CreateSimulationRequest) -> CreateSimulationResponse:
     """Create a new simulation"""
+    logger.info("API endpoint called: POST /simulations/create")
     return await controller.create_simulation(request)
 
 
 @router.post("/simulations/clone", tags=["Simulations", "Create"])
-async def clone_simulation(request: CloneSimulationRequest) -> CreateSimulationResponse:
+async def clone_simulation(
+        request: CloneSimulationRequest) -> CreateSimulationResponse:
     """Clone an existing simulation"""
+    logger.info("API endpoint called: POST /simulations/clone")
     return await controller.clone_simulation(request)

@@ -11,6 +11,9 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "sk-proj-qtwccP6aFvqpMgbWB-6fkESxJ0
 
 RETELL_API_KEY = os.getenv("RETELL_API_KEY", "key_c98334da2d625bae2d5c9a24d33f")
 
+PUBLIC_KEY_PATH = os.getenv("PUBLIC_KEY_PATH", "/public.pem")
+
+
 # Azure OpenAI Configuration
 AZURE_OPENAI_DEPLOYMENT_NAME = os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME", "gpt-4o-simulator")
 AZURE_OPENAI_KEY = os.getenv(

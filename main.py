@@ -10,9 +10,18 @@ from api.controllers.training_plan_controller import router as training_plan_rou
 from api.controllers.list_controller import router as list_router
 from api.controllers.assignment_controller import router as assignment_router
 from api.controllers.image_controller import router as image_router
+from middleware.auth_middleware import JWTAuthMiddleware
+from utils.logger import Logger
+
+# Initialize logger
+logger = Logger.get_logger(__name__)
 
 app = FastAPI()
 
+# Add JWT authentication middleware
+app.add_middleware(JWTAuthMiddleware)
+
+# Include routers
 app.include_router(training_router)
 app.include_router(playback_router)
 app.include_router(script_converter_router)
@@ -27,8 +36,10 @@ app.include_router(image_router)
 
 @app.get("/")
 async def root():
+    logger.info("Root endpoint accessed")
     return {"message": "Hello from EverAI Simulator Backend"}
 
 
 if __name__ == "__main__":
+    logger.info("Starting EverAI Simulator Backend")
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

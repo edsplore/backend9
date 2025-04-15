@@ -4,6 +4,10 @@ from domain.services.script_converter_service import ScriptConverterService
 from api.schemas.requests import AudioToScriptRequest, TextToScriptRequest, FileToScriptRequest
 from api.schemas.responses import ScriptResponse
 
+from utils.logger import Logger
+
+logger = Logger.get_logger(__name__)
+
 router = APIRouter()
 
 
@@ -11,38 +15,65 @@ class ScriptConverterController:
 
     def __init__(self):
         self.service = ScriptConverterService()
-
+        logger.info("ScriptConverterController initialized.")
+    
     async def convert_audio_to_script(
             self, user_id: str, audio_file: UploadFile) -> ScriptResponse:
-        if not user_id:
-            raise HTTPException(status_code=400, detail="Missing 'userId'")
-        if not audio_file:
-            raise HTTPException(status_code=400, detail="Missing audio file")
-
-        script = await self.service.convert_audio_to_script(
-            user_id, audio_file)
-        return ScriptResponse(script=script)
-
-    async def convert_text_to_script(self, user_id: str,
-                                     prompt: str) -> ScriptResponse:
-        if not user_id:
-            raise HTTPException(status_code=400, detail="Missing 'userId'")
-        if not prompt:
-            raise HTTPException(status_code=400, detail="Missing 'prompt'")
-
-        script = await self.service.convert_text_to_script(user_id, prompt)
-        return ScriptResponse(script=script)
-
-    async def convert_file_to_script(self, user_id: str,
-                                     file: UploadFile) -> ScriptResponse:
-        if not user_id:
-            raise HTTPException(status_code=400, detail="Missing 'userId'")
-        if not file:
-            raise HTTPException(status_code=400, detail="Missing file")
-
-        script = await self.service.convert_file_to_script(user_id, file)
-        return ScriptResponse(script=script)
-
+        logger.info("Received request to convert audio to script.")
+        logger.debug(f"user_id: {user_id}, filename: {audio_file.filename if audio_file else 'None'}")
+    
+        try:
+            if not user_id:
+                logger.warning("Missing 'userId' in convert_audio_to_script request.")
+                raise HTTPException(status_code=400, detail="Missing 'userId'")
+            if not audio_file:
+                logger.warning("Missing audio file in convert_audio_to_script request.")
+                raise HTTPException(status_code=400, detail="Missing audio file")
+    
+            script = await self.service.convert_audio_to_script(user_id, audio_file)
+            logger.info(f"Successfully converted audio to script for user_id: {user_id}")
+            return ScriptResponse(script=script)
+        except Exception as e:
+            logger.error(f"Error converting audio to script: {str(e)}", exc_info=True)
+            raise
+    
+    async def convert_text_to_script(self, user_id: str, prompt: str) -> ScriptResponse:
+        logger.info("Received request to convert text to script.")
+        logger.debug(f"user_id: {user_id}, prompt: {prompt[:50]}...")
+    
+        try:
+            if not user_id:
+                logger.warning("Missing 'userId' in convert_text_to_script request.")
+                raise HTTPException(status_code=400, detail="Missing 'userId'")
+            if not prompt:
+                logger.warning("Missing 'prompt' in convert_text_to_script request.")
+                raise HTTPException(status_code=400, detail="Missing 'prompt'")
+    
+            script = await self.service.convert_text_to_script(user_id, prompt)
+            logger.info(f"Successfully converted text to script for user_id: {user_id}")
+            return ScriptResponse(script=script)
+        except Exception as e:
+            logger.error(f"Error converting text to script: {str(e)}", exc_info=True)
+            raise
+    
+    async def convert_file_to_script(self, user_id: str, file: UploadFile) -> ScriptResponse:
+        logger.info("Received request to convert file to script.")
+        logger.debug(f"user_id: {user_id}, filename: {file.filename if file else 'None'}")
+    
+        try:
+            if not user_id:
+                logger.warning("Missing 'userId' in convert_file_to_script request.")
+                raise HTTPException(status_code=400, detail="Missing 'userId'")
+            if not file:
+                logger.warning("Missing 'file' in convert_file_to_script request.")
+                raise HTTPException(status_code=400, detail="Missing file")
+    
+            script = await self.service.convert_file_to_script(user_id, file)
+            logger.info(f"Successfully converted file to script for user_id: {user_id}")
+            return ScriptResponse(script=script)
+        except Exception as e:
+            logger.error(f"Error converting file to script: {str(e)}", exc_info=True)
+            raise
 
 controller = ScriptConverterController()
 

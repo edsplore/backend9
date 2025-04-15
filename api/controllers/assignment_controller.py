@@ -1,50 +1,76 @@
 from fastapi import APIRouter, HTTPException
 from domain.services.assignment_service import AssignmentService
 from api.schemas.requests import CreateAssignmentRequest, FetchAssignedPlansRequest
+from utils.logger import Logger
 from api.schemas.responses import (CreateAssignmentResponse,
                                    FetchAssignmentsResponse,
                                    FetchAssignedPlansResponse)
 
 router = APIRouter()
-
+logger = Logger.get_logger(__name__)
 
 class AssignmentController:
 
     def __init__(self):
         self.service = AssignmentService()
-
+        logger.info("AssignmentController initialized.")
+    
     async def create_assignment(
             self,
             request: CreateAssignmentRequest) -> CreateAssignmentResponse:
-        if not request.user_id:
-            raise HTTPException(status_code=400, detail="Missing 'userId'")
-        if not request.name:
-            raise HTTPException(status_code=400, detail="Missing 'name'")
-        if not request.type:
-            raise HTTPException(status_code=400, detail="Missing 'type'")
-        if not request.start_date:
-            raise HTTPException(status_code=400, detail="Missing 'start_date'")
-        if not request.end_date:
-            raise HTTPException(status_code=400, detail="Missing 'end_date'")
-
-        result = await self.service.create_assignment(request)
-        return CreateAssignmentResponse(id=result["id"],
-                                        status=result["status"])
-
+        logger.info("Received request to create assignment.")
+        logger.debug(f"Request data: {request.dict()}")
+        try:
+            if not request.user_id:
+                logger.warning("Missing 'userId' in request.")
+                raise HTTPException(status_code=400, detail="Missing 'userId'")
+            if not request.name:
+                logger.warning("Missing 'name' in request.")
+                raise HTTPException(status_code=400, detail="Missing 'name'")
+            if not request.type:
+                logger.warning("Missing 'type' in request.")
+                raise HTTPException(status_code=400, detail="Missing 'type'")
+            if not request.start_date:
+                logger.warning("Missing 'start_date' in request.")
+                raise HTTPException(status_code=400, detail="Missing 'start_date'")
+            if not request.end_date:
+                logger.warning("Missing 'end_date' in request.")
+                raise HTTPException(status_code=400, detail="Missing 'end_date'")
+    
+            result = await self.service.create_assignment(request)
+            logger.info(f"Assignment created successfully: {result}")
+            return CreateAssignmentResponse(id=result["id"],
+                                            status=result["status"])
+        except Exception as e:
+            logger.error(f"Error while creating assignment: {str(e)}", exc_info=True)
+            raise
+    
     async def fetch_assignments(self) -> FetchAssignmentsResponse:
-        assignments = await self.service.fetch_assignments()
-        return FetchAssignmentsResponse(assignments=assignments)
-
+        logger.info("Fetching all assignments.")
+        try:
+            assignments = await self.service.fetch_assignments()
+            logger.debug(f"Assignments fetched: {assignments}")
+            return FetchAssignmentsResponse(assignments=assignments)
+        except Exception as e:
+            logger.error(f"Error fetching assignments: {str(e)}", exc_info=True)
+            raise
+    
     async def fetch_assigned_plans(
             self,
             request: FetchAssignedPlansRequest) -> FetchAssignedPlansResponse:
-        if not request.user_id:
-            raise HTTPException(status_code=400, detail="Missing 'userId'")
-        return await self.service.fetch_assigned_plans(request.user_id)
-
+        logger.info(f"Fetching assigned plans for user_id={request.user_id}")
+        try:
+            if not request.user_id:
+                logger.warning("Missing 'userId' in fetch_assigned_plans request.")
+                raise HTTPException(status_code=400, detail="Missing 'userId'")
+            response = await self.service.fetch_assigned_plans(request.user_id)
+            logger.debug(f"Assigned plans: {response}")
+            return response
+        except Exception as e:
+            logger.error(f"Error fetching assigned plans: {str(e)}", exc_info=True)
+            raise
 
 controller = AssignmentController()
-
 
 @router.post("/create-assignment", tags=["Assignments", "Create"])
 async def create_assignment(

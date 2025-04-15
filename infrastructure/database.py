@@ -1,6 +1,10 @@
 from motor.motor_asyncio import AsyncIOMotorClient
 from config import MONGO_URI, DB_NAME
 
+from utils.logger import Logger
+
+logger = Logger.get_logger(__name__)
+
 
 class Database:
     _instance = None
@@ -9,6 +13,7 @@ class Database:
         if cls._instance is None:
             cls._instance = super().__new__(cls)
             try:
+                logger.info("Initializing database connection")
                 client = AsyncIOMotorClient(MONGO_URI)
                 db = client[DB_NAME]
 
@@ -22,7 +27,10 @@ class Database:
                 cls._instance.sim_attempts = db["simulationAttempts"]
                 cls._instance.images = db[
                     "images"]  # New collection for storing images
+                logger.info("Database connection initialized successfully")
             except Exception as e:
+                logger.error(f"Failed to connect to MongoDB: {str(e)}",
+                             exc_info=True)
                 raise ConnectionError(
                     f"Failed to connect to MongoDB: {str(e)}")
 
