@@ -9,19 +9,34 @@ from infrastructure.database import Database
 from domain.services.chat_service import ChatService
 
 from api.schemas.requests import (
-    CreateSimulationRequest, UpdateSimulationRequest,
-    StartAudioSimulationPreviewRequest, StartChatPreviewRequest,
-    StartAudioSimulationRequest, StartChatSimulationRequest,
-    EndAudioSimulationRequest, EndChatSimulationRequest,
-    FetchSimulationsRequest, StartVisualAudioPreviewRequest,
-    StartVisualChatPreviewRequest, StartVisualPreviewRequest,
-    CloneSimulationRequest)
+    CreateSimulationRequest,
+    UpdateSimulationRequest,
+    StartAudioSimulationPreviewRequest,
+    StartChatPreviewRequest,
+    StartAudioSimulationRequest,
+    StartChatSimulationRequest,
+    EndAudioSimulationRequest,
+    EndChatSimulationRequest,
+    FetchSimulationsRequest,
+    StartVisualAudioPreviewRequest,
+    StartVisualChatPreviewRequest,
+    StartVisualPreviewRequest,
+    CloneSimulationRequest,
+    StartVisualAudioAttemptRequest,
+    StartVisualChatAttemptRequest,
+    StartVisualAttemptRequest,
+    EndVisualAudioAttemptRequest,
+    EndVisualChatAttemptRequest,
+    EndVisualAttemptRequest,
+)
 from api.schemas.responses import (
     CreateSimulationResponse, UpdateSimulationResponse,
     StartAudioSimulationPreviewResponse, StartChatPreviewResponse,
     StartSimulationResponse, EndSimulationResponse, FetchSimulationsResponse,
     StartVisualAudioPreviewResponse, SlideImageData, SimulationByIDResponse,
-    StartVisualChatPreviewResponse, StartVisualPreviewResponse, SimulationData)
+    StartVisualChatPreviewResponse, StartVisualPreviewResponse, SimulationData,
+    StartVisualAttemptResponse, StartVisualAudioAttemptResponse,
+    StartVisualChatAttemptResponse)
 from config import (RETELL_API_KEY, AZURE_OPENAI_DEPLOYMENT_NAME,
                     AZURE_OPENAI_KEY, AZURE_OPENAI_BASE_URL)
 from semantic_kernel import Kernel
@@ -601,6 +616,161 @@ class SimulationController:
             logger.error(f"Error getting simulation by ID: {e}", exc_info=True)
             raise
 
+    async def start_visual_audio_attempt(
+            self, sim_id: str, user_id: str,
+            assignment_id: str) -> StartVisualAudioAttemptResponse:
+        try:
+            progress_doc = {
+                "userId": user_id,
+                "simulationId": sim_id,
+                "assignmentId": assignment_id,
+                "type": "visual_audio",
+                "status": "in_progress",
+                "createdAt": datetime.utcnow(),
+                "lastModifiedAt": datetime.utcnow()
+            }
+
+            result = await self.db.user_sim_progress.insert_one(progress_doc)
+            return StartVisualAudioAttemptResponse(id=str(result.inserted_id),
+                                                   status="in_progress")
+        except Exception as e:
+            logger.error(f"[start_visual_audio_attempt] {str(e)}",
+                         exc_info=True)
+            raise HTTPException(status_code=500,
+                                detail="Internal server error")
+
+    async def start_visual_chat_attempt(
+            self, sim_id: str, user_id: str,
+            assignment_id: str) -> StartVisualChatAttemptResponse:
+        try:
+            progress_doc = {
+                "userId": user_id,
+                "simulationId": sim_id,
+                "assignmentId": assignment_id,
+                "type": "visual_chat",
+                "status": "in_progress",
+                "createdAt": datetime.utcnow(),
+                "lastModifiedAt": datetime.utcnow()
+            }
+
+            result = await self.db.user_sim_progress.insert_one(progress_doc)
+            return StartVisualChatAttemptResponse(id=str(result.inserted_id),
+                                                  status="in_progress")
+        except Exception as e:
+            logger.error(f"[start_visual_chat_attempt] {str(e)}",
+                         exc_info=True)
+            raise HTTPException(status_code=500,
+                                detail="Internal server error")
+
+    async def start_visual_attempt(
+            self, sim_id: str, user_id: str,
+            assignment_id: str) -> StartVisualAttemptResponse:
+        try:
+            progress_doc = {
+                "userId": user_id,
+                "simulationId": sim_id,
+                "assignmentId": assignment_id,
+                "type": "visual",
+                "status": "in_progress",
+                "createdAt": datetime.utcnow(),
+                "lastModifiedAt": datetime.utcnow()
+            }
+
+            result = await self.db.user_sim_progress.insert_one(progress_doc)
+            return StartVisualAttemptResponse(id=str(result.inserted_id),
+                                              status="in_progress")
+        except Exception as e:
+            logger.error(f"[start_visual_attempt] {str(e)}", exc_info=True)
+            raise HTTPException(status_code=500,
+                                detail="Internal server error")
+
+    async def end_visual_audio_attempt(
+            self,
+            request: EndVisualAudioAttemptRequest) -> EndSimulationResponse:
+        try:
+            update_doc = {
+                "status": "completed",
+                "transcript": "",
+                "audioUrl": "",
+                "duration": 0,
+                "scores": {},
+                "completedAt": datetime.utcnow(),
+                "lastModifiedAt": datetime.utcnow()
+            }
+
+            await self.db.user_sim_progress.update_one(
+                {"_id": ObjectId(request.usersimulationprogress_id)},
+                {"$set": update_doc})
+
+            return EndSimulationResponse(id=request.usersimulationprogress_id,
+                                         status="success",
+                                         scores={},
+                                         duration=0,
+                                         transcript="",
+                                         audio_url="")
+        except Exception as e:
+            logger.error(f"[end_visual_audio_attempt] {str(e)}", exc_info=True)
+            raise HTTPException(status_code=500,
+                                detail="Internal server error")
+
+    async def end_visual_chat_attempt(
+            self,
+            request: EndVisualChatAttemptRequest) -> EndSimulationResponse:
+        try:
+            transcript = ""
+            scores = {}
+
+            update_doc = {
+                "status": "completed",
+                "transcript": transcript,
+                "chatHistory": [],
+                "duration": 0,
+                "scores": scores,
+                "completedAt": datetime.utcnow(),
+                "lastModifiedAt": datetime.utcnow()
+            }
+
+            await self.db.user_sim_progress.update_one(
+                {"_id": ObjectId(request.usersimulationprogress_id)},
+                {"$set": update_doc})
+
+            return EndSimulationResponse(id=request.usersimulationprogress_id,
+                                         status="success",
+                                         scores=scores,
+                                         duration=0,
+                                         transcript=transcript,
+                                         audio_url="")
+        except Exception as e:
+            logger.error(f"[end_visual_chat_attempt] {str(e)}", exc_info=True)
+            raise HTTPException(status_code=500,
+                                detail="Internal server error")
+
+    async def end_visual_attempt(
+            self, request: EndVisualAttemptRequest) -> EndSimulationResponse:
+        try:
+            update_doc = {
+                "status": "completed",
+                "duration": 0,
+                "scores": {},
+                "completedAt": datetime.utcnow(),
+                "lastModifiedAt": datetime.utcnow()
+            }
+
+            await self.db.user_sim_progress.update_one(
+                {"_id": ObjectId(request.usersimulationprogress_id)},
+                {"$set": update_doc})
+
+            return EndSimulationResponse(id=request.usersimulationprogress_id,
+                                         status="success",
+                                         scores={},
+                                         duration=0,
+                                         transcript="",
+                                         audio_url="")
+        except Exception as e:
+            logger.error(f"[end_visual_attempt] {str(e)}", exc_info=True)
+            raise HTTPException(status_code=500,
+                                detail="Internal server error")
+
 
 controller = SimulationController()
 
@@ -767,3 +937,68 @@ async def clone_simulation(
     """Clone an existing simulation"""
     logger.info("API endpoint called: POST /simulations/clone")
     return await controller.clone_simulation(request)
+
+
+@router.post("/simulations/start-visual-audio-attempt",
+             tags=["Simulations", "Visual Audio"])
+async def start_visual_audio_attempt(
+    request: StartVisualAudioAttemptRequest
+) -> StartVisualAudioAttemptResponse:
+    """Start a visual-audio simulation attempt"""
+    logger.info(
+        "API endpoint called: POST /simulations/start-visual-audio-attempt")
+    return await controller.start_visual_audio_attempt(request.sim_id,
+                                                       request.user_id,
+                                                       request.assignment_id)
+
+
+@router.post("/simulations/start-visual-chat-attempt",
+             tags=["Simulations", "Visual Chat"])
+async def start_visual_chat_attempt(
+        request: StartVisualChatAttemptRequest
+) -> StartVisualChatAttemptResponse:
+    """Start a visual-chat simulation attempt"""
+    logger.info(
+        "API endpoint called: POST /simulations/start-visual-chat-attempt")
+    return await controller.start_visual_chat_attempt(request.sim_id,
+                                                      request.user_id,
+                                                      request.assignment_id)
+
+
+@router.post("/simulations/start-visual-attempt",
+             tags=["Simulations", "Visual"])
+async def start_visual_attempt(
+        request: StartVisualAttemptRequest) -> StartVisualAttemptResponse:
+    """Start a visual simulation attempt"""
+    logger.info("API endpoint called: POST /simulations/start-visual-attempt")
+    return await controller.start_visual_attempt(request.sim_id,
+                                                 request.user_id,
+                                                 request.assignment_id)
+
+
+@router.post("/simulations/end-visual-audio-attempt",
+             tags=["Simulations", "End"])
+async def end_visual_audio_attempt(
+        request: EndVisualAudioAttemptRequest) -> EndSimulationResponse:
+    """End a visual-audio simulation attempt"""
+    logger.info(
+        "API endpoint called: POST /simulations/end-visual-audio-attempt")
+    return await controller.end_visual_audio_attempt(request)
+
+
+@router.post("/simulations/end-visual-chat-attempt",
+             tags=["Simulations", "End"])
+async def end_visual_chat_attempt(
+        request: EndVisualChatAttemptRequest) -> EndSimulationResponse:
+    """End a visual-chat simulation attempt"""
+    logger.info(
+        "API endpoint called: POST /simulations/end-visual-chat-attempt")
+    return await controller.end_visual_chat_attempt(request)
+
+
+@router.post("/simulations/end-visual-attempt", tags=["Simulations", "End"])
+async def end_visual_attempt(
+        request: EndVisualAttemptRequest) -> EndSimulationResponse:
+    """End a visual simulation attempt"""
+    logger.info("API endpoint called: POST /simulations/end-visual-attempt")
+    return await controller.end_visual_attempt(request)

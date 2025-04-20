@@ -4,6 +4,31 @@ from datetime import datetime
 from enum import Enum
 
 
+class SortDirection(str, Enum):
+    ASC = "asc"
+    DESC = "desc"
+
+
+class PaginationParams(BaseModel):
+    page: int = 1
+    pagesize: int = 50
+    search: Optional[str] = None
+    sortBy: Optional[str] = None
+    sortDir: SortDirection = SortDirection.ASC
+    tags: Optional[List[str]] = None
+    division: Optional[str] = None
+    department: Optional[str] = None
+    status: Optional[List[str]] = None
+    level: Optional[str] = None
+    simType: Optional[str] = None
+    createdBy: Optional[str] = None
+    modifiedBy: Optional[str] = None
+    createdFrom: Optional[datetime] = None
+    createdTo: Optional[datetime] = None
+    modifiedFrom: Optional[datetime] = None
+    modifiedTo: Optional[datetime] = None
+
+
 class ChatHistoryItem(BaseModel):
     sentence: str
     role: str
@@ -325,3 +350,39 @@ class CreateTagRequest(BaseModel):
 
 class FetchTagsRequest(BaseModel):
     user_id: str
+
+
+class StartVisualAudioAttemptRequest(BaseModel):
+    user_id: str
+    sim_id: str
+    assignment_id: str
+
+
+class StartVisualChatAttemptRequest(BaseModel):
+    user_id: str
+    sim_id: str
+    assignment_id: str
+
+
+class StartVisualAttemptRequest(BaseModel):
+    user_id: str
+    sim_id: str
+    assignment_id: str
+
+
+class EndVisualAudioAttemptRequest(BaseModel):
+    user_id: str
+    simulation_id: str
+    usersimulationprogress_id: str
+
+
+class EndVisualChatAttemptRequest(BaseModel):
+    user_id: str
+    simulation_id: str
+    usersimulationprogress_id: str
+
+
+class EndVisualAttemptRequest(BaseModel):
+    user_id: str
+    simulation_id: str
+    usersimulationprogress_id: str

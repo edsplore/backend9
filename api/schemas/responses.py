@@ -4,6 +4,7 @@ from domain.models.training import TrainingDataModel
 from domain.models.playback import SimulationAttemptModel, AttemptAnalyticsModel
 from api.schemas.requests import SimulationScoringMetrics, SimulationPractice
 
+
 class TrainingDataResponse(BaseModel):
     training_plans: List[TrainingDataModel]
     stats: dict
@@ -151,6 +152,7 @@ class SimulationData(BaseModel):
     estimated_time_to_attempt_in_mins: int | None = None
     mood: str | None = None
     voice_speed: str | None = None
+
 
 class FetchSimulationsResponse(BaseModel):
     simulations: List[SimulationData]
@@ -337,3 +339,19 @@ class CreateTagResponse(BaseModel):
 
 class FetchTagsResponse(BaseModel):
     tags: List[TagData]
+
+
+class StartVisualAudioAttemptResponse(BaseModel):
+    id: str
+    status: str
+
+
+class StartVisualChatAttemptResponse(BaseModel):
+    id: str
+    status: str
+
+
+class StartVisualAttemptResponse(BaseModel):
+    id: str
+    status: str
+
