@@ -25,8 +25,8 @@ class Database:
                 cls._instance.simulations = db["simulations"]
                 cls._instance.user_sim_progress = db["userSimulationProgress"]
                 cls._instance.sim_attempts = db["simulationAttempts"]
-                cls._instance.images = db[
-                    "images"]  # New collection for storing images
+                cls._instance.images = db["images"]
+                cls._instance.tags = db["tags"]  # Add tags collection
                 logger.info("Database connection initialized successfully")
             except Exception as e:
                 logger.error(f"Failed to connect to MongoDB: {str(e)}",

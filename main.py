@@ -10,6 +10,7 @@ from api.controllers.training_plan_controller import router as training_plan_rou
 from api.controllers.list_controller import router as list_router
 from api.controllers.assignment_controller import router as assignment_router
 from api.controllers.image_controller import router as image_router
+from api.controllers.tag_controller import router as tag_router
 from middleware.auth_middleware import JWTAuthMiddleware
 from utils.logger import Logger
 
@@ -32,6 +33,7 @@ app.include_router(training_plan_router)
 app.include_router(list_router)
 app.include_router(assignment_router)
 app.include_router(image_router)
+app.include_router(tag_router)
 
 
 @app.get("/")
