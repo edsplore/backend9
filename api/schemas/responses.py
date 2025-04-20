@@ -319,3 +319,21 @@ class StartVisualPreviewResponse(BaseModel):
 class SimulationByIDResponse(BaseModel):
     simulation: SimulationData
     images: Optional[List[SlideImageData]] = None
+
+
+class TagData(BaseModel):
+    id: str
+    name: str
+    created_by: str
+    created_at: str
+    last_modified_by: str
+    last_modified_at: str
+
+
+class CreateTagResponse(BaseModel):
+    id: str
+    status: str
+
+
+class FetchTagsResponse(BaseModel):
+    tags: List[TagData]

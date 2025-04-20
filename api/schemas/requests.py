@@ -1,5 +1,7 @@
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any, Union
+from datetime import datetime
+from enum import Enum
 
 
 class ChatHistoryItem(BaseModel):
@@ -200,6 +202,7 @@ class StartAudioSimulationRequest(BaseModel):
 
 class FetchSimulationsRequest(BaseModel):
     user_id: str
+    pagination: PaginationParams
 
 
 class CreateModuleRequest(BaseModel):
@@ -218,6 +221,7 @@ class UpdateModuleRequest(BaseModel):
 
 class FetchModulesRequest(BaseModel):
     user_id: str
+    pagination: PaginationParams
 
 
 class AddedObject(BaseModel):
@@ -241,6 +245,7 @@ class UpdateTrainingPlanRequest(BaseModel):
 
 class FetchTrainingPlansRequest(BaseModel):
     user_id: str
+    pagination: PaginationParams
 
 
 class ListItemsRequest(BaseModel):
@@ -311,3 +316,12 @@ class StartVisualChatPreviewRequest(BaseModel):
 class StartVisualPreviewRequest(BaseModel):
     user_id: str
     sim_id: str
+
+
+class CreateTagRequest(BaseModel):
+    user_id: str
+    name: str
+
+
+class FetchTagsRequest(BaseModel):
+    user_id: str
