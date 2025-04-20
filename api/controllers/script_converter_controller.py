@@ -83,7 +83,7 @@ class ScriptConverterController:
 
         try:
             audio_content = await audio_file.read()
-            transcript = await self.service.deepgram_plugin.transcribe_audio(
+            transcript = await self.service.deepgram_plugin.transcribe_audio_visual(
                 audio_content)
             logger.info(
                 f"Successfully converted audio to text for user_id: {user_id}")
