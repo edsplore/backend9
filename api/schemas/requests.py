@@ -227,7 +227,7 @@ class StartAudioSimulationRequest(BaseModel):
 
 class FetchSimulationsRequest(BaseModel):
     user_id: str
-    pagination: PaginationParams
+    pagination: Optional[PaginationParams] = None
 
 
 class CreateModuleRequest(BaseModel):
@@ -246,7 +246,7 @@ class UpdateModuleRequest(BaseModel):
 
 class FetchModulesRequest(BaseModel):
     user_id: str
-    pagination: PaginationParams
+    pagination: Optional[PaginationParams] = None
 
 
 class AddedObject(BaseModel):
@@ -270,11 +270,11 @@ class UpdateTrainingPlanRequest(BaseModel):
 
 class FetchTrainingPlansRequest(BaseModel):
     user_id: str
-    pagination: PaginationParams
+    pagination: Optional[PaginationParams] = None
 
 
 class ListItemsRequest(BaseModel):
-    user_id: str
+    user_id: str 
 
 
 class TeamMember(BaseModel):

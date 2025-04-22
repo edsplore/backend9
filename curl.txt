@@ -20,7 +20,7 @@ curl -X POST 'https://1d1af155-4b31-443e-b7f4-734bf003281a-00-6px8vaye8p33.pike.
 }'
 
 curl -X POST \
-  'https://fa29a0b7-ceb0-4265-b5e7-329be013efb3-00-29mtjv18wa4j8.sisko.replit.dev/convert/text-to-script' \
+  'https://1d1af155-4b31-443e-b7f4-734bf003281a-00-6px8vaye8p33.pike.replit.dev/convert/text-to-script' \
   -H 'Content-Type: application/json' \
   -d '{
     "user_id": "user123",

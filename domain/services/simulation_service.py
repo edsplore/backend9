@@ -826,7 +826,7 @@ class SimulationService:
             history.add_system_message(system_message)
 
             conversation = "\n".join(
-                [f"{s['role']}: {s['script_sentence']}" for s in script])
+                [f"{s.role}: {s.script_sentence}" for s in script])
             inputprompt = f"Script: {conversation}"
             history.add_user_message(inputprompt)
 
