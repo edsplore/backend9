@@ -11,6 +11,9 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 RETELL_API_KEY = os.getenv("RETELL_API_KEY")
 PUBLIC_KEY_PATH = os.getenv("PUBLIC_KEY_PATH")
 
+#Allowed origins
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "").split(",")
+
 # Azure OpenAI Configuration
 AZURE_OPENAI_DEPLOYMENT_NAME = os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME")
 AZURE_OPENAI_KEY = os.getenv("AZURE_OPENAI_KEY")

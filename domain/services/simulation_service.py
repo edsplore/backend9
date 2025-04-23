@@ -72,7 +72,7 @@ class SimulationService:
                 deployment_name=AZURE_OPENAI_DEPLOYMENT_NAME,
                 endpoint=AZURE_OPENAI_BASE_URL,
                 api_key=AZURE_OPENAI_KEY,
-            api_version="2025-01-01-preview")
+                api_version="2025-01-01-preview")
 
             logger.debug("Adding AzureChatCompletion to Kernel...")
             self.kernel.add_service(self.chat_completion)
@@ -528,8 +528,9 @@ class SimulationService:
                 sim_type=simulation_doc.get("type", ""),
                 status=simulation_doc.get("status", ""),
                 tags=simulation_doc.get("tags", []),
-                est_time=str(
-                    simulation_doc.get("estimatedTimeToAttemptInMins", "")),
+                est_time="" if doc.get("estimatedTimeToAttemptInMins") in [
+                    0, "0", None, ""
+                ] else str(doc.get("estimatedTimeToAttemptInMins")),
                 last_modified=simulation_doc.get(
                     "lastModified", datetime.utcnow()).isoformat(),
                 modified_by=simulation_doc.get("lastModifiedBy", ""),
@@ -606,8 +607,9 @@ class SimulationService:
                 sim_type=simulation_doc.get("type", ""),
                 status=simulation_doc.get("status", ""),
                 tags=simulation_doc.get("tags", []),
-                est_time=str(
-                    simulation_doc.get("estimatedTimeToAttemptInMins", "")),
+                est_time="" if doc.get("estimatedTimeToAttemptInMins") in [
+                    0, "0", None, ""
+                ] else str(doc.get("estimatedTimeToAttemptInMins")),
                 last_modified=simulation_doc.get(
                     "lastModified", datetime.utcnow()).isoformat(),
                 modified_by=simulation_doc.get("lastModifiedBy", ""),
@@ -682,8 +684,9 @@ class SimulationService:
                 sim_type=simulation_doc.get("type", ""),
                 status=simulation_doc.get("status", ""),
                 tags=simulation_doc.get("tags", []),
-                est_time=str(
-                    simulation_doc.get("estimatedTimeToAttemptInMins", "")),
+                est_time="" if doc.get("estimatedTimeToAttemptInMins") in [
+                    0, "0", None, ""
+                ] else str(doc.get("estimatedTimeToAttemptInMins")),
                 last_modified=simulation_doc.get(
                     "lastModified", datetime.utcnow()).isoformat(),
                 modified_by=simulation_doc.get("lastModifiedBy", ""),
@@ -937,7 +940,9 @@ class SimulationService:
                     sim_type=doc.get("type", ""),
                     status=doc.get("status", ""),
                     tags=doc.get("tags", []),
-                    est_time=str(doc.get("estimatedTimeToAttemptInMins", "")),
+                    est_time="" if doc.get("estimatedTimeToAttemptInMins") in [
+                        0, "0", None, ""
+                    ] else str(doc.get("estimatedTimeToAttemptInMins")),
                     last_modified=doc.get("lastModified",
                                           datetime.utcnow()).isoformat(),
                     modified_by=doc.get("lastModifiedBy", ""),
@@ -982,8 +987,9 @@ class SimulationService:
                 sim_type=simulation_doc.get("type", ""),
                 status=simulation_doc.get("status", ""),
                 tags=simulation_doc.get("tags", []),
-                est_time=str(
-                    simulation_doc.get("estimatedTimeToAttemptInMins", "")),
+                est_time="" if doc.get("estimatedTimeToAttemptInMins") in [
+                    0, "0", None, ""
+                ] else str(doc.get("estimatedTimeToAttemptInMins")),
                 last_modified=simulation_doc.get(
                     "lastModified", datetime.utcnow()).isoformat(),
                 modified_by=simulation_doc.get("lastModifiedBy", ""),

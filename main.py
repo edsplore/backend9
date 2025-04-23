@@ -13,6 +13,7 @@ from api.controllers.image_controller import router as image_router
 from api.controllers.tag_controller import router as tag_router
 from middleware.auth_middleware import JWTAuthMiddleware
 from utils.logger import Logger
+from fastapi.middleware.cors import CORSMiddleware
 
 # Initialize logger
 logger = Logger.get_logger(__name__)
@@ -21,6 +22,14 @@ app = FastAPI()
 
 # Add JWT authentication middleware
 # app.add_middleware(JWTAuthMiddleware)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], 
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Include routers
 app.include_router(training_router)
