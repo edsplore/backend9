@@ -46,7 +46,8 @@ class ScriptConverterService:
             service_id="azure_gpt4",
             deployment_name=AZURE_OPENAI_DEPLOYMENT_NAME,
             endpoint=AZURE_OPENAI_BASE_URL,
-            api_key=AZURE_OPENAI_KEY)
+            api_key=AZURE_OPENAI_KEY,
+            api_version="2025-01-01-preview")
         self.kernel.add_service(self.chat_completion)
         logger.info("Azure OpenAI service added to kernel.")
 

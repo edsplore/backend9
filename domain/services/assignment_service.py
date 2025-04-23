@@ -176,6 +176,10 @@ class AssignmentService:
             raise HTTPException(status_code=500,
                                 detail=f"Error fetching assignments: {str(e)}")
 
+    from bson import ObjectId
+
+    _STATUS_PRIORITY = {"not_started": 0, "in_progress": 1, "completed": 2}
+
     async def fetch_assigned_plans(self,
                                    user_id: str) -> FetchAssignedPlansResponse:
         """Fetch assigned training plans with nested details"""
@@ -217,11 +221,15 @@ class AssignmentService:
                         for added_obj in training_plan.get("addedObject", []):
                             if added_obj["type"] == "module":
                                 module_details = await self._get_module_details(
-                                    added_obj["id"], assignment["endDate"],
-                                    assignment["id"])
+                                    added_obj["id"],
+                                    assignment["endDate"],
+                                    str(assignment["_id"]),
+                                    user_id,
+                                )
                                 if module_details:
                                     plan_modules.append(module_details)
-                                    plan_total_simulations += module_details.total_simulations
+                                    plan_total_simulations += (
+                                        module_details.total_simulations)
                                     plan_est_time += sum(
                                         sim.estTime
                                         for sim in module_details.simulations)
@@ -229,8 +237,11 @@ class AssignmentService:
 
                             elif added_obj["type"] == "simulation":
                                 sim_details = await self._get_simulation_details(
-                                    added_obj["id"], assignment["endDate"],
-                                    assignment["id"])
+                                    added_obj["id"],
+                                    assignment["endDate"],
+                                    str(assignment["_id"]),
+                                    user_id,
+                                )
                                 if sim_details:
                                     plan_modules.append(
                                         ModuleDetails(
@@ -240,10 +251,21 @@ class AssignmentService:
                                             average_score=0,
                                             due_date=assignment["endDate"],
                                             status="not_started",
-                                            simulations=[sim_details]))
+                                            simulations=[sim_details],
+                                        ))
                                     plan_total_simulations += 1
                                     plan_est_time += sim_details.estTime
                                     total_simulations += 1
+
+                        module_statuses = [mod.status for mod in plan_modules]
+                        if all(status == "completed"
+                               for status in module_statuses):
+                            plan_status = "completed"
+                        elif any(status == "in_progress"
+                                 for status in module_statuses):
+                            plan_status = "in_progress"
+                        else:
+                            plan_status = "not_started"
 
                         training_plans.append(
                             TrainingPlanDetails(
@@ -255,41 +277,66 @@ class AssignmentService:
                                 est_time=plan_est_time,
                                 average_sim_score=0,
                                 due_date=assignment["endDate"],
-                                status="not_started",
-                                modules=plan_modules))
+                                status=plan_status,
+                                modules=plan_modules,
+                            ))
                 elif assignment["type"] == "Module":
                     module_details = await self._get_module_details(
-                        assignment["id"], assignment["endDate"],
-                        assignment["id"])
+                        assignment["id"],
+                        assignment["endDate"],
+                        str(assignment["_id"]),
+                        user_id,
+                    )
                     if module_details:
                         modules.append(module_details)
                         total_simulations += module_details.total_simulations
                 elif assignment["type"] == "Simulation":
                     sim_details = await self._get_simulation_details(
-                        assignment["id"], assignment["endDate"],
-                        assignment["id"])
+                        assignment["id"],
+                        assignment["endDate"],
+                        str(assignment["_id"]),
+                        user_id,
+                    )
                     if sim_details:
-                        simulations.append(sim_details)
-                        total_simulations += 1
+                        # Consolidate duplicates by assignment with precedence
+                        existing_index = next(
+                            (idx for idx, s in enumerate(simulations)
+                             if s.assignment_id == sim_details.assignment_id),
+                            None,
+                        )
+                        if existing_index is not None:
+                            existing_sim = simulations[existing_index]
+                            if (_STATUS_PRIORITY[sim_details.status]
+                                    > _STATUS_PRIORITY[existing_sim.status]):
+                                simulations[existing_index] = sim_details
+                        else:
+                            simulations.append(sim_details)
+                            total_simulations += 1
 
-            stats = Stats(simulation_completed=StatsData(
-                total_simulations=total_simulations,
-                completed_simulations=0,
-                percentage=0),
-                          timely_completion=StatsData(
-                              total_simulations=total_simulations,
-                              completed_simulations=0,
-                              percentage=0),
-                          average_sim_score=0,
-                          highest_sim_score=0)
+            stats = Stats(
+                simulation_completed=StatsData(
+                    total_simulations=total_simulations,
+                    completed_simulations=0,
+                    percentage=0,
+                ),
+                timely_completion=StatsData(
+                    total_simulations=total_simulations,
+                    completed_simulations=0,
+                    percentage=0,
+                ),
+                average_sim_score=0,
+                highest_sim_score=0,
+            )
 
             logger.info(
                 f"Finished fetching assigned plans for user_id={user_id}. "
                 f"Total simulations found: {total_simulations}")
-            return FetchAssignedPlansResponse(training_plans=training_plans,
-                                              modules=modules,
-                                              simulations=simulations,
-                                              stats=stats)
+            return FetchAssignedPlansResponse(
+                training_plans=training_plans,
+                modules=modules,
+                simulations=simulations,
+                stats=stats,
+            )
         except HTTPException as he:
             raise he
         except Exception as e:
@@ -299,9 +346,61 @@ class AssignmentService:
                 status_code=500,
                 detail=f"Error fetching assigned plans: {str(e)}")
 
+    async def _get_simulation_details(
+            self, sim_id: str, due_date: str, assignment_id: str,
+            user_id: str) -> SimulationDetails | None:
+        """Helper method to get simulation details with status precedence"""
+        logger.debug(f"Fetching simulation details for sim_id={sim_id}")
+        try:
+            sim = await self.db.simulations.find_one({"_id": ObjectId(sim_id)})
+            if not sim:
+                logger.warning(f"Simulation {sim_id} not found.")
+                return None
+
+            # Fetch **all** user simulation progress rows for this sim + assignment
+            progress_list = await self.db.user_sim_progress.find({
+                "userId":
+                user_id,
+                "assignmentId":
+                assignment_id,
+                "simulationId":
+                sim_id
+            }).to_list(None)
+
+            # Determine status with precedence: completed > in_progress > not_started
+            status = "not_started"
+            if progress_list:
+                statuses = {
+                    p.get("status", "not_started")
+                    for p in progress_list
+                }
+                if "completed" in statuses:
+                    status = "completed"
+                elif "in_progress" in statuses:
+                    status = "in_progress"
+
+            logger.debug(
+                f"Simulation {sim_id} retrieved with consolidated status {status}"
+            )
+            return SimulationDetails(
+                simulation_id=str(sim["_id"]),
+                name=sim.get("name", ""),
+                type=sim.get("type", ""),
+                level="beginner",  # Default value
+                estTime=sim.get("estimatedTimeToAttemptInMins", 0),
+                dueDate=due_date,
+                status=status,
+                highest_attempt_score=0,
+                assignment_id=assignment_id,
+            )
+        except Exception as e:
+            logger.error(f"Error fetching simulation details: {str(e)}",
+                         exc_info=True)
+            return None
+
     async def _get_module_details(self, module_id: str, due_date: str,
-                                  assignment_id: str) -> ModuleDetails:
-        """Helper method to get module details"""
+                                  assignment_id: str,
+                                  user_id: str) -> ModuleDetails:
         logger.debug(f"Fetching module details for module_id={module_id}")
         try:
             module = await self.db.modules.find_one(
@@ -311,49 +410,34 @@ class AssignmentService:
                 return None
 
             module_simulations = []
+            sim_statuses = []
+
             for sim_id in module.get("simulationIds", []):
                 sim_details = await self._get_simulation_details(
-                    sim_id, due_date, assignment_id)
+                    sim_id, due_date, assignment_id, user_id)
                 if sim_details:
                     module_simulations.append(sim_details)
+                    sim_statuses.append(sim_details.status)
+
+            # Determine module status
+            if all(status == "completed" for status in sim_statuses):
+                module_status = "completed"
+            elif any(status == "in_progress" for status in sim_statuses):
+                module_status = "in_progress"
+            else:
+                module_status = "not_started"
 
             logger.debug(
-                f"Module {module_id} has {len(module_simulations)} simulation(s)."
+                f"Module {module_id} has {len(module_simulations)} simulation(s) with status={module_status}"
             )
             return ModuleDetails(id=str(module["_id"]),
                                  name=module.get("name", ""),
                                  total_simulations=len(module_simulations),
                                  average_score=0,
                                  due_date=due_date,
-                                 status="not_started",
+                                 status=module_status,
                                  simulations=module_simulations)
         except Exception as e:
             logger.error(f"Error fetching module details: {str(e)}",
-                         exc_info=True)
-            return None
-
-    async def _get_simulation_details(self, sim_id: str, due_date: str,
-                                      assignment_id: str) -> SimulationDetails:
-        """Helper method to get simulation details"""
-        logger.debug(f"Fetching simulation details for sim_id={sim_id}")
-        try:
-            sim = await self.db.simulations.find_one({"_id": ObjectId(sim_id)})
-            if not sim:
-                logger.warning(f"Simulation {sim_id} not found.")
-                return None
-
-            logger.debug(f"Simulation {sim_id} retrieved successfully.")
-            return SimulationDetails(
-                simulation_id=str(sim["_id"]),
-                name=sim.get("name", ""),
-                type=sim.get("type", ""),
-                level="beginner",  # Default value
-                estTime=sim.get("estimatedTimeToAttemptInMins", 0),
-                dueDate=due_date,
-                status="not_started",
-                highest_attempt_score=0,
-                assignment_id=assignment_id)
-        except Exception as e:
-            logger.error(f"Error fetching simulation details: {str(e)}",
                          exc_info=True)
             return None
