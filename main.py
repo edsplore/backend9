@@ -14,6 +14,7 @@ from api.controllers.tag_controller import router as tag_router
 from middleware.auth_middleware import JWTAuthMiddleware
 from utils.logger import Logger
 from fastapi.middleware.cors import CORSMiddleware
+from config import ALLOWED_ORIGINS
 
 # Initialize logger
 logger = Logger.get_logger(__name__)
@@ -25,7 +26,7 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], 
+    allow_origins=ALLOWED_ORIGINS, 
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
