@@ -461,10 +461,23 @@ class SimulationService:
                         f"Setting voice_speed to {request.voice_speed}")
                     update_doc["voice_speed"] = request.voice_speed
 
-                if "prompt" in update_doc:
+                # In the update_simulation function, where you call _create_retell_llm:
+                if "prompt" in update_doc and sim_type == "audio":
                     logger.debug("Creating Retell LLM due to updated prompt.")
+
+                    # Check if the first script element has a role of "trainee"
+                    assistant_first = False
+                    if update_doc.get("script") and len(
+                            update_doc["script"]) > 0:
+                        first_role = update_doc["script"][0].get("role",
+                                                                 "").lower()
+                        assistant_first = first_role == "assistant" or first_role == "customer"
+                        logger.debug(
+                            f"First script role is {first_role}, assistant_first={assistant_first}"
+                        )
+
                     llm_response = await self._create_retell_llm(
-                        update_doc["prompt"])
+                        update_doc["prompt"], assistant_first)
                     update_doc["llmId"] = llm_response["llm_id"]
 
                     agent_voice_id = request.voice_id or "11labs-Adrian"
@@ -738,7 +751,9 @@ class SimulationService:
                 status_code=500,
                 detail=f"Error starting visual preview: {str(e)}")
 
-    async def _create_retell_llm(self, prompt: str) -> Dict:
+    async def _create_retell_llm(self,
+                                 prompt: str,
+                                 assistant_first: bool = False) -> Dict:
         """Create a new Retell LLM"""
         logger.info("Creating Retell LLM.")
         logger.debug(f"Prompt: {prompt[:100]}...")  # Show first 100 chars
@@ -748,8 +763,11 @@ class SimulationService:
                     'Authorization': f'Bearer {RETELL_API_KEY}',
                     'Content-Type': 'application/json'
                 }
-
                 data = {"general_prompt": prompt}
+
+                # Add begin_message field if trainee speaks first
+                if assistant_first:
+                    data["begin_message"] = ""
 
                 async with session.post(
                         'https://api.retellai.com/create-retell-llm',
@@ -762,11 +780,9 @@ class SimulationService:
                         raise HTTPException(
                             status_code=response.status,
                             detail="Failed to create Retell LLM")
-
                     resp_json = await response.json()
                     logger.info("Retell LLM created successfully.")
                     return resp_json
-
         except Exception as e:
             logger.error(f"Error creating Retell LLM: {str(e)}", exc_info=True)
             raise HTTPException(status_code=500,
@@ -987,9 +1003,10 @@ class SimulationService:
                 sim_type=simulation_doc.get("type", ""),
                 status=simulation_doc.get("status", ""),
                 tags=simulation_doc.get("tags", []),
-                est_time="" if doc.get("estimatedTimeToAttemptInMins") in [
+                est_time=""
+                if simulation_doc.get("estimatedTimeToAttemptInMins") in [
                     0, "0", None, ""
-                ] else str(doc.get("estimatedTimeToAttemptInMins")),
+                ] else str(simulation_doc.get("estimatedTimeToAttemptInMins")),
                 last_modified=simulation_doc.get(
                     "lastModified", datetime.utcnow()).isoformat(),
                 modified_by=simulation_doc.get("lastModifiedBy", ""),
