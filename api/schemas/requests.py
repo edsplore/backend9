@@ -88,6 +88,7 @@ class StartChatPreviewRequest(BaseModel):
     user_id: str
     sim_id: str
     message: str | None = None
+    usersimulationprogress_id: Optional[str] = None
 
 
 class StartChatSimulationRequest(BaseModel):
@@ -274,7 +275,7 @@ class FetchTrainingPlansRequest(BaseModel):
 
 
 class ListItemsRequest(BaseModel):
-    user_id: str 
+    user_id: str
 
 
 class TeamMember(BaseModel):

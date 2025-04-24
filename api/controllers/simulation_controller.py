@@ -846,7 +846,10 @@ async def start_audio_simulation_preview(
 async def start_chat_preview(
         request: StartChatPreviewRequest) -> StartChatPreviewResponse:
     logger.info("API endpoint called: POST /simulations/start-chat-preview")
-    return await controller.start_chat_preview(request)
+    return await controller.start_chat_simulation(user_id = request.user_id, 
+                                                  sim_id = request.sim_id, 
+                                                  assignment_id = request.usersimulationprogress_id, 
+                                                  message = request.message)
 
 
 @router.post("/simulations/start-audio", tags=["Simulations", "Start"])
