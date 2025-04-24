@@ -541,9 +541,10 @@ class SimulationService:
                 sim_type=simulation_doc.get("type", ""),
                 status=simulation_doc.get("status", ""),
                 tags=simulation_doc.get("tags", []),
-                est_time="" if doc.get("estimatedTimeToAttemptInMins") in [
+                est_time=""
+                if simulation_doc.get("estimatedTimeToAttemptInMins") in [
                     0, "0", None, ""
-                ] else str(doc.get("estimatedTimeToAttemptInMins")),
+                ] else str(simulation_doc.get("estimatedTimeToAttemptInMins")),
                 last_modified=simulation_doc.get(
                     "lastModified", datetime.utcnow()).isoformat(),
                 modified_by=simulation_doc.get("lastModifiedBy", ""),
@@ -620,9 +621,10 @@ class SimulationService:
                 sim_type=simulation_doc.get("type", ""),
                 status=simulation_doc.get("status", ""),
                 tags=simulation_doc.get("tags", []),
-                est_time="" if doc.get("estimatedTimeToAttemptInMins") in [
+                est_time=""
+                if simulation_doc.get("estimatedTimeToAttemptInMins") in [
                     0, "0", None, ""
-                ] else str(doc.get("estimatedTimeToAttemptInMins")),
+                ] else str(simulation_doc.get("estimatedTimeToAttemptInMins")),
                 last_modified=simulation_doc.get(
                     "lastModified", datetime.utcnow()).isoformat(),
                 modified_by=simulation_doc.get("lastModifiedBy", ""),
@@ -697,9 +699,10 @@ class SimulationService:
                 sim_type=simulation_doc.get("type", ""),
                 status=simulation_doc.get("status", ""),
                 tags=simulation_doc.get("tags", []),
-                est_time="" if doc.get("estimatedTimeToAttemptInMins") in [
+                est_time=""
+                if simulation_doc.get("estimatedTimeToAttemptInMins") in [
                     0, "0", None, ""
-                ] else str(doc.get("estimatedTimeToAttemptInMins")),
+                ] else str(simulation_doc.get("estimatedTimeToAttemptInMins")),
                 last_modified=simulation_doc.get(
                     "lastModified", datetime.utcnow()).isoformat(),
                 modified_by=simulation_doc.get("lastModifiedBy", ""),
