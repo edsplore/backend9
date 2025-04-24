@@ -632,8 +632,20 @@ class SimulationController:
             }
 
             result = await self.db.user_sim_progress.insert_one(progress_doc)
-            return StartVisualAudioAttemptResponse(id=str(result.inserted_id),
-                                                   status="in_progress")
+
+            sim_data = await self.service.start_visual_audio_preview(
+                sim_id, user_id)
+            logger.info("Visual-audio preview started successfully.")
+
+            return StartVisualAudioAttemptResponse(
+                id=str(result.inserted_id),
+                status="in_progress",
+                simulation=sim_data.simulation,
+                images=[
+                    SlideImageData(image_id=img.image_id,
+                                   image_data=img.image_data)
+                    for img in sim_data.images
+                ])
         except Exception as e:
             logger.error(f"[start_visual_audio_attempt] {str(e)}",
                          exc_info=True)
@@ -655,8 +667,19 @@ class SimulationController:
             }
 
             result = await self.db.user_sim_progress.insert_one(progress_doc)
-            return StartVisualChatAttemptResponse(id=str(result.inserted_id),
-                                                  status="in_progress")
+            sim_data = await self.service.start_visual_chat_preview(
+                sim_id, user_id)
+            logger.info("Visual-chat preview started successfully.")
+
+            return StartVisualChatAttemptResponse(
+                id=str(result.inserted_id),
+                status="in_progress",
+                simulation=sim_data.simulation,
+                images=[
+                    SlideImageData(image_id=img.image_id,
+                                   image_data=img.image_data)
+                    for img in sim_data.images
+                ])
         except Exception as e:
             logger.error(f"[start_visual_chat_attempt] {str(e)}",
                          exc_info=True)
@@ -678,8 +701,17 @@ class SimulationController:
             }
 
             result = await self.db.user_sim_progress.insert_one(progress_doc)
-            return StartVisualAttemptResponse(id=str(result.inserted_id),
-                                              status="in_progress")
+            sim_data = await self.service.start_visual_preview(sim_id, user_id)
+            logger.info("Visual preview started successfully.")
+            return StartVisualAttemptResponse(
+                id=str(result.inserted_id),
+                status="in_progress",
+                simulation=sim_data.simulation,
+                images=[
+                    SlideImageData(image_id=img.image_id,
+                                   image_data=img.image_data)
+                    for img in sim_data.images
+                ])
         except Exception as e:
             logger.error(f"[start_visual_attempt] {str(e)}", exc_info=True)
             raise HTTPException(status_code=500,

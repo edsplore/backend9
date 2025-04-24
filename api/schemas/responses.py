@@ -344,14 +344,19 @@ class FetchTagsResponse(BaseModel):
 class StartVisualAudioAttemptResponse(BaseModel):
     id: str
     status: str
+    simulation: SimulationData
+    images: List[SlideImageData] = []
 
 
 class StartVisualChatAttemptResponse(BaseModel):
     id: str
     status: str
+    simulation: SimulationData
+    images: List[SlideImageData] = []
 
 
 class StartVisualAttemptResponse(BaseModel):
     id: str
     status: str
-
+    simulation: SimulationData
+    images: List[SlideImageData] = []
