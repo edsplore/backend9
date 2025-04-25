@@ -55,6 +55,8 @@ class MyScoreResponseSchema(BaseModel):
     keyword_score: float
     click_score: float
     confidence: float
+    energy: float
+    concentration: float
 
 
 class SimulationController:
