@@ -200,7 +200,7 @@ class AssignmentService:
                 "_id": {
                     "$in": object_ids
                 },
-                "status": "active"
+                "status": "published"
             }).to_list(None)
 
             training_plans = []
