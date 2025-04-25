@@ -44,9 +44,17 @@ from semantic_kernel.connectors.ai.open_ai import AzureChatCompletion
 from semantic_kernel.contents.chat_history import ChatHistory
 from semantic_kernel.connectors.ai.open_ai.prompt_execution_settings.azure_chat_prompt_execution_settings import (
     AzureChatPromptExecutionSettings, )
+from pydantic import BaseModel
 
 logger = Logger.get_logger(__name__)  # <-- Initialize logger
 router = APIRouter()
+
+
+class MyScoreResponseSchema(BaseModel):
+    sim_accuracy: float
+    keyword_score: float
+    click_score: float
+    confidence: float
 
 
 class SimulationController:
@@ -71,7 +79,8 @@ class SimulationController:
             ai_model_id=AZURE_OPENAI_DEPLOYMENT_NAME,
             temperature=0.7,
             top_p=1.0,
-            max_tokens=2000)
+            max_tokens=2000,
+            response_format=MyScoreResponseSchema)
         logger.info("SimulationController initialized successfully.")
 
     async def create_simulation(
