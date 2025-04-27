@@ -173,13 +173,40 @@ class SimulationService:
             raise HTTPException(status_code=500,
                                 detail=f"Error storing image: {str(e)}")
 
+    # New method in your service class
+    async def simulation_name_exists(self, name: str) -> bool:
+        """Check if a simulation with the given name already exists"""
+        logger.info(f"Checking if simulation name '{name}' exists")
+        try:
+            # Query the database for simulations with the same name
+            count = await self.db.simulations.count_documents({"name": name})
+            return count > 0
+        except Exception as e:
+            logger.error(f"Error checking simulation name existence: {str(e)}",
+                         exc_info=True)
+            raise HTTPException(
+                status_code=500,
+                detail=f"Error checking simulation name: {str(e)}")
+
+    # Modified create_simulation method
     async def create_simulation(self,
                                 request: CreateSimulationRequest) -> Dict:
         """Create a new simulation"""
         logger.info(f"Creating new simulation for user: {request.user_id}")
         logger.debug(f"CreateSimulationRequest data: {request.dict()}")
         try:
-            # Create simulation document
+            # Check if a simulation with this name already exists
+            name_exists = await self.simulation_name_exists(request.name)
+            if name_exists:
+                logger.warning(
+                    f"Simulation with name '{request.name}' already exists")
+                # Return a specific error for duplicate names
+                return {
+                    "status": "error",
+                    "message": "Simulation with this name already exists",
+                }
+
+            # Create simulation document (existing code)
             simulation_doc = {
                 "name": request.name,
                 "divisionId": request.division_id,
@@ -191,16 +218,14 @@ class SimulationService:
                 "createdOn": datetime.utcnow(),
                 "status": "draft",
                 "version": 1,
-                "tags": request.tags
+                "tags": request.tags,
             }
-
             # Insert into database
             result = await self.db.simulations.insert_one(simulation_doc)
             logger.info(
                 f"Successfully created simulation with ID: {result.inserted_id}"
             )
             return {"id": str(result.inserted_id), "status": "success"}
-
         except Exception as e:
             logger.error(f"Error creating simulation: {str(e)}", exc_info=True)
             raise HTTPException(status_code=500,

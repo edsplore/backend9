@@ -90,9 +90,24 @@ class SimulationController:
         logger.info("Received request to create a new simulation.")
         try:
             result = await self.service.create_simulation(request)
+
+            # Check for duplicate name error
+            if result.get("status") == "error":
+                # Return a 409 Conflict for duplicate names
+                if "already exists" in result.get("message", ""):
+                    raise HTTPException(status_code=409,
+                                        detail=result["message"])
+                # Handle other errors with a 400 Bad Request
+                else:
+                    raise HTTPException(status_code=400,
+                                        detail=result["message"])
+
             logger.info(f"Simulation created with ID: {result['id']}")
             return CreateSimulationResponse(id=result["id"],
                                             status=result["status"])
+        except HTTPException:
+            # Re-raise HTTP exceptions
+            raise
         except Exception as e:
             logger.error(f"Error creating simulation: {e}", exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
