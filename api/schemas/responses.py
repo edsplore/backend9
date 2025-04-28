@@ -5,8 +5,14 @@ from domain.models.playback import SimulationAttemptModel, AttemptAnalyticsModel
 from api.schemas.requests import SimulationScoringMetrics, SimulationPractice
 
 
+class PaginationMetadata(BaseModel):
+    total_count: int
+    page: int
+    pagesize: int
+    total_pages: int
+
+
 class TrainingDataResponse(BaseModel):
-    training_plans: List[TrainingDataModel]
     stats: dict
 
 
@@ -156,6 +162,7 @@ class SimulationData(BaseModel):
 
 class FetchSimulationsResponse(BaseModel):
     simulations: List[SimulationData]
+    pagination: Optional[PaginationMetadata] = None
 
 
 class CreateModuleResponse(BaseModel):

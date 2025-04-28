@@ -36,7 +36,7 @@ from api.schemas.responses import (
     StartVisualAudioPreviewResponse, SlideImageData, SimulationByIDResponse,
     StartVisualChatPreviewResponse, StartVisualPreviewResponse, SimulationData,
     StartVisualAttemptResponse, StartVisualAudioAttemptResponse,
-    StartVisualChatAttemptResponse)
+    StartVisualChatAttemptResponse, PaginationMetadata)
 from config import (RETELL_API_KEY, AZURE_OPENAI_DEPLOYMENT_NAME,
                     AZURE_OPENAI_KEY, AZURE_OPENAI_BASE_URL)
 from semantic_kernel import Kernel
@@ -612,16 +612,38 @@ class SimulationController:
     async def fetch_simulations(
             self,
             request: FetchSimulationsRequest) -> FetchSimulationsResponse:
-
         logger.info("Received request to fetch simulations.")
         try:
+            # Pass the pagination parameters to the service layer
+            result = await self.service.fetch_simulations(
+                request.user_id, pagination=request.pagination)
 
-            simulations = await self.service.fetch_simulations(request.user_id)
-            logger.info(f"Fetched {len(simulations)} simulation(s).")
-            return FetchSimulationsResponse(simulations=simulations)
+            simulations = result["simulations"]
+            total_count = result["total_count"]
+
+            # Create pagination metadata if pagination was requested
+            pagination_metadata = None
+            if request.pagination:
+                page = request.pagination.page
+                pagesize = request.pagination.pagesize
+                total_pages = (total_count + pagesize -
+                               1) // pagesize  # Ceiling division
+
+                pagination_metadata = PaginationMetadata(
+                    total_count=total_count,
+                    page=page,
+                    pagesize=pagesize,
+                    total_pages=total_pages)
+
+            logger.info(
+                f"Fetched {len(simulations)} simulation(s) out of {total_count} total."
+            )
+            return FetchSimulationsResponse(simulations=simulations,
+                                            pagination=pagination_metadata)
         except Exception as e:
             logger.error(f"Error fetching simulations: {e}", exc_info=True)
-            raise
+            raise HTTPException(status_code=500,
+                                detail=f"Error fetching simulations: {str(e)}")
 
     async def get_simulation_by_id(
             self, simulation_id: str) -> SimulationByIDResponse:

@@ -10,7 +10,7 @@ from config import (AZURE_OPENAI_DEPLOYMENT_NAME, AZURE_OPENAI_KEY,
 from infrastructure.database import Database
 from api.schemas.requests import (CreateSimulationRequest,
                                   UpdateSimulationRequest,
-                                  CloneSimulationRequest)
+                                  CloneSimulationRequest, PaginationParams)
 from api.schemas.responses import SimulationByIDResponse, SimulationData
 from fastapi import HTTPException, UploadFile
 from semantic_kernel import Kernel
@@ -966,11 +966,119 @@ class SimulationService:
             raise HTTPException(status_code=500,
                                 detail=f"Error creating web call: {str(e)}")
 
-    async def fetch_simulations(self, user_id: str) -> List[SimulationData]:
-        """Fetch all simulations"""
-        logger.info(f"Fetching all simulations for user_id={user_id}")
+    async def fetch_simulations(
+            self,
+            user_id: str,
+            pagination: Optional[PaginationParams] = None) -> Dict[str, any]:
+        """Fetch all simulations with pagination and filtering
+
+        Returns a dictionary with:
+        - simulations: List of SimulationData objects
+        - total_count: Total number of simulations matching the query
+        """
+        logger.info(
+            f"Fetching simulations for user_id={user_id} with pagination")
         try:
-            cursor = self.db.simulations.find({})
+            # Build query filter based on pagination parameters
+            query = {}
+
+            if pagination:
+                logger.debug(f"Applying pagination parameters: {pagination}")
+
+                # Apply search filter if provided
+                if pagination.search:
+                    search_regex = {
+                        "$regex": pagination.search,
+                        "$options": "i"
+                    }
+                    query["$or"] = [{
+                        "name": search_regex
+                    }, {
+                        "tags": search_regex
+                    }]
+
+                # Apply tag filter if provided
+                if pagination.tags and len(pagination.tags) > 0:
+                    query["tags"] = {"$in": pagination.tags}
+
+                # Apply division filter if provided
+                if pagination.division:
+                    query["divisionId"] = pagination.division
+
+                # Apply department filter if provided
+                if pagination.department:
+                    query["departmentId"] = pagination.department
+
+                # Apply status filter if provided
+                if pagination.status and len(pagination.status) > 0:
+                    query["status"] = {"$in": pagination.status}
+
+                # Apply simulation type filter if provided
+                if pagination.simType:
+                    query["type"] = pagination.simType
+
+                # Apply created by filter if provided
+                if pagination.createdBy:
+                    query["createdBy"] = pagination.createdBy
+
+                # Apply modified by filter if provided
+                if pagination.modifiedBy:
+                    query["lastModifiedBy"] = pagination.modifiedBy
+
+                # Apply created date range filters if provided
+                date_filter = {}
+                if pagination.createdFrom:
+                    date_filter["$gte"] = pagination.createdFrom
+                if pagination.createdTo:
+                    date_filter["$lte"] = pagination.createdTo
+                if date_filter:
+                    query["createdOn"] = date_filter
+
+                # Apply modified date range filters if provided
+                modified_date_filter = {}
+                if pagination.modifiedFrom:
+                    modified_date_filter["$gte"] = pagination.modifiedFrom
+                if pagination.modifiedTo:
+                    modified_date_filter["$lte"] = pagination.modifiedTo
+                if modified_date_filter:
+                    query["lastModified"] = modified_date_filter
+
+            # Determine sort options
+            sort_options = []
+            if pagination and pagination.sortBy:
+                # Convert camelCase sort field to database field name if needed
+                sort_field_mapping = {
+                    "simName": "name",
+                    "simType": "type",
+                    "lastModified": "lastModified",
+                    "createdOn": "createdOn",
+                    "modifiedBy": "lastModifiedBy",
+                    "createdBy": "createdBy",
+                    # Add other mappings as needed
+                }
+                db_field = sort_field_mapping.get(pagination.sortBy,
+                                                  pagination.sortBy)
+                sort_direction = 1 if pagination.sortDir == "asc" else -1
+                sort_options.append((db_field, sort_direction))
+            else:
+                # Default sort by lastModified
+                sort_options.append(("lastModified", -1))
+
+            # Calculate pagination
+            skip = 0
+            limit = 50  # Default limit
+
+            if pagination:
+                limit = pagination.pagesize
+                skip = (pagination.page - 1) * limit
+
+            logger.debug(f"Query filter: {query}")
+            logger.debug(f"Sort options: {sort_options}")
+            logger.debug(f"Skip: {skip}, Limit: {limit}")
+
+            # Execute the query with pagination
+            cursor = self.db.simulations.find(query).sort(sort_options).skip(
+                skip).limit(limit)
             simulations = []
 
             async for doc in cursor:
@@ -1000,8 +1108,13 @@ class SimulationService:
                     slidesData=doc.get("slidesData", None))
                 simulations.append(simulation)
 
-            logger.info(f"Total simulations fetched: {len(simulations)}")
-            return simulations
+            # Get total count for pagination metadata
+            total_count = await self.db.simulations.count_documents(query)
+
+            logger.info(
+                f"Total simulations fetched: {len(simulations)}, Total count: {total_count}"
+            )
+            return {"simulations": simulations, "total_count": total_count}
 
         except Exception as e:
             logger.error(f"Error fetching simulations: {str(e)}",
