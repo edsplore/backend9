@@ -1,7 +1,10 @@
 from fastapi import APIRouter, HTTPException
 from domain.services.module_service import ModuleService
-from api.schemas.requests import CreateModuleRequest, FetchModulesRequest, CloneModuleRequest, UpdateModuleRequest
-from api.schemas.responses import CreateModuleResponse, FetchModulesResponse, ModuleData
+from api.schemas.requests import (CreateModuleRequest, FetchModulesRequest,
+                                  CloneModuleRequest, UpdateModuleRequest,
+                                  PaginationParams)
+from api.schemas.responses import (CreateModuleResponse, FetchModulesResponse,
+                                   ModuleData, PaginationMetadata)
 
 from utils.logger import Logger
 
@@ -32,16 +35,40 @@ class ModuleController:
             raise
 
     async def fetch_modules(
-            self, request: FetchModulesRequest) -> FetchModulesResponse:
+        self, request: FetchModulesRequest) -> FetchModulesResponse:
         logger.info(f"Fetching modules for user_id: {request.user_id}")
         try:
-
-            modules = await self.service.fetch_modules(request.user_id)
-            logger.info(f"Fetched {len(modules)} modules.")
-            return FetchModulesResponse(modules=modules)
+            # Pass the pagination parameters to the service layer
+            result = await self.service.fetch_modules(
+                request.user_id, 
+                pagination=request.pagination
+            )
+    
+            modules = result["modules"]
+            total_count = result["total_count"]
+    
+            # Create pagination metadata if pagination was requested
+            pagination_metadata = None
+            if request.pagination:
+                page = request.pagination.page
+                pagesize = request.pagination.pagesize
+                total_pages = (total_count + pagesize - 1) // pagesize  # Ceiling division
+    
+                pagination_metadata = PaginationMetadata(
+                    total_count=total_count,
+                    page=page,
+                    pagesize=pagesize,
+                    total_pages=total_pages
+                )
+    
+            logger.info(f"Fetched {len(modules)} module(s) out of {total_count} total.")
+            return FetchModulesResponse(
+                modules=modules,
+                pagination=pagination_metadata
+            )
         except Exception as e:
             logger.error(f"Error fetching modules: {str(e)}", exc_info=True)
-            raise
+            raise HTTPException(status_code=500, detail=f"Error fetching modules: {str(e)}")
 
     async def get_module_by_id(self, module_id: str) -> ModuleData:
         logger.info(f"Fetching module by ID: {module_id}")
