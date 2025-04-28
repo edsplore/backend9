@@ -248,6 +248,7 @@ class AssignmentData(BaseModel):
 
 class FetchAssignmentsResponse(BaseModel):
     assignments: List[AssignmentData]
+    pagination: Optional[PaginationMetadata] = None
 
 
 class SimulationDetails(BaseModel):
@@ -303,6 +304,7 @@ class FetchAssignedPlansResponse(BaseModel):
     modules: List[ModuleDetails]
     simulations: List[SimulationDetails]
     stats: Stats
+    pagination: Optional[PaginationMetadata] = None
 
 
 class SlideImageData(BaseModel):

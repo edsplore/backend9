@@ -1,15 +1,16 @@
-from typing import Dict, List
+from typing import Dict, List, Optional
 from datetime import datetime
 from bson import ObjectId
 from infrastructure.database import Database
-from api.schemas.requests import CreateAssignmentRequest
+from api.schemas.requests import (CreateAssignmentRequest, PaginationParams)
 from api.schemas.responses import (AssignmentData, FetchAssignmentsResponse,
                                    FetchAssignedPlansResponse,
                                    TrainingPlanDetails, ModuleDetails,
-                                   SimulationDetails, Stats, StatsData)
+                                   SimulationDetails, Stats, StatsData,
+                                   PaginationMetadata)
 from fastapi import HTTPException
 
-from utils.logger import Logger  # <-- Import your custom logger
+from utils.logger import Logger
 
 logger = Logger.get_logger(__name__)
 
@@ -136,11 +137,96 @@ class AssignmentService:
                 status_code=500,
                 detail=f"Error processing user assignment: {str(e)}")
 
-    async def fetch_assignments(self) -> List[AssignmentData]:
-        """Fetch all assignments"""
-        logger.info("Fetching all assignments.")
+    async def fetch_assignments(
+            self,
+            pagination: Optional[PaginationParams] = None) -> Dict[str, any]:
+        """Fetch all assignments with pagination and filtering"""
+        logger.info("Fetching all assignments with pagination.")
         try:
-            cursor = self.db.assignments.find({})
+            # Build query filter based on pagination parameters
+            query = {}
+
+            if pagination:
+                logger.debug(f"Applying pagination parameters: {pagination}")
+
+                # Apply search filter if provided
+                if pagination.search:
+                    search_regex = {
+                        "$regex": pagination.search,
+                        "$options": "i"
+                    }
+                    query["$or"] = [{
+                        "name": search_regex
+                    }, {
+                        "type": search_regex
+                    }]
+
+                # Apply created by filter if provided
+                if pagination.createdBy:
+                    query["createdBy"] = pagination.createdBy
+
+                # Apply modified by filter if provided
+                if pagination.modifiedBy:
+                    query["lastModifiedBy"] = pagination.modifiedBy
+
+                # Apply created date range filters if provided
+                date_filter = {}
+                if pagination.createdFrom:
+                    date_filter["$gte"] = pagination.createdFrom
+                if pagination.createdTo:
+                    date_filter["$lte"] = pagination.createdTo
+                if date_filter:
+                    query["createdAt"] = date_filter
+
+                # Apply modified date range filters if provided
+                modified_date_filter = {}
+                if pagination.modifiedFrom:
+                    modified_date_filter["$gte"] = pagination.modifiedFrom
+                if pagination.modifiedTo:
+                    modified_date_filter["$lte"] = pagination.modifiedTo
+                if modified_date_filter:
+                    query["lastModifiedAt"] = modified_date_filter
+
+            # Determine sort options
+            sort_options = []
+            if pagination and pagination.sortBy:
+                # Convert camelCase sort field to database field name if needed
+                sort_field_mapping = {
+                    "name": "name",
+                    "type": "type",
+                    "startDate": "startDate",
+                    "endDate": "endDate",
+                    "lastModifiedAt": "lastModifiedAt",
+                    "createdAt": "createdAt",
+                    "status": "status"
+                    # Add other mappings as needed
+                }
+                db_field = sort_field_mapping.get(pagination.sortBy,
+                                                  pagination.sortBy)
+                sort_direction = 1 if pagination.sortDir == "asc" else -1
+                sort_options.append((db_field, sort_direction))
+            else:
+                # Default sort by lastModifiedAt
+                sort_options.append(("lastModifiedAt", -1))
+
+            # Get total count for pagination metadata
+            total_count = await self.db.assignments.count_documents(query)
+
+            # Calculate pagination
+            skip = 0
+            limit = 50  # Default limit
+
+            if pagination:
+                limit = pagination.pagesize
+                skip = (pagination.page - 1) * limit
+
+            logger.debug(f"Query filter: {query}")
+            logger.debug(f"Sort options: {sort_options}")
+            logger.debug(f"Skip: {skip}, Limit: {limit}")
+
+            # Execute the query with pagination
+            cursor = self.db.assignments.find(query).sort(sort_options).skip(
+                skip).limit(limit)
             assignments = []
 
             async for doc in cursor:
@@ -168,8 +254,9 @@ class AssignmentService:
                 assignments.append(assignment)
 
             logger.info(
-                f"Fetched {len(assignments)} assignment(s) from the database.")
-            return assignments
+                f"Fetched {len(assignments)} assignment(s) from the database. Total count: {total_count}"
+            )
+            return {"assignments": assignments, "total_count": total_count}
         except Exception as e:
             logger.error(f"Error fetching assignments: {str(e)}",
                          exc_info=True)
@@ -180,10 +267,14 @@ class AssignmentService:
 
     _STATUS_PRIORITY = {"not_started": 0, "in_progress": 1, "completed": 2}
 
-    async def fetch_assigned_plans(self,
-                                   user_id: str) -> FetchAssignedPlansResponse:
-        """Fetch assigned training plans with nested details"""
-        logger.info(f"Fetching assigned training plans for user_id={user_id}")
+    async def fetch_assigned_plans(
+            self,
+            user_id: str,
+            pagination: Optional[PaginationParams] = None) -> Dict[str, any]:
+        """Fetch assigned training plans with nested details and pagination"""
+        logger.info(
+            f"Fetching assigned training plans for user_id={user_id} with pagination"
+        )
         try:
             user = await self.db.users.find_one({"_id": user_id})
             if not user:
@@ -196,12 +287,63 @@ class AssignmentService:
                 f"Assignment IDs for user {user_id}: {assignment_ids}")
 
             object_ids = [ObjectId(aid) for aid in assignment_ids]
-            assignments = await self.db.assignments.find({
-                "_id": {
-                    "$in": object_ids
-                },
-                "status": "published"
-            }).to_list(None)
+
+            # Build base query
+            base_query = {"_id": {"$in": object_ids}, "status": "published"}
+
+            # Applying additional filters if pagination parameters are provided
+            query = base_query.copy()
+            if pagination and pagination.search:
+                search_regex = {"$regex": pagination.search, "$options": "i"}
+                query["$and"] = [
+                    base_query, {
+                        "$or": [{
+                            "name": search_regex
+                        }, {
+                            "type": search_regex
+                        }]
+                    }
+                ]
+
+            # Determine sort options
+            sort_options = []
+            if pagination and pagination.sortBy:
+                # Convert camelCase sort field to database field name if needed
+                sort_field_mapping = {
+                    "name": "name",
+                    "type": "type",
+                    "startDate": "startDate",
+                    "endDate": "endDate",
+                    "createdAt": "createdAt",
+                    "lastModifiedAt": "lastModifiedAt",
+                    # Add other mappings as needed
+                }
+                db_field = sort_field_mapping.get(pagination.sortBy,
+                                                  pagination.sortBy)
+                sort_direction = 1 if pagination.sortDir == "asc" else -1
+                sort_options.append((db_field, sort_direction))
+            else:
+                # Default sort by lastModifiedAt
+                sort_options.append(("lastModifiedAt", -1))
+
+            # Get total count for pagination metadata
+            total_count = await self.db.assignments.count_documents(query)
+
+            # Apply pagination to the query
+            skip = 0
+            limit = 50  # Default limit
+
+            if pagination:
+                limit = pagination.pagesize
+                skip = (pagination.page - 1) * limit
+
+            logger.debug(f"Query filter: {query}")
+            logger.debug(f"Sort options: {sort_options}")
+            logger.debug(f"Skip: {skip}, Limit: {limit}")
+
+            # Execute the paginated query
+            assignments = await self.db.assignments.find(query).sort(
+                sort_options).skip(skip).limit(limit).to_list(None)
 
             training_plans = []
             modules = []
@@ -228,8 +370,7 @@ class AssignmentService:
                                 )
                                 if module_details:
                                     plan_modules.append(module_details)
-                                    plan_total_simulations += (
-                                        module_details.total_simulations)
+                                    plan_total_simulations += module_details.total_simulations
                                     plan_est_time += sum(
                                         sim.estTime
                                         for sim in module_details.simulations)
@@ -306,8 +447,10 @@ class AssignmentService:
                         )
                         if existing_index is not None:
                             existing_sim = simulations[existing_index]
-                            if (_STATUS_PRIORITY[sim_details.status]
-                                    > _STATUS_PRIORITY[existing_sim.status]):
+                            if self._STATUS_PRIORITY[
+                                    sim_details.
+                                    status] > self._STATUS_PRIORITY[
+                                        existing_sim.status]:
                                 simulations[existing_index] = sim_details
                         else:
                             simulations.append(sim_details)
@@ -330,13 +473,21 @@ class AssignmentService:
 
             logger.info(
                 f"Finished fetching assigned plans for user_id={user_id}. "
-                f"Total simulations found: {total_simulations}")
-            return FetchAssignedPlansResponse(
-                training_plans=training_plans,
-                modules=modules,
-                simulations=simulations,
-                stats=stats,
+                f"Total simulations found: {total_simulations}, total count: {total_count}"
             )
+
+            # Return both the data and the total count for pagination metadata
+            return {
+                "data":
+                FetchAssignedPlansResponse(
+                    training_plans=training_plans,
+                    modules=modules,
+                    simulations=simulations,
+                    stats=stats,
+                ),
+                "total_count":
+                total_count
+            }
         except HTTPException as he:
             raise he
         except Exception as e:

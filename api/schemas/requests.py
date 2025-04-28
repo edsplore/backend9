@@ -327,6 +327,7 @@ class CloneModuleRequest(BaseModel):
 
 class FetchAssignedPlansRequest(BaseModel):
     user_id: str
+    pagination: Optional[PaginationParams] = None
 
 
 class StartVisualAudioPreviewRequest(BaseModel):
