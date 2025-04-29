@@ -435,13 +435,63 @@ class FetchManagerDashboardResponse(BaseModel):
     modules: List[ModuleDetailsMinimal]
     simulations: List[SimulationDetailsMinimal]
 class FetchManagerDashboardTrainingPlansResponse(BaseModel):
-    training_plans: List[TrainingPlanDetailsMinimal]
+    class TraineeStatus(BaseModel):
+        name: str
+        class_id: int
+        status: str
+        due_date: str
+        avg_score: Optional[str]  # "NA" or a percentage
+
+    class TrainingPlan(BaseModel):
+        id: str  # ID No.
+        name: str  # TRP Name
+        trainees: List['FetchManagerDashboardTrainingPlansResponse.TraineeStatus']
+        completion_rate: str
+        adherence_rate: str
+        avg_score: float
+        est_time: str
+
+    training_plans: List[TrainingPlan]
+
 
 class FetchManagerDashboardModulesResponse(BaseModel):
-    modules: List[ModuleDetailsMinimal]
+    class TraineeStatus(BaseModel):
+        name: str
+        class_id: int
+        status: str
+        due_date: str
+        avg_score: Optional[str] 
+
+    class Module(BaseModel):
+        id: str 
+        name: str 
+        trainees: List['FetchManagerDashboardModulesResponse.TraineeStatus']
+        completion_rate: str
+        adherence_rate: str
+        avg_score: float
+        est_time: str
+
+    modules: List[Module]
 
 class FetchManagerDashboardSimultaionResponse(BaseModel):
-    simulations: List[SimulationDetailsMinimal]
+    class TraineeStatus(BaseModel):
+        name: str
+        class_id: int
+        status: str
+        due_date: str
+        avg_score: Optional[str] 
+
+    class Simulation(BaseModel):
+        id: str 
+        name: str 
+        trainees: List['FetchManagerDashboardSimultaionResponse.TraineeStatus']
+        completion_rate: str
+        adherence_rate: str
+        avg_score: float
+        est_time: str
+
+    simulations: List[Simulation]
+
 
 class ManagerDashboardAssignmentCounts(BaseModel):
     total: int = 0,
@@ -465,5 +515,3 @@ class ManagerDashboardAggregateDetails(BaseModel):
     completionRates: ManagerDashboardAggregateMetrics
     adherenceRates: ManagerDashboardAggregateMetrics
     averageScores: ManagerDashboardAggregateMetrics
-
-

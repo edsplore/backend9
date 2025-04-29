@@ -29,6 +29,7 @@ class ManagerController:
     
     async def fetch_manager_dashboard_training_plans(self, request: FetchManagerDashboardTrainingPlansRequest) -> FetchManagerDashboardTrainingPlansResponse:
         reporting_userIds= [request.user_id, '67ebe72cb38db47a3d742543', '67a31a99aa22bc6b9f0cf551', '67a1188276d6606ab2c082b7', '67ec0ae59ad3cd6528f866ab']
+        # reporting_userIds= ['trainee1', 'trainee2']
         logger.info(f"Fetching manager dashboard training plans for user_id={request.user_id}, reporting_userIds={reporting_userIds}")
         try:
             response = await self.service.fetch_manager_dashboard_training_plans(request.user_id, reporting_userIds)
@@ -39,7 +40,8 @@ class ManagerController:
             raise
     
     async def fetch_manager_dashboard_modules(self, request: FetchManagerDashboardTrainingPlansRequest) -> FetchManagerDashboardModulesResponse:
-        reporting_userIds= [request.user_id, '67ceaa2136089d2932548b99', '67a31a99aa22bc6b9f0cf551', '67a1188276d6606ab2c082b7', '67ec0ae59ad3cd6528f866ab']
+        # reporting_userIds= [request.user_id, '67ceaa2136089d2932548b99', '67a31a99aa22bc6b9f0cf551', '67a1188276d6606ab2c082b7', '67ec0ae59ad3cd6528f866ab']
+        reporting_userIds= ['trainee1', 'trainee2']
         logger.info(f"Fetching manager dashboard training plans for user_id={request.user_id}, reporting_userIds={reporting_userIds}")
         try:
             response = await self.service.fetch_manager_dashboard_modules(request.user_id, reporting_userIds)
@@ -50,7 +52,8 @@ class ManagerController:
             raise
     
     async def fetch_manager_dashboard_simulations(self, request: FetchManagerDashboardTrainingPlansRequest) -> FetchManagerDashboardSimultaionResponse:
-        reporting_userIds= [request.user_id, '67ceaa2136089d2932548b99', '67a31a99aa22bc6b9f0cf551', '67a1188276d6606ab2c082b7', '67ec0ae59ad3cd6528f866ab', 'member2']
+        # reporting_userIds= [request.user_id, '67ceaa2136089d2932548b99', '67a31a99aa22bc6b9f0cf551', '67a1188276d6606ab2c082b7', '67ec0ae59ad3cd6528f866ab', 'member2']
+        reporting_userIds= ['trainee1', 'trainee2']
         logger.info(f"Fetching manager dashboard simulations for user_id={request.user_id}, reporting_userIds={reporting_userIds}")
         try:
             response = await self.service.fetch_manager_dashboard_simulations(request.user_id, reporting_userIds)

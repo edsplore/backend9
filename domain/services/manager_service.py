@@ -63,6 +63,7 @@ class ManagerService:
                                 if assignmentWithUser["id"] == assignment["id"]:
                                     assignmentWithUser["teamId"].append(reporting_userId)
                                     assignmentWithUser["traineeId"].add(reporting_userId)
+                                    break;
                     
 
             assignment_service = AssignmentService()
@@ -262,7 +263,29 @@ class ManagerService:
             logger.info(f"Fetching manager dashboard training plans for user_id={user_id} and reporting_userIds={reporting_userIds}")
             try:
                 dashboard_response = await self.get_all_assigments_by_user_details(user_id, reporting_userIds, 'TrainingPlan')
-                return FetchManagerDashboardTrainingPlansResponse(training_plans=dashboard_response.training_plans)
+                training_plans = []
+
+                for trainingPlan in dashboard_response.training_plans:
+                    trainees = []
+                    for user in trainingPlan.user:
+                        trainees.append(FetchManagerDashboardTrainingPlansResponse.TraineeStatus(
+                            name=user.user_id,
+                            class_id=12344,
+                            status=user.status,
+                            due_date=user.due_date,
+                            avg_score='NA'
+                        ))
+                    training_plans.append(FetchManagerDashboardTrainingPlansResponse.TrainingPlan(
+                        id= trainingPlan.id,
+                        name=trainingPlan.name,
+                        completion_rate = '0',
+                        adherence_rate= '0',
+                        avg_score= trainingPlan.average_score, 
+                        est_time = "15s",
+                        trainees= trainees
+                    ))
+
+                return FetchManagerDashboardTrainingPlansResponse(training_plans=training_plans)
             except Exception as e:
                 logger.error(f"Error fetching manager dashboard training plans: {str(e)}", exc_info=True)
                 raise HTTPException(status_code=500, detail=f"Error fetching manager dashboard training plans: {str(e)}")
@@ -272,7 +295,27 @@ class ManagerService:
             logger.info(f"Fetching manager dashboard modules for user_id={user_id} and reporting_userIds={reporting_userIds}")
             try:
                 dashboard_response = await self.get_all_assigments_by_user_details(user_id, reporting_userIds, 'Module')
-                return FetchManagerDashboardModulesResponse(modules=dashboard_response.modules)
+                modules = []
+                for module in dashboard_response.modules:
+                    trainees = []
+                    for user in module.user:
+                        trainees.append(FetchManagerDashboardModulesResponse.TraineeStatus(
+                            name=user.user_id,
+                            class_id=12344,
+                            status=user.status,
+                            due_date=user.due_date,
+                            avg_score='NA'
+                        ))
+                    modules.append(FetchManagerDashboardModulesResponse.Module(
+                        id= module.id,
+                        name=module.name,
+                        completion_rate = '0',
+                        adherence_rate= '0',
+                        avg_score= module.average_score, 
+                        est_time = "15s",
+                        trainees= trainees
+                    ))
+                return FetchManagerDashboardModulesResponse(modules=modules)
             except Exception as e:
                 logger.error(f"Error fetching manager dashboard modules: {str(e)}", exc_info=True)
                 raise HTTPException(status_code=500, detail=f"Error fetching manager dashboard modules: {str(e)}")
@@ -282,7 +325,27 @@ class ManagerService:
         logger.info(f"Fetching manager dashboard simulations for user_id={user_id} and reporting_userIds={reporting_userIds}")
         try:
             dashboard_response = await self.get_all_assigments_by_user_details(user_id, reporting_userIds, 'Simulation')
-            return FetchManagerDashboardSimultaionResponse(simulations=dashboard_response.simulations)
+            simulations = []
+            for module in dashboard_response.simulations:
+                    trainees = []
+                    for user in module.user:
+                        trainees.append(FetchManagerDashboardSimultaionResponse.TraineeStatus(
+                            name=user.user_id,
+                            class_id=12344,
+                            status=user.status,
+                            due_date=user.dueDate,
+                            avg_score='NA'
+                        ))
+                    simulations.append(FetchManagerDashboardSimultaionResponse.Simulation(
+                        id= module.id,
+                        name=module.name,
+                        completion_rate = '0',
+                        adherence_rate= '0',
+                        avg_score= module.average_score, 
+                        est_time = "15s",
+                        trainees= trainees
+                    ))
+            return FetchManagerDashboardSimultaionResponse(simulations=simulations)
         except Exception as e:
             logger.error(f"Error fetching manager dashboard simulations: {str(e)}", exc_info=True)
             raise HTTPException(status_code=500, detail=f"Error fetching manager dashboard simulations: {str(e)}")
