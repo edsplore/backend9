@@ -379,9 +379,19 @@ class AssignmentService:
                 elif "in_progress" in statuses:
                     status = "in_progress"
 
+            if((status == 'not_started' or status == 'in_progress' ) and datetime.now() > datetime.strptime(due_date, '%Y-%m-%d')):
+                status = 'over_due'
+
             logger.debug(
                 f"Simulation {sim_id} retrieved with consolidated status {status}"
             )
+
+            # Getting scores
+            scores = {}
+            # TODO: Ask do we need the latest attept response?
+            # if(status == 'completed'):
+                # scores = progress_list.get('scores')
+            
             return SimulationDetails(
                 simulation_id=str(sim["_id"]),
                 name=sim.get("name", ""),
@@ -390,6 +400,7 @@ class AssignmentService:
                 estTime=sim.get("estimatedTimeToAttemptInMins", 0),
                 dueDate=due_date,
                 status=status,
+                scores=scores,
                 highest_attempt_score=0,
                 assignment_id=assignment_id,
             )

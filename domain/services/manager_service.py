@@ -6,7 +6,8 @@ from domain.services.assignment_service import AssignmentService
 from infrastructure.repositories.manager_repository import ManagerRepository
 from infrastructure.database import Database
 from api.schemas.responses import (FetchManagerDashboardTrainingPlansResponse, TrainingPlanDetails, ModuleDetails,
-                                   SimulationDetails, FetchManagerDashnoardTrainingPlansDetails, TrainingPlanDetailsByUser, TrainingPlanDetailsMinimal)
+                                   SimulationDetails, ModuleDetailsByUser, TrainingPlanDetailsByUser, TrainingPlanDetailsMinimal, ModuleDetailsMinimal, FetchManagerDashboardResponse,
+                                   FetchManagerDashboardModulesResponse, FetchManagerDashboardSimultaionResponse, SimulationDetailsMinimal, SimulationDetailsByUser)
 
 from fastapi import HTTPException
 
@@ -24,47 +25,48 @@ class ManagerService:
     
     
     async def get_all_assigments_by_user_details(self,
-                                   user_id: str, reporting_userIds: List[str]) -> List[TrainingPlanDetailsMinimal]: 
+                                   user_id: str, reporting_userIds: List[str], type: str) -> FetchManagerDashboardResponse: 
         """Get All Assignment By User Details"""
         logger.info(f"Get All Assignment By User Details user_id={user_id}, reporting_userIds={reporting_userIds}")
         try:
             
             assignmentWithUsers = []
-            # for userId in reporting_userIds:
-            user = await self.db.users.find_one({"_id": reporting_userIds[0]})
-            if not user:
-                logger.warning(f"User {user_id} not found.")
-                raise HTTPException(status_code=404,
-                                    detail=f"User {user_id} not found")
-            
-            assignment_ids = user.get("assignments", [])
-            logger.debug(
-                f"Assignment IDs for user {user_id}: {assignment_ids}")
-            
-            object_ids = [ObjectId(aid) for aid in assignment_ids]
-            assignments = await self.db.assignments.find({
-                "_id": {
-                    "$in": object_ids
-                },
-                "type": "TrainingPlan",
-                "status": "published"
-            }).to_list(None)
+            for reporting_userId in reporting_userIds:
+                # for userId in reporting_userIds:
+                user = await self.db.users.find_one({"_id": reporting_userId})
+                if user:                
+                    assignment_ids = user.get("assignments", [])
+                    logger.debug(
+                        f"Assignment IDs for user {user_id}: {assignment_ids}")
+                    
+                    object_ids = [ObjectId(aid) for aid in assignment_ids]
+                    assignments = await self.db.assignments.find({
+                        "_id": {
+                            "$in": object_ids
+                        },
+                        "type": type,
+                        # "status": "published"
+                    }).to_list(None)
 
-
-            # # Mapping assignments by trainingPlans
-            for assignment in assignments:
-                if assignment["id"] not in [assignmentWithUsers["id"] for tp in assignmentWithUsers]:
-                    assignmentWithUsers.append(assignment)
-                else:
-                    for assignmentWithUser in assignmentWithUsers:
-                        if assignmentWithUser["id"] == assignment["id"]:
-                            assignmentWithUser["teamId"].append(assignment["teamId"])
-                            assignmentWithUser["traineeId"].append(assignment["traineeId"])
+# 68047e980b2daeb11a65c6bf
+                    # # Mapping assignments by trainingPlans
+                    for assignment in assignments:
+                        if assignment["_id"] not in [tp["_id"] for tp in assignmentWithUsers]:
+                            assignmentWithUsers.append(assignment)
+                        else:
+                            for assignmentWithUser in assignmentWithUsers:
+                                if assignmentWithUser["_id"] == assignment["_id"]:
+                                    assignmentWithUser["teamId"].append(assignment["teamId"])
+                                    assignmentWithUser["traineeId"].append(assignment["traineeId"])
                     
 
             assignment_service = AssignmentService()
             userMap = {}
             training_plans = [] 
+            modules = []
+            simulations = []
+            total_simulations = 0
+            _STATUS_PRIORITY = {"not_started": 0, "in_progress": 1, "completed": 2}
             for assignment in assignmentWithUsers:
                 logger.debug(f"Processing assignment: {assignment}")
                 
@@ -128,7 +130,7 @@ class ManagerService:
                             else:
                                 plan_status = "not_started"
                             training_plans_by_user.append(TrainingPlanDetailsByUser(
-                                 completion_percentage=0,
+                                completion_percentage=0,
                                 total_modules=len(plan_modules),
                                 total_simulations=plan_total_simulations,
                                 est_time=plan_est_time,
@@ -143,12 +145,106 @@ class ManagerService:
                             TrainingPlanDetailsMinimal(
                                 id=str(training_plan["_id"]),
                                 name=training_plan.get("name", ""),
+                                completion_percentage=0,
+                                average_score=0,
                                 user=training_plans_by_user
                             ))
                         userMap['userId'] = training_plans
-            
+
+                elif assignment["type"] == "Module":
+                    for userId in assignment['traineeId']:
+                        module_by_user = []
+                        module_total_simulations = 0
+                        module_details = await assignment_service._get_module_details(
+                            assignment["id"],
+                            assignment["endDate"],
+                            str(assignment["_id"]),
+                            userId,
+                        )
+                        if module_details:
+                            module_total_simulations += module_details.total_simulations    
+                            if all(status == "completed" for status in module_details.simulations):
+                                plan_status = "completed"
+                            elif all(status == "not_started" for status in module_details.simulations):
+                                plan_status = "not_started"
+                            elif any(status == "in_progress" for status in module_details.simulations) and all(status != "over_due" for status in module_details.simulations):
+                                plan_status = "in_progress"
+                            else:
+                                plan_status = "over_due"
+                            module_by_user.append(
+                                ModuleDetailsByUser(
+                                    total_simulations=module_total_simulations,
+                                    average_score=0,
+                                    due_date=assignment["endDate"],
+                                    status=plan_status,
+                                    user_id=userId,
+                                    simulations=module_details.simulations,
+                                )
+                            )
+                            
+                            modules.append(
+                                ModuleDetailsMinimal(
+                                    id = assignment["id"],
+                                    name = module_details.name,
+                                    completion_percentage=0,
+                                    average_score=0,
+                                    user=module_by_user
+                                )
+                            )
+                        
+                elif assignment["type"] == "Simulation":
+                    for userId in assignment['traineeId']:
+                        simulation_by_user = []
+                        sim_details = await assignment_service._get_simulation_details(
+                            assignment["id"],
+                            assignment["endDate"],
+                            str(assignment["_id"]),
+                            userId,
+                        )
+                        if sim_details:
+                            # Consolidate duplicates by assignment with precedence
+                            # existing_index = next(
+                            #     (idx for idx, s in enumerate(simulations)
+                            #     if s.assignment_id == sim_details.assignment_id),
+                            #     None,
+                            # )
+                            # if existing_index is not None:
+                            #     existing_sim = simulations[existing_index]
+                            #     if (_STATUS_PRIORITY[sim_details.status]
+                            #             > _STATUS_PRIORITY[existing_sim.status]):
+                            #         simulations[existing_index] = sim_details
+                            # else:
+                            simulation_by_user.append(
+                                SimulationDetailsByUser(
+                                    simulation_id=sim_details.simulation_id,
+                                    name=sim_details.name,
+                                    type=sim_details.type,
+                                    level=sim_details.level,  # Default value
+                                    estTime=sim_details.estTime,
+                                    dueDate=sim_details.dueDate,
+                                    status=sim_details.status,
+                                    scores= sim_details.scores,
+                                    highest_attempt_score=sim_details.highest_attempt_score,
+                                    assignment_id=sim_details.assignment_id,
+                                    user_id=userId
+                                )
+                            )
+                            total_simulations += 1
+
+        
+                            simulations.append(
+                                SimulationDetailsMinimal(
+                                    id=sim_details.simulation_id,
+                                    name= sim_details.name,
+                                    completion_percentage = 0,
+                                    average_score = 0,
+                                    status = sim_details.status,
+                                    user=simulation_by_user
+                                )
+                            )
+
             # training_plans = await self.repository.fetch_manager_dashboard_training_plans(user_id)
-            return training_plans
+            return FetchManagerDashboardResponse(training_plans=training_plans, modules=modules, simulations=simulations)
             
         except Exception as e:
             logger.error(f"Error Getting All Assignment By User Details {str(e)}", exc_info=True)
@@ -158,8 +254,30 @@ class ManagerService:
                                 user_id: str, reporting_userIds: List[str]) -> FetchManagerDashboardTrainingPlansResponse: 
             logger.info(f"Fetching manager dashboard training plans for user_id={user_id} and reporting_userIds={reporting_userIds}")
             try:
-                training_plans = await self.get_all_assigments_by_user_details(user_id, reporting_userIds)
-                return FetchManagerDashboardTrainingPlansResponse(training_plans=training_plans)
+                dashboard_response = await self.get_all_assigments_by_user_details(user_id, reporting_userIds, 'TrainingPlan')
+                return FetchManagerDashboardTrainingPlansResponse(training_plans=dashboard_response.training_plans)
             except Exception as e:
                 logger.error(f"Error fetching manager dashboard training plans: {str(e)}", exc_info=True)
                 raise HTTPException(status_code=500, detail=f"Error fetching manager dashboard training plans: {str(e)}")
+
+    async def fetch_manager_dashboard_modules(self,
+                                user_id: str, reporting_userIds: List[str]) -> FetchManagerDashboardTrainingPlansResponse: 
+            logger.info(f"Fetching manager dashboard modules for user_id={user_id} and reporting_userIds={reporting_userIds}")
+            try:
+                dashboard_response = await self.get_all_assigments_by_user_details(user_id, reporting_userIds, 'Module')
+                return FetchManagerDashboardModulesResponse(modules=dashboard_response.modules)
+            except Exception as e:
+                logger.error(f"Error fetching manager dashboard modules: {str(e)}", exc_info=True)
+                raise HTTPException(status_code=500, detail=f"Error fetching manager dashboard modules: {str(e)}")
+
+    async def fetch_manager_dashboard_simulations(self,
+                            user_id: str, reporting_userIds: List[str]) -> FetchManagerDashboardSimultaionResponse: 
+        logger.info(f"Fetching manager dashboard simulations for user_id={user_id} and reporting_userIds={reporting_userIds}")
+        try:
+            dashboard_response = await self.get_all_assigments_by_user_details(user_id, reporting_userIds, 'Simulation')
+            return FetchManagerDashboardSimultaionResponse(simulations=dashboard_response.simulations)
+        except Exception as e:
+            logger.error(f"Error fetching manager dashboard simulations: {str(e)}", exc_info=True)
+            raise HTTPException(status_code=500, detail=f"Error fetching manager dashboard simulations: {str(e)}")
+            
+

@@ -251,6 +251,7 @@ class SimulationDetails(BaseModel):
     estTime: int
     dueDate: str
     status: str = "not_started"
+    scores: dict = {}
     highest_attempt_score: float = 0
     assignment_id: str
 
@@ -389,7 +390,61 @@ class TrainingPlanDetailsByUser(BaseModel):
 class TrainingPlanDetailsMinimal(BaseModel):
     id: str
     name: str
+    completion_percentage: float = 0
+    average_score: float = 0
     user: List[TrainingPlanDetailsByUser]
+
+class ModuleDetailsByUser(BaseModel):
+    total_simulations: int
+    average_score: float = 0
+    due_date: str
+    status: str = "not_started"
+    user_id: str
+    simulations: List[SimulationDetails]
+    
+
+class ModuleDetailsMinimal(BaseModel):
+    id: str
+    name: str
+    completion_percentage: float = 0
+    average_score: float = 0
+    user: List[ModuleDetailsByUser]
+
+class SimulationDetailsByUser(BaseModel):
+    simulation_id: str
+    name: str
+    type: str
+    level: str
+    estTime: int
+    dueDate: str
+    status: str = "not_started"
+    highest_attempt_score: float = 0
+    scores: dict = {}
+    assignment_id: str
+    user_id: str
+   
+    
+
+class SimulationDetailsMinimal(BaseModel):
+    id: str
+    name: str
+    completion_percentage: float = 0
+    average_score: float = 0
+    user: List[SimulationDetailsByUser]
+
+
+
+class FetchManagerDashboardResponse(BaseModel):
+    training_plans: List[TrainingPlanDetailsMinimal]
+    modules: List[ModuleDetailsMinimal]
+    simulations: List[SimulationDetailsMinimal]
 class FetchManagerDashboardTrainingPlansResponse(BaseModel):
     training_plans: List[TrainingPlanDetailsMinimal]
+
+class FetchManagerDashboardModulesResponse(BaseModel):
+    modules: List[ModuleDetailsMinimal]
+
+class FetchManagerDashboardSimultaionResponse(BaseModel):
+    simulations: List[SimulationDetailsMinimal]
+
 
