@@ -435,6 +435,8 @@ class AssignmentService:
                 module_status = "completed"
             elif any(status == "in_progress" for status in sim_statuses):
                 module_status = "in_progress"
+            elif any(status == "over_due" for status in sim_statuses):
+                module_status = "over_due"
             else:
                 module_status = "not_started"
 

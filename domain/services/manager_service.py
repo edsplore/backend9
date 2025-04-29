@@ -51,13 +51,15 @@ class ManagerService:
 # 68047e980b2daeb11a65c6bf
                     # # Mapping assignments by trainingPlans
                     for assignment in assignments:
-                        if assignment["_id"] not in [tp["_id"] for tp in assignmentWithUsers]:
+                        if assignment["id"] not in [tp["id"] for tp in assignmentWithUsers]:
+                            assignment['traineeId'] = set()
+                            assignment['teamId'] = [reporting_userId]
                             assignmentWithUsers.append(assignment)
                         else:
                             for assignmentWithUser in assignmentWithUsers:
-                                if assignmentWithUser["_id"] == assignment["_id"]:
-                                    assignmentWithUser["teamId"].append(assignment["teamId"])
-                                    assignmentWithUser["traineeId"].append(assignment["traineeId"])
+                                if assignmentWithUser["id"] == assignment["id"]:
+                                    assignmentWithUser["teamId"].append(reporting_userId)
+                                    assignmentWithUser["traineeId"].add(reporting_userId)
                     
 
             assignment_service = AssignmentService()
@@ -74,8 +76,8 @@ class ManagerService:
                     training_plan = await self.db.training_plans.find_one(
                         {"_id": ObjectId(assignment["id"])})
                     if training_plan:
-                        for userId in assignment['traineeId']:
-                            training_plans_by_user = [] 
+                        training_plans_by_user = []
+                        for userId in assignment['traineeId']: 
                             total_simulations = 0
                             plan_modules = []
                             plan_total_simulations = 0
@@ -113,7 +115,7 @@ class ManagerService:
                                                 total_simulations=1,
                                                 average_score=0,
                                                 due_date=assignment["endDate"],
-                                                status="not_started",
+                                                status=sim_details.status,
                                                 simulations=[sim_details],
                                             ))
                                         plan_total_simulations += 1
@@ -127,6 +129,9 @@ class ManagerService:
                             elif any(status == "in_progress"
                                     for status in module_statuses):
                                 plan_status = "in_progress"
+                            elif any(status == "over_due"
+                                    for status in module_statuses):
+                                plan_status = "over_due"
                             else:
                                 plan_status = "not_started"
                             training_plans_by_user.append(TrainingPlanDetailsByUser(
@@ -278,5 +283,21 @@ class ManagerService:
         except Exception as e:
             logger.error(f"Error fetching manager dashboard simulations: {str(e)}", exc_info=True)
             raise HTTPException(status_code=500, detail=f"Error fetching manager dashboard simulations: {str(e)}")
+    
+    async def get_manager_dashboard_data(self, user_id: str, reporting_userIds: List[str]):
+        logger.info("Fetching Manager Dashboard data.")
+        logger.debug(f"user_id={user_id}")
+
+        try:
+            training_plan_data = await self.get_all_assigments_by_user_details(user_id, reporting_userIds, 'TrainingPlan')
+            return training_plan_data
+            logger.info(
+                f"Fetched Manager Dashboard data for user_id={user_id}.")
+            return {"assignmentCounts": dashboardData}
+        except Exception as e:
+            logger.error(
+                f"Error fetching manager dashboard data for user_id={user_id}: {str(e)}",
+                exc_info=True)
+            raise HTTPException(status_code=500, detail=f"Error fetching manager dashboard data for user_id={user_id}: {str(e)}")
             
 

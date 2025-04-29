@@ -15,14 +15,15 @@ class ManagerController:
         self.service = ManagerService()
         logger.info("ManagerController initialized.")
 
-    async def get_manager_dashboard_data(self, user_id: str):
+    async def get_manager_dashboard_data(self, request: FetchManagerDashboardTrainingPlansRequest) -> FetchManagerDashboardTrainingPlansResponse:
         logger.info("Received request to fetch manager dashboard data.")
-        logger.debug(f"user_id: {user_id}")
-
+        logger.debug(f"user_id: {request.user_id}")
+        reporting_userIds= [request.user_id, '67ebe72cb38db47a3d742543', '67a31a99aa22bc6b9f0cf551', '67a1188276d6606ab2c082b7', '67ec0ae59ad3cd6528f866ab', 'trainee1']
+        userIds = ['trainee1', 'trainee2']
         try:
-            # data = await self.service.get_manager_dashboard_data(user_id)
-            logger.info(f"Manager dashboard data fetched successfully for user_id: {user_id}")
-            # return data
+            data = await self.service.get_manager_dashboard_data(request.user_id, userIds)
+            logger.info(f"Manager dashboard data fetched successfully for user_id: {request.user_id}")
+            return data
         except Exception as e:
             logger.error(f"Error fetching manager dashboard data: {str(e)}", exc_info=True)
             raise
@@ -33,7 +34,7 @@ class ManagerController:
         try:
             response = await self.service.fetch_manager_dashboard_training_plans(request.user_id, reporting_userIds)
             logger.debug(f"Manager dashboard training plans: {response}")
-            return response;
+            return response
         except Exception as e:
             logger.error(f"Error fetching manager dashboard training plans: {str(e)}", exc_info=True)
             raise
@@ -44,7 +45,7 @@ class ManagerController:
         try:
             response = await self.service.fetch_manager_dashboard_modules(request.user_id, reporting_userIds)
             logger.debug(f"Manager dashboard training plans: {response}")
-            return response;
+            return response
         except Exception as e:
             logger.error(f"Error fetching manager dashboard training plans: {str(e)}", exc_info=True)
             raise
@@ -55,7 +56,7 @@ class ManagerController:
         try:
             response = await self.service.fetch_manager_dashboard_simulations(request.user_id, reporting_userIds)
             logger.debug(f"Manager dashboard simulations: {response}")
-            return response;
+            return response
         except Exception as e:
             logger.error(f"Error fetching manager dashboard simulations: {str(e)}", exc_info=True)
             raise
@@ -63,10 +64,10 @@ class ManagerController:
 controller = ManagerController()
 
 @router.post("/manager-dashboard-data/fetch", tags=["Manager", "Read"])
-async def fetch_manager_dashboard_data(request):
+async def fetch_manager_dashboard_data(request: FetchManagerDashboardTrainingPlansRequest):
     logger.info("API endpoint called: /manager-dashboard-data/fetch")
     logger.debug(f"Request body: {request}")
-    ## return await controller.get_manager_dashboard_data(user_id)
+    return await controller.get_manager_dashboard_data(request)
 
 @router.post("/manager-dashboard-data/training-plans/fetch", tags=["Manager", "Read"])
 async def fetch_manager_dashboard_training_plans(
