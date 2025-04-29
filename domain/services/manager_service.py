@@ -7,9 +7,11 @@ from infrastructure.repositories.manager_repository import ManagerRepository
 from infrastructure.database import Database
 from api.schemas.responses import (FetchManagerDashboardTrainingPlansResponse, TrainingPlanDetails, ModuleDetails,
                                    SimulationDetails, ModuleDetailsByUser, TrainingPlanDetailsByUser, TrainingPlanDetailsMinimal, ModuleDetailsMinimal, FetchManagerDashboardResponse,
-                                   FetchManagerDashboardModulesResponse, FetchManagerDashboardSimultaionResponse, SimulationDetailsMinimal, SimulationDetailsByUser)
+                                   FetchManagerDashboardModulesResponse, FetchManagerDashboardSimultaionResponse, SimulationDetailsMinimal, SimulationDetailsByUser, ManagerDashboardAggregateAssignmentCounts, 
+                                   ManagerDashboardAssignmentCounts, ManagerDashboardAggregateDetails, ManagerDashboardAggregateMetrics)
 
 from fastapi import HTTPException
+import math
 
 from utils.logger import Logger  # Make sure the import path is correct for your project
 
@@ -53,6 +55,7 @@ class ManagerService:
                     for assignment in assignments:
                         if assignment["id"] not in [tp["id"] for tp in assignmentWithUsers]:
                             assignment['traineeId'] = set()
+                            assignment['traineeId'].add(reporting_userId)
                             assignment['teamId'] = [reporting_userId]
                             assignmentWithUsers.append(assignment)
                         else:
@@ -284,16 +287,131 @@ class ManagerService:
             logger.error(f"Error fetching manager dashboard simulations: {str(e)}", exc_info=True)
             raise HTTPException(status_code=500, detail=f"Error fetching manager dashboard simulations: {str(e)}")
     
-    async def get_manager_dashboard_data(self, user_id: str, reporting_userIds: List[str]):
+    async def get_manager_dashboard_data(self, user_id: str, reporting_userIds: List[str]) -> ManagerDashboardAggregateDetails:
         logger.info("Fetching Manager Dashboard data.")
         logger.debug(f"user_id={user_id}")
-
         try:
             training_plan_data = await self.get_all_assigments_by_user_details(user_id, reporting_userIds, 'TrainingPlan')
-            return training_plan_data
+            module_data = await self.get_all_assigments_by_user_details(user_id, reporting_userIds, 'Module')
+            simulation_data = await self.get_all_assigments_by_user_details(user_id, reporting_userIds, 'Simulation')
+            #return training_plan_data
+            assignment_agg_stats_by_training_entity = {
+                "trainingPlans": {
+                    "total": 0,
+                    "completed": 0,
+                    "inProgress": 0,
+                    "notStarted": 0,
+                    "overdue": 0
+                },
+                "modules": {
+                    "total": 0,
+                    "completed": 0,
+                    "inProgress": 0,
+                    "notStarted": 0,
+                    "overdue": 0
+                },
+                "simulations": {
+                    "total": 0,
+                    "completed": 0,
+                    "inProgress": 0,
+                    "notStarted": 0,
+                    "overdue": 0
+                }
+            }
+            
+            for each_assigned_training_plan in training_plan_data.training_plans:
+                for each_assigned_user in each_assigned_training_plan.user:
+                    assignment_agg_stats_by_training_entity["trainingPlans"]["total"] +=1
+                    if each_assigned_user.status == "completed":
+                        assignment_agg_stats_by_training_entity["trainingPlans"]["completed"] +=1
+                    elif each_assigned_user.status == "in_progress":
+                        assignment_agg_stats_by_training_entity["trainingPlans"]["inProgress"] +=1
+                    elif each_assigned_user.status == "not_started":
+                        assignment_agg_stats_by_training_entity["trainingPlans"]["notStarted"] +=1
+                    elif each_assigned_user.status == "over_due":
+                        assignment_agg_stats_by_training_entity["trainingPlans"]["overdue"] +=1
+            
+            for each_assigned_module in module_data.modules:
+                for each_assigned_user in each_assigned_module.user:
+                    assignment_agg_stats_by_training_entity["modules"]["total"] +=1
+                    if each_assigned_user.status == "completed":
+                        assignment_agg_stats_by_training_entity["modules"]["completed"] +=1
+                    elif each_assigned_user.status == "in_progress":
+                        assignment_agg_stats_by_training_entity["modules"]["inProgress"] +=1
+                    elif each_assigned_user.status == "not_started":
+                        assignment_agg_stats_by_training_entity["modules"]["notStarted"] +=1
+                    elif each_assigned_user.status == "over_due":
+                        assignment_agg_stats_by_training_entity["modules"]["overdue"] +=1
+            
+            for each_assigned_simulation in simulation_data.simulations:
+                for each_assigned_user in each_assigned_simulation.user:
+                    assignment_agg_stats_by_training_entity["simulations"]["total"] +=1
+                    if each_assigned_user.status == "completed":
+                        assignment_agg_stats_by_training_entity["simulations"]["completed"] +=1
+                    elif each_assigned_user.status == "in_progress":
+                        assignment_agg_stats_by_training_entity["simulations"]["inProgress"] +=1
+                    elif each_assigned_user.status == "not_started":
+                        assignment_agg_stats_by_training_entity["simulations"]["notStarted"] +=1
+                    elif each_assigned_user.status == "over_due":
+                        assignment_agg_stats_by_training_entity["simulations"]["overdue"] +=1
+
+            trainingPlanAssessmentCounts = ManagerDashboardAssignmentCounts(
+                total=assignment_agg_stats_by_training_entity["trainingPlans"]["total"],
+                completed=assignment_agg_stats_by_training_entity["trainingPlans"]["completed"],
+                inProgress=assignment_agg_stats_by_training_entity["trainingPlans"]["inProgress"],
+                notStarted=assignment_agg_stats_by_training_entity["trainingPlans"]["notStarted"],
+                overdue=assignment_agg_stats_by_training_entity["trainingPlans"]["overdue"]
+            )
+            moduleAssessmentCounts = ManagerDashboardAssignmentCounts(
+                total=assignment_agg_stats_by_training_entity["modules"]["total"],
+                completed=assignment_agg_stats_by_training_entity["modules"]["completed"],
+                inProgress=assignment_agg_stats_by_training_entity["modules"]["inProgress"],
+                notStarted=assignment_agg_stats_by_training_entity["modules"]["notStarted"],
+                overdue=assignment_agg_stats_by_training_entity["modules"]["overdue"]
+            )
+            simulationAssessmentCounts = ManagerDashboardAssignmentCounts(
+                total=assignment_agg_stats_by_training_entity["simulations"]["total"],
+                completed=assignment_agg_stats_by_training_entity["simulations"]["completed"],
+                inProgress=assignment_agg_stats_by_training_entity["simulations"]["inProgress"],
+                notStarted=assignment_agg_stats_by_training_entity["simulations"]["notStarted"],
+                overdue=assignment_agg_stats_by_training_entity["simulations"]["overdue"]
+            )
+            assignmentCounts = ManagerDashboardAggregateAssignmentCounts(
+                trainingPlans = trainingPlanAssessmentCounts,
+                modules = moduleAssessmentCounts,
+                simulations = simulationAssessmentCounts
+            )
+            
+            training_plan_completion_rate = math.ceil((assignment_agg_stats_by_training_entity["trainingPlans"]["completed"] / assignment_agg_stats_by_training_entity["trainingPlans"]["total"])*100)
+            module_completion_rate = math.ceil((assignment_agg_stats_by_training_entity["modules"]["completed"] / assignment_agg_stats_by_training_entity["modules"]["total"])*100)
+            simulation_completion_rate = math.ceil((assignment_agg_stats_by_training_entity["simulations"]["completed"] / assignment_agg_stats_by_training_entity["simulations"]["total"])*100)
+
+            completionRates = ManagerDashboardAggregateMetrics(
+                trainingPlans=training_plan_completion_rate,
+                modules=module_completion_rate,
+                simulations=simulation_completion_rate
+            )  
+
+            averageScores = ManagerDashboardAggregateMetrics(
+                trainingPlans=0,
+                modules=0,
+                simulations=0
+            )
+
+            adherenceRates = ManagerDashboardAggregateMetrics(
+                trainingPlans=0,
+                modules=0,
+                simulations=0
+            )
+            
             logger.info(
                 f"Fetched Manager Dashboard data for user_id={user_id}.")
-            return {"assignmentCounts": dashboardData}
+            return ManagerDashboardAggregateDetails(
+                assignmentCounts=assignmentCounts,
+                completionRates=completionRates,
+                adherenceRates=adherenceRates,
+                averageScores=averageScores
+            )
         except Exception as e:
             logger.error(
                 f"Error fetching manager dashboard data for user_id={user_id}: {str(e)}",

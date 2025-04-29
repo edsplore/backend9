@@ -423,16 +423,12 @@ class SimulationDetailsByUser(BaseModel):
     assignment_id: str
     user_id: str
    
-    
-
 class SimulationDetailsMinimal(BaseModel):
     id: str
     name: str
     completion_percentage: float = 0
     average_score: float = 0
     user: List[SimulationDetailsByUser]
-
-
 
 class FetchManagerDashboardResponse(BaseModel):
     training_plans: List[TrainingPlanDetailsMinimal]
@@ -446,5 +442,28 @@ class FetchManagerDashboardModulesResponse(BaseModel):
 
 class FetchManagerDashboardSimultaionResponse(BaseModel):
     simulations: List[SimulationDetailsMinimal]
+
+class ManagerDashboardAssignmentCounts(BaseModel):
+    total: int = 0,
+    completed: int = 0,
+    inProgress: int = 0,
+    notStarted: int = 0,
+    overdue: int = 0
+
+class ManagerDashboardAggregateAssignmentCounts(BaseModel):
+    trainingPlans: ManagerDashboardAssignmentCounts
+    modules: ManagerDashboardAssignmentCounts
+    simulations: ManagerDashboardAssignmentCounts
+
+class ManagerDashboardAggregateMetrics(BaseModel):
+    trainingPlans: int = 0
+    modules: int = 0
+    simulations: int = 0
+
+class ManagerDashboardAggregateDetails(BaseModel):
+    assignmentCounts: ManagerDashboardAggregateAssignmentCounts
+    completionRates: ManagerDashboardAggregateMetrics
+    adherenceRates: ManagerDashboardAggregateMetrics
+    averageScores: ManagerDashboardAggregateMetrics
 
 

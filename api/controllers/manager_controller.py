@@ -19,9 +19,8 @@ class ManagerController:
         logger.info("Received request to fetch manager dashboard data.")
         logger.debug(f"user_id: {request.user_id}")
         reporting_userIds= [request.user_id, '67ebe72cb38db47a3d742543', '67a31a99aa22bc6b9f0cf551', '67a1188276d6606ab2c082b7', '67ec0ae59ad3cd6528f866ab', 'trainee1']
-        userIds = ['trainee1', 'trainee2']
         try:
-            data = await self.service.get_manager_dashboard_data(request.user_id, userIds)
+            data = await self.service.get_manager_dashboard_data(request.user_id, reporting_userIds)
             logger.info(f"Manager dashboard data fetched successfully for user_id: {request.user_id}")
             return data
         except Exception as e:
