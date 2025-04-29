@@ -387,3 +387,6 @@ class EndVisualAttemptRequest(BaseModel):
     user_id: str
     simulation_id: str
     usersimulationprogress_id: str
+
+class FetchManagerDashboardTrainingPlansRequest(BaseModel):
+    user_id: str

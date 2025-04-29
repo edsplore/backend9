@@ -360,3 +360,36 @@ class StartVisualAttemptResponse(BaseModel):
     status: str
     simulation: SimulationData
     images: List[SlideImageData] = []
+
+class FetchManagerDashnoardTrainingPlansDetails(BaseModel):
+    id: str
+    name: str
+    type: str
+    start_date: str
+    end_date: str
+    team_id: List[str] = []
+    trainee_id: List[str] = []
+    created_by: str
+    created_at: str
+    last_modified_by: str
+    last_modified_at: str
+    status: str
+
+class TrainingPlanDetailsByUser(BaseModel):
+    completion_percentage: float = 0
+    total_modules: int
+    total_simulations: int
+    est_time: int
+    average_sim_score: float = 0
+    due_date: str
+    status: str = "not_started"
+    user_id: str
+    modules: List[ModuleDetails]
+
+class TrainingPlanDetailsMinimal(BaseModel):
+    id: str
+    name: str
+    user: List[TrainingPlanDetailsByUser]
+class FetchManagerDashboardTrainingPlansResponse(BaseModel):
+    training_plans: List[TrainingPlanDetailsMinimal]
+
