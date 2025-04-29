@@ -589,11 +589,11 @@ class SimulationService:
             images = []
             if simulation_doc.get("slidesData"):
                 for slide in simulation_doc["slidesData"]:
-                    if slide.get("imageUrl"):
+                    if slide.get("imageId"):
                         try:
-                            image_id = slide["imageUrl"].split("/")[-1]
+                            image_id = slide["imageId"]
                             image_doc = await self.db.images.find_one(
-                                {"_id": ObjectId(image_id)})
+                                {"imageId": image_id})
                             if image_doc:
                                 images.append({
                                     "image_id":
@@ -668,11 +668,11 @@ class SimulationService:
             images = []
             if simulation_doc.get("slidesData"):
                 for slide in simulation_doc["slidesData"]:
-                    if slide.get("imageUrl"):
+                    if slide.get("imageId"):
                         try:
-                            image_id = slide["imageUrl"].split("/")[-1]
+                            image_id = slide["imageId"]
                             image_doc = await self.db.images.find_one(
-                                {"_id": ObjectId(image_id)})
+                                {"imageId": image_id})
                             if image_doc:
                                 images.append({
                                     "image_id":
@@ -746,11 +746,11 @@ class SimulationService:
             images = []
             if simulation_doc.get("slidesData"):
                 for slide in simulation_doc["slidesData"]:
-                    if slide.get("imageUrl"):
+                    if slide.get("imageId"):
                         try:
-                            image_id = slide["imageUrl"].split("/")[-1]
+                            image_id = slide["imageId"]
                             image_doc = await self.db.images.find_one(
-                                {"_id": ObjectId(image_id)})
+                                {"imageId": image_id})
                             if image_doc:
                                 images.append({
                                     "image_id":
@@ -1180,11 +1180,12 @@ class SimulationService:
             images = []
             if simulation_doc.get("slidesData"):
                 for slide in simulation_doc["slidesData"]:
-                    if slide.get("imageUrl"):
+                    if slide.get("imageId"):
                         try:
-                            image_id = slide["imageUrl"].split("/")[-1]
+                            image_id = slide["imageId"]
                             image_doc = await self.db.images.find_one(
-                                {"_id": ObjectId(image_id)})
+                                {"imageId": image_id})
+                            print(image_id)
                             if image_doc:
                                 images.append({
                                     "image_id":
