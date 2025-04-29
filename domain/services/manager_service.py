@@ -238,7 +238,6 @@ class ManagerService:
                                     name= sim_details.name,
                                     completion_percentage = 0,
                                     average_score = 0,
-                                    status = sim_details.status,
                                     user=simulation_by_user
                                 )
                             )
