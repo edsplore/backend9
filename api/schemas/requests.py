@@ -390,3 +390,11 @@ class EndVisualAttemptRequest(BaseModel):
 
 class FetchManagerDashboardTrainingPlansRequest(BaseModel):
     user_id: str
+    pagination: Optional[PaginationParams] = None
+    
+    
+class FetchManagerDashboardTrainingEntityRequest(BaseModel):
+    user_id: str
+    type: str
+    pagination: Optional[PaginationParams] = None
+
