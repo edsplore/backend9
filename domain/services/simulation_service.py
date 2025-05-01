@@ -255,7 +255,7 @@ class SimulationService:
             new_sim = existing_sim.copy()
             new_sim.pop("_id")
 
-            new_sim["name"] = f"{existing_sim['name']} (Copy)"
+            new_sim["name"] = f"Copy of {existing_sim['name']}"
             new_sim["createdBy"] = request.user_id
             new_sim["createdOn"] = datetime.utcnow()
             new_sim["lastModifiedBy"] = request.user_id
@@ -345,7 +345,7 @@ class SimulationService:
                 logger.debug("Updating script.")
                 update_doc["script"] = [s.dict() for s in request.script]
                 if sim_type in ["audio", "chat"]:
-                    prompt = await self._generate_simulation_prompt(
+                    prompt = await self.generate_simulation_prompt(
                         request.script)
                     update_doc["prompt"] = prompt
 
@@ -858,6 +858,51 @@ class SimulationService:
                 status_code=500,
                 detail=f"Error creating Retell Agent: {str(e)}")
 
+    async def generate_simulation_prompt(self, script: List[Dict]) -> str:
+        """Generate simulation prompt using the template without Azure OpenAI"""
+        logger.info("Generating simulation prompt from script.")
+        logger.debug(f"Script length: {len(script)} items.")
+        try:
+            # Build the conversation string from the script
+            conversation = "\n".join(
+                [f"{s.role}: {s.script_sentence}" for s in script])
+
+            # Use the provided prompt template and insert the script
+            prompt_template = """**Instructions**
+    You are playing the role of a CUSTOMER interacting with a customer service representative. Follow these guidelines exactly:
+    1. You will ONLY play the customer role. NEVER switch to playing the customer service representative under any circumstances.
+    2. When the human provides a line that matches the customer service agent's dialogue in the script, respond ONLY with the customer's next line EXACTLY as written in the script below.
+    3. If the human says something that doesn't match the script exactly, or if they ask a question not in the script:
+       * Stay in character as the customer
+       * Improvise a response that aligns with your character's situation and concerns
+       * Keep your improvised response brief and focused on getting back to the script
+       * NEVER take on the role of the customer service representative
+    4. Your goal is to realistically portray the customer's side of this conversation, following the script precisely when applicable.
+    5. If the conversation reaches the end of the script, continue to respond as the customer would, maintaining the same tone and concerns established in the script.
+    **Your Character**
+    You are a customer with the specific concerns and personality shown in the script. Maintain this characterization throughout the entire conversation.
+    **Important**
+    * You are ONLY the CUSTOMER
+    * The human is ALWAYS the customer service representative
+    * NEVER provide both sides of the conversation
+    * NEVER explain that you're following a script
+    * NEVER break character
+    **Script**
+    {script}
+    Remember: You are ONLY the customer. The human is playing the customer service representative. Follow the script exactly when applicable, and stay in character when improvising."""
+
+            # Insert the actual script into the template
+            result = prompt_template.format(script=conversation)
+
+            logger.info("Simulation prompt generated successfully.")
+            return result
+        except Exception as e:
+            logger.error(f"Error generating simulation prompt: {str(e)}",
+                         exc_info=True)
+            raise HTTPException(
+                status_code=500,
+                detail=f"Error generating simulation prompt: {str(e)}")
+            
     async def _generate_simulation_prompt(self, script: List[Dict]) -> str:
         """Generate simulation prompt using Azure OpenAI"""
         logger.info("Generating simulation prompt from script.")
