@@ -398,3 +398,6 @@ class FetchManagerDashboardTrainingEntityRequest(BaseModel):
     type: str
     pagination: Optional[PaginationParams] = None
 
+class AdminDashboardUserActivityStatsRequest(BaseModel):
+    user_id: str
+    pagination: Optional[PaginationParams] = None

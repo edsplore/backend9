@@ -6,18 +6,15 @@ from domain.services.assignment_service import AssignmentService
 from infrastructure.database import Database
 from api.schemas.requests import PaginationParams
 from api.schemas.responses import ( ModuleDetails,
-                                   ModuleDetailsByUser, TrainingPlanDetailsByUser, TrainingPlanDetailsMinimal, ModuleDetailsMinimal, FetchManagerDashboardResponse, SimulationDetailsMinimal, SimulationDetailsByUser, PaginationMetadata)
+    ModuleDetailsByUser, TrainingPlanDetailsByUser, TrainingPlanDetailsMinimal, 
+    ModuleDetailsMinimal, FetchManagerDashboardResponse, SimulationDetailsMinimal, 
+    SimulationDetailsByUser, PaginationMetadata)
 
 from fastapi import HTTPException
 import math
+
 from utils.logger import Logger 
-
-
-
 logger = Logger.get_logger(__name__)
-
-
-
 
 class ManagerRepository(IManagerRepository):
     def __init__(self):
@@ -29,15 +26,15 @@ class ManagerRepository(IManagerRepository):
         return {}
    
     
-    async def   get_all_assigments_by_user_details(self,
-                                   user_id: str, reporting_userIds: List[str], type: str, 
-                                   pagination: Optional[PaginationParams] = None) -> FetchManagerDashboardResponse:
-        """Get All Assignment By User Details
+    async def get_all_assigments_by_user_details(self,
+        user_id: str, reporting_userIds: List[str], type: str, 
+        pagination: Optional[PaginationParams] = None) -> FetchManagerDashboardResponse:
+        """Get All Assignments By User Details
         
         Returns:
             FetchManagerDashboardResponse containing training plans, modules, and simulations
         """
-        logger.info(f"Get All Assignment By User Details user_id={user_id}, reporting_userIds={reporting_userIds}")
+        logger.info(f"Get All Assignments By User Details user_id={user_id}, reporting_userIds={reporting_userIds}")
         if pagination:
             logger.info(f"Pagination={pagination}")
         
