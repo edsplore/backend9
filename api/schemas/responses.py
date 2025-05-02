@@ -525,7 +525,6 @@ class AdminDashboardUserActivityStatsResponse(BaseModel):
     loginCount: int
     lastLoginOn: str
     lastSessionDuration: int
-
 class KeywordAnalysis(BaseModel):
     total_keywords: int
     missing_keywords: int
@@ -542,3 +541,4 @@ class KeywordScoreAnalysisWithScriptResponse(BaseModel):
     total_missing_keywords: int
     keyword_score: int
     
+

@@ -62,8 +62,8 @@ class ManagerController:
             raise
 
     async def fetch_manager_dashboard_table_data(self, request: FetchManagerDashboardTrainingEntityRequest) -> ManagerDashboardTrainingEntityTableResponse:
-        # reporting_userIds= [request.user_id, '67ceaa2136089d2932548b99', '67a31a99aa22bc6b9f0cf551', '67a1188276d6606ab2c082b7', '67ec0ae59ad3cd6528f866ab', 'member2']
-        reporting_userIds= ['trainee1', 'trainee2']
+        reporting_userIds= [request.user_id, '67ceaa2136089d2932548b99', '67a31a99aa22bc6b9f0cf551', '67a1188276d6606ab2c082b7', '67ec0ae59ad3cd6528f866ab', 'member2']
+        # reporting_userIds= ['trainee1', 'trainee2']
         logger.info(f"Fetching manager dashboard simulations for user_id={request.user_id}, reporting_userIds={reporting_userIds}")
         try:
             response = await self.service.fetch_manager_dashboard_training_entity_data(request.user_id, reporting_userIds , request.type, request.pagination)

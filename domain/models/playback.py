@@ -21,6 +21,7 @@ class KeywordAnalysisModel(BaseModel):
     missedKeywordArray: List[str]
 
 class AttemptAnalyticsModel(BaseModel):
+    id: str;
     sentencewiseAnalytics: List[KeywordAnalysisModel]
     audioUrl: str
     transcript: str
@@ -34,9 +35,13 @@ class AttemptAnalyticsModel(BaseModel):
     energy: float
     concentration: float
     minPassingScore: float
+    name: str
+    completedAt: str
+    type: str
+    simLevel: str
 
 class SimulationAttemptModel(BaseModel):
-    attemptId: str
+    id: str
     trainingPlan: str
     moduleName: str
     simId: str
@@ -44,8 +49,21 @@ class SimulationAttemptModel(BaseModel):
     simType: str
     simLevel: str
     score: float
+    status: str
     timeTaken: int
     dueDate: Optional[str]
     attemptType: str
     estTime: int
     attemptCount: int
+
+class SimulationAttemptDetailModel(BaseModel):
+    id: str
+    assignmentId: str
+    type: str
+    simulationId: str
+    status: str
+    score: str
+    createdAt: str
+    lastModifiedAt: str
+    estTime: str
+   
