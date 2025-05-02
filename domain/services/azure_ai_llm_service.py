@@ -6,7 +6,7 @@ from semantic_kernel.connectors.ai.function_choice_behavior import FunctionChoic
 from semantic_kernel.contents.chat_history import ChatHistory
 from semantic_kernel.connectors.ai.open_ai.prompt_execution_settings.azure_chat_prompt_execution_settings import (
     AzureChatPromptExecutionSettings)
-
+from typing import Optional
 from infrastructure.database import Database
 from utils.logger import Logger
 logger = Logger.get_logger(__name__)
@@ -58,13 +58,13 @@ class AzureAILLMService:
         """Setter method for system_prompt"""
         self._system_prompt = _system_prompt
 
-    def get_chat_completion(self, user_prompt: Optional[str] = None):
+    async def get_chat_completion(self, user_prompt: Optional[str] = None):
         try:
             history = ChatHistory()
             history.add_system_message(self.system_prompt)
             if user_prompt:
                 history.add_user_message(user_prompt)
-            return self.chat_completion.get_chat_message_content(history, settings=self.execution_settings)
+            return await self.chat_completion.get_chat_message_content(history, settings=self.execution_settings)
         except Exception as e:
             logger.error("Error during chat completion.")
             logger.exception(e)

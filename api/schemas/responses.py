@@ -525,3 +525,20 @@ class AdminDashboardUserActivityStatsResponse(BaseModel):
     loginCount: int
     lastLoginOn: str
     lastSessionDuration: int
+
+class KeywordAnalysis(BaseModel):
+    total_keywords: int
+    missing_keywords: int
+    missing_keywords_list: List[str]
+
+class KeywordScoreAnalysisScript(BaseModel):
+    role: str
+    script_sentence: str
+    keyword_analysis: Optional[KeywordAnalysis] = None
+
+class KeywordScoreAnalysisWithScriptResponse(BaseModel):
+    script: List[KeywordScoreAnalysisScript]
+    total_keywords: int
+    total_missing_keywords: int
+    keyword_score: int
+    
