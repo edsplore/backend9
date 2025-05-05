@@ -161,6 +161,7 @@ class ModuleData(BaseModel):
 
 class FetchModulesResponse(BaseModel):
     modules: List[ModuleData]
+    pagination: Optional[PaginationMetadata] = None
 
 class CreateTrainingPlanResponse(BaseModel):
     id: str
@@ -179,6 +180,7 @@ class TrainingPlanData(BaseModel):
 
 class FetchTrainingPlansResponse(BaseModel):
     training_plans: List[TrainingPlanData]
+    pagination: Optional[PaginationMetadata] = None
 
 class ListItemData(BaseModel):
     name: str

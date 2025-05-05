@@ -5,6 +5,7 @@ import base64
 from datetime import datetime
 from bson import ObjectId
 import traceback
+import re
 from config import (AZURE_OPENAI_DEPLOYMENT_NAME, AZURE_OPENAI_KEY,
                     AZURE_OPENAI_BASE_URL, RETELL_API_KEY)
 from infrastructure.database import Database
@@ -30,6 +31,8 @@ from utils.logger import Logger
 
 # Add after imports
 logger = Logger.get_logger(__name__)
+
+COPY_PREFIX = "Copy "
 
 
 class SimulationService:
@@ -231,51 +234,84 @@ class SimulationService:
             raise HTTPException(status_code=500,
                                 detail=f"Error creating simulation: {str(e)}")
 
-    async def clone_simulation(self, request: CloneSimulationRequest) -> Dict:
-        """Clone an existing simulation"""
-        logger.info(
-            f"Cloning simulation for user: {request.user_id}, sim_id={request.simulation_id}"
+    async def _next_copy_name(self, base_name: str) -> str:
+        """
+        Given the *current* simulation name, return the correctly
+        incremented 'Copy … N' name.
+        """
+        # 1.  Build the prefix (note the trailing space)
+        prefix = f"{COPY_PREFIX}{base_name} "
+        # 2.  Regex for “Copy <base_name> <number>”  (anchors ^…$ guarantee an exact match)
+        pattern = f"^{re.escape(prefix)}(\\d+)$"
+
+        # 3.  Pull any existing copies and collect the numeric suffixes
+        cursor = self.db.simulations.find(  # projection keeps query light
+            {"name": {
+                "$regex": pattern
+            }},
+            {
+                "_id": 0,
+                "name": 1
+            },
         )
-        logger.debug(f"CloneSimulationRequest data: {request.dict()}")
+
+        max_n = 0
+        async for doc in cursor:
+            m = re.match(pattern, doc["name"])
+            if m:
+                max_n = max(max_n, int(m.group(1)))
+
+        # 4.  Next copy gets +1
+        return f"{prefix}{max_n + 1}"
+
+    async def clone_simulation(self, request: CloneSimulationRequest) -> Dict:
+        """Clone an existing simulation with proper naming."""
+        logger.info(
+            "Cloning simulation for user=%s, sim_id=%s",
+            request.user_id,
+            request.simulation_id,
+        )
         try:
-            # Get existing simulation
             sim_id_object = ObjectId(request.simulation_id)
             existing_sim = await self.db.simulations.find_one(
                 {"_id": sim_id_object})
 
             if not existing_sim:
-                logger.warning(
-                    f"Simulation {request.simulation_id} not found for cloning."
-                )
                 raise HTTPException(
                     status_code=404,
                     detail=
-                    f"Simulation with id {request.simulation_id} not found")
+                    f"Simulation with id {request.simulation_id} not found",
+                )
+
+            # ------------------------------------------------------------------
+            # 👇 calculate the new name *before* inserting
+            new_name = await self._next_copy_name(existing_sim["name"])
+            # ------------------------------------------------------------------
 
             new_sim = existing_sim.copy()
             new_sim.pop("_id")
 
-            new_sim["name"] = f"Copy of {existing_sim['name']}"
-            new_sim["createdBy"] = request.user_id
-            new_sim["createdOn"] = datetime.utcnow()
-            new_sim["lastModifiedBy"] = request.user_id
-            new_sim["lastModified"] = datetime.utcnow()
-            new_sim["status"] = "draft"
+            new_sim.update({
+                "name": new_name,
+                "createdBy": request.user_id,
+                "createdOn": datetime.utcnow(),
+                "lastModifiedBy": request.user_id,
+                "lastModified": datetime.utcnow(),
+                "status": "draft",
+            })
 
             result = await self.db.simulations.insert_one(new_sim)
-            logger.info(
-                f"Simulation cloned successfully. New ID: {result.inserted_id}"
-            )
+            logger.info("Simulation cloned successfully → %s",
+                        result.inserted_id)
             return {"id": str(result.inserted_id), "status": "success"}
 
-        except HTTPException as he:
-            logger.error(f"HTTPException in clone_simulation: {he.detail}",
-                         exc_info=True)
-            raise he
+        except HTTPException:
+            # Let FastAPI propagate the original error & traceback
+            raise
         except Exception as e:
-            logger.error(f"Error cloning simulation: {str(e)}", exc_info=True)
+            logger.exception("Error cloning simulation")
             raise HTTPException(status_code=500,
-                                detail=f"Error cloning simulation: {str(e)}")
+                                detail=f"Error cloning simulation: {e}")
 
     async def update_simulation(
         self,
@@ -791,8 +827,7 @@ class SimulationService:
                     'Authorization': f'Bearer {RETELL_API_KEY}',
                     'Content-Type': 'application/json'
                 }
-                data = {"general_prompt": prompt, 
-                        "model": "gpt-4.1"}
+                data = {"general_prompt": prompt, "model": "gpt-4.1"}
 
                 # Add begin_message field if trainee speaks first
                 if assistant_first:
@@ -903,7 +938,7 @@ class SimulationService:
             raise HTTPException(
                 status_code=500,
                 detail=f"Error generating simulation prompt: {str(e)}")
-            
+
     async def _generate_simulation_prompt(self, script: List[Dict]) -> str:
         """Generate simulation prompt using Azure OpenAI"""
         logger.info("Generating simulation prompt from script.")

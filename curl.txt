@@ -1,3 +1,108 @@
+fetch assignments
+
+# Example 1 – simple pagination for assignments
+curl -X POST \
+  'https://9801e0d2-eaff-4aa0-843f-36000db37c9e-00-1j8cq2p4gyd6h.pike.replit.dev/fetch-assignments' \
+  -H 'Content-Type: application/json' \
+  --data '{"pagination":{"page":1,"pagesize":20}}'
+
+# Example 2 – pagination with search term (e.g., find assignments with "training" in their name)
+curl -X POST \
+  'https://1d1af155-4b31-443e-b7f4-734bf003281a-00-6px8vaye8p33.pike.replit.dev/fetch-assignments' \
+  -H 'Content-Type: application/json' \
+  --data '{"pagination":{"page":1,"pagesize":2,"search":"training","sortBy":"name","sortDir":"asc"}}'
+
+# Example 3 – page 2, sorted by end date in descending order
+curl -X POST \
+  'https://9801e0d2-eaff-4aa0-843f-36000db37c9e-00-1j8cq2p4gyd6h.pike.replit.dev/fetch-assignments' \
+  -H 'Content-Type: application/json' \
+  --data '{"pagination":{"page":2,"pagesize":10,"sortBy":"endDate","sortDir":"desc"}}'
+
+# Example 4 – filtering by type
+curl -X POST \
+  'https://9801e0d2-eaff-4aa0-843f-36000db37c9e-00-1j8cq2p4gyd6h.pike.replit.dev/fetch-assignments' \
+  -H 'Content-Type: application/json' \
+  --data '{"pagination":{"page":1,"pagesize":25,"search":"TrainingPlan","sortBy":"startDate","sortDir":"asc"}}'
+
+# Example 5 – filter by date range and created by
+curl -X POST \
+  'https://9801e0d2-eaff-4aa0-843f-36000db37c9e-00-1j8cq2p4gyd6h.pike.replit.dev/fetch-assignments' \
+  -H 'Content-Type: application/json' \
+  --data '{"pagination":{"page":1,"pagesize":30,"createdFrom":"2023-01-01T00:00:00Z","createdTo":"2023-12-31T23:59:59Z","createdBy":"67f6286b75b9226a9afabfaa","sortBy":"createdAt","sortDir":"asc"}}'
+
+
+modules 
+
+
+# Example 1 – simple pagination for modules
+curl -X POST \
+  'https://9801e0d2-eaff-4aa0-843f-36000db37c9e-00-1j8cq2p4gyd6h.pike.replit.dev/modules/fetch' \
+  -H 'Content-Type: application/json' \
+  --data '{"user_id":"user123","pagination":{"page":1,"pagesize":20}}'
+
+# Example 2 – pagination + date filters + sorting for modules
+curl -X POST \
+  'https://9801e0d2-eaff-4aa0-843f-36000db37c9e-00-1j8cq2p4gyd6h.pike.replit.dev/modules/fetch' \
+  -H 'Content-Type: application/json' \
+  --data '{"user_id":"user123","pagination":{"page":1,"pagesize":15,"createdFrom":"2023-01-01T00:00:00Z","createdTo":"2023-12-31T23:59:59Z","sortBy":"createdAt","sortDir":"desc"}}'
+
+# Example 3 – page 2, sorted by last-modified descending for modules
+curl -X POST \
+  'https://1d1af155-4b31-443e-b7f4-734bf003281a-00-6px8vaye8p33.pike.replit.dev/modules/fetch' \
+  -H 'Content-Type: application/json' \
+  --data '{"user_id":"user123","pagination":{"page":2,"pagesize":2,"sortBy":"lastModifiedAt","sortDir":"desc"}}'
+
+# Example 4 – filter by tags, name-ascending for modules
+curl -X POST \
+  'https://9801e0d2-eaff-4aa0-843f-36000db37c9e-00-1j8cq2p4gyd6h.pike.replit.dev/modules/fetch' \
+  -H 'Content-Type: application/json' \
+  --data '{"user_id":"user123","pagination":{"page":1,"pagesize":25,"tags":["customer-service","training"],"sortBy":"name","sortDir":"asc"}}'
+
+# Example 5 – filter by creator for modules
+curl -X POST \
+  'https://9801e0d2-eaff-4aa0-843f-36000db37c9e-00-1j8cq2p4gyd6h.pike.replit.dev/modules/fetch' \
+  -H 'Content-Type: application/json' \
+  --data '{"user_id":"user123","pagination":{"page":1,"pagesize":30,"createdBy":"admin_user","sortBy":"name","sortDir":"asc"}}'
+
+
+# Example 1 – simple pagination
+curl -X POST \
+  'https://1d1af155-4b31-443e-b7f4-734bf003281a-00-6px8vaye8p33.pike.replit.dev/training-plans/fetch' \
+  -H 'Content-Type: application/json' \
+  --data '{"user_id":"user123","pagination":{"page":1,"pagesize":2}}'
+
+# Example 2 – pagination + date filters + sorting
+curl -X POST \
+  'https://1d1af155-4b31-443e-b7f4-734bf003281a-00-6px8vaye8p33.pike.replit.dev/training-plans/fetch' \
+  -H 'Content-Type: application/json' \
+  --data '{"user_id":"user123","pagination":{"page":1,"pagesize":15,"createdFrom":"2023-01-01T00:00:00Z","createdTo":"2023-12-31T23:59:59Z","sortBy":"createdAt","sortDir":"desc"}}'
+
+# Example 3 – page 2, sorted by last-modified descending
+curl -X POST \
+  'https://1d1af155-4b31-443e-b7f4-734bf003281a-00-6px8vaye8p33.pike.replit.dev/training-plans/fetch' \
+  -H 'Content-Type: application/json' \
+  --data '{"user_id":"user123","pagination":{"page":2,"pagesize":2,"sortBy":"lastModifiedAt","sortDir":"desc"}}'
+
+# Example 4 – filter by tags, name-ascending
+curl -X POST \
+  'https://9801e0d2-eaff-4aa0-843f-36000db37c9e-00-1j8cq2p4gyd6h.pike.replit.dev/training-plans/fetch' \
+  -H 'Content-Type: application/json' \
+  --data '{"user_id":"user123","pagination":{"page":1,"pagesize":25,"tags":["sales","onboarding"],"sortBy":"name","sortDir":"asc"}}'
+
+# Example 5 – filter by creator, name-ascending
+curl -X POST \
+  'https://9801e0d2-eaff-4aa0-843f-36000db37c9e-00-1j8cq2p4gyd6h.pike.replit.dev/training-plans/fetch' \
+  -H 'Content-Type: application/json' \
+  --data '{"user_id":"user123","pagination":{"page":1,"pagesize":30,"createdBy":"admin_user","sortBy":"name","sortDir":"asc"}}'
+
+
+curl -X POST \
+  'https://1d1af155-4b31-443e-b7f4-734bf003281a-00-6px8vaye8p33.pike.replit.dev/simulations/fetch' \
+  -H 'Content-Type: application/json' \
+  --data '{"user_id":"user123","pagination":{"page":1,"pagesize":2}}'
+
+
+
 curl -X GET "https://1d1af155-4b31-443e-b7f4-734bf003281a-00-6px8vaye8p33.pike.replit.dev/simulations/fetch/67eaaa0625ac412afa0b6bac"
 
 

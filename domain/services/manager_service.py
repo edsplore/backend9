@@ -179,9 +179,18 @@ class ManagerService:
                 simulations = simulationAssessmentCounts
             )
            
-            training_plan_completion_rate = math.ceil((assignment_agg_stats_by_training_entity["trainingPlans"]["completed"] / assignment_agg_stats_by_training_entity["trainingPlans"]["total"])*100)
-            module_completion_rate = math.ceil((assignment_agg_stats_by_training_entity["modules"]["completed"] / assignment_agg_stats_by_training_entity["modules"]["total"])*100)
-            simulation_completion_rate = math.ceil((assignment_agg_stats_by_training_entity["simulations"]["completed"] / assignment_agg_stats_by_training_entity["simulations"]["total"])*100)
+            training_plan_completion_rate = 0
+            module_completion_rate = 0
+            simulation_completion_rate = 0
+
+            if assignment_agg_stats_by_training_entity["trainingPlans"]["total"] != 0:
+                training_plan_completion_rate = math.ceil((assignment_agg_stats_by_training_entity["trainingPlans"]["completed"] / assignment_agg_stats_by_training_entity["trainingPlans"]["total"])*100)
+
+            if assignment_agg_stats_by_training_entity["modules"]["total"] != 0:
+                module_completion_rate = math.ceil((assignment_agg_stats_by_training_entity["modules"]["completed"] / assignment_agg_stats_by_training_entity["modules"]["total"])*100)
+
+            if assignment_agg_stats_by_training_entity["simulations"]["total"] != 0:
+                simulation_completion_rate = math.ceil((assignment_agg_stats_by_training_entity["simulations"]["completed"] / assignment_agg_stats_by_training_entity["simulations"]["total"])*100)
 
             completionRates = ManagerDashboardAggregateMetrics(
                 trainingPlans=training_plan_completion_rate,

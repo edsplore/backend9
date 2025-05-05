@@ -391,12 +391,14 @@ class EndVisualAttemptRequest(BaseModel):
 
 class FetchManagerDashboardTrainingPlansRequest(BaseModel):
     user_id: str
+    reportee_user_ids: List[str]
     pagination: Optional[PaginationParams] = None
     
     
 class FetchManagerDashboardTrainingEntityRequest(BaseModel):
     user_id: str
     type: str
+    reportee_user_ids: List[str]
     pagination: Optional[PaginationParams] = None
 
 class AdminDashboardUserActivityStatsRequest(BaseModel):
