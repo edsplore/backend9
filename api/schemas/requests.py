@@ -388,3 +388,17 @@ class EndVisualAttemptRequest(BaseModel):
     user_id: str
     simulation_id: str
     usersimulationprogress_id: str
+
+class FetchManagerDashboardTrainingPlansRequest(BaseModel):
+    user_id: str
+    pagination: Optional[PaginationParams] = None
+    
+    
+class FetchManagerDashboardTrainingEntityRequest(BaseModel):
+    user_id: str
+    type: str
+    pagination: Optional[PaginationParams] = None
+
+class AdminDashboardUserActivityStatsRequest(BaseModel):
+    user_id: str
+    pagination: Optional[PaginationParams] = None
