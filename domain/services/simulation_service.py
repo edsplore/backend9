@@ -827,7 +827,8 @@ class SimulationService:
                     'Authorization': f'Bearer {RETELL_API_KEY}',
                     'Content-Type': 'application/json'
                 }
-                data = {"general_prompt": prompt, "model": "gpt-4.1"}
+                data = {"general_prompt": prompt, 
+                        "model": "gpt-4.1"}
 
                 # Add begin_message field if trainee speaks first
                 if assistant_first:
