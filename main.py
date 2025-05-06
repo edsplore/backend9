@@ -13,6 +13,7 @@ from api.controllers.image_controller import router as image_router
 from api.controllers.tag_controller import router as tag_router
 from api.controllers.manager_controller import router as manager_router
 from api.controllers.admin_controller import router as admin_router
+from api.controllers.user_controller import router as user_router
 from middleware.auth_middleware import JWTAuthMiddleware
 from utils.logger import Logger
 from fastapi.middleware.cors import CORSMiddleware
@@ -48,6 +49,7 @@ app.include_router(image_router)
 app.include_router(tag_router)
 app.include_router(manager_router)
 app.include_router(admin_router)
+app.include_router(user_router)
 
 @app.get("/")
 async def root():
