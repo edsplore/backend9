@@ -24,7 +24,7 @@ class ManagerService:
         user_id: str, reporting_userIds: List[str]) -> FetchManagerDashboardTrainingPlansResponse:
         logger.info(f"Fetching manager dashboard training plans for user_id={user_id} and reporting_userIds={reporting_userIds}")
         try:
-            dashboard_response = await self.get_all_assigments_by_user_details(user_id, reporting_userIds, 'TrainingPlan')
+            dashboard_response = await self.repository.get_all_assigments_by_user_details(user_id, reporting_userIds, 'TrainingPlan')
             training_plans = []
             for trainingPlan in dashboard_response.training_plans:
                 trainees = []

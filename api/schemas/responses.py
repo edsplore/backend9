@@ -11,26 +11,33 @@ class PaginationMetadata(BaseModel):
     pagesize: int
     total_pages: int
 
+
 class TrainingDataResponse(BaseModel):
     stats: dict
+
 
 class AttemptsResponse(BaseModel):
     attempts: List[SimulationAttemptModel]
 
+
 class AttemptResponse(BaseModel):
     attempt: AttemptAnalyticsModel
 
+
 class ScriptResponse(BaseModel):
     script: List[dict]
+
 
 class CreateSimulationResponse(BaseModel):
     id: str
     status: str
 
+
 class UpdateSimulationResponse(BaseModel):
     id: str
     status: str
     document: Dict[str, Any]
+
 
 class StartSimulationResponse(BaseModel):
     id: str
@@ -38,6 +45,7 @@ class StartSimulationResponse(BaseModel):
     access_token: Optional[str] = None  # For audio simulations
     response: Optional[str] = None  # For chat simulations
     call_id: Optional[str] = None  # For simulations
+
 
 class EndSimulationResponse(BaseModel):
     id: str
@@ -47,25 +55,31 @@ class EndSimulationResponse(BaseModel):
     transcript: str
     audio_url: str
 
+
 class ListVoicesResponse(BaseModel):
     voices: List[dict]
+
 
 class StartAudioSimulationPreviewResponse(BaseModel):
     access_token: str
 
+
 class StartChatPreviewResponse(BaseModel):
     response: str
+
 
 class ScriptSentence(BaseModel):
     script_sentence: str
     role: str
     keywords: list[str]
 
+
 class HotspotCoordinates(BaseModel):
     x: float
     y: float
     width: float
     height: float
+
 
 class HotspotSettings(BaseModel):
     font: str
@@ -76,6 +90,7 @@ class HotspotSettings(BaseModel):
     highlightField: bool
     enableHotkey: bool
 
+
 class Hotspot(BaseModel):
     type: str
     id: str
@@ -83,6 +98,7 @@ class Hotspot(BaseModel):
     hotspotType: str
     coordinates: HotspotCoordinates
     settings: HotspotSettings
+
 
 class SlideSequence(BaseModel):
     type: str
@@ -95,9 +111,11 @@ class SlideSequence(BaseModel):
     text: Optional[str] = None
     options: Optional[List[str]] = None
 
+
 class SlideImage(BaseModel):
     data: str  # Base64 encoded image data
     contentType: str  # e.g., "image/png", "image/jpeg"
+
 
 class SlideData(BaseModel):
     imageId: str
@@ -105,6 +123,7 @@ class SlideData(BaseModel):
     imageUrl: Optional[str] = None  # URL for stored image
     imageData: Optional[SlideImage] = None  # Image data for upload
     sequence: Optional[List[SlideSequence]] = None
+
 
 class SimulationData(BaseModel):
     id: str
@@ -140,13 +159,16 @@ class SimulationData(BaseModel):
     mood: str | None = None
     voice_speed: str | None = None
 
+
 class FetchSimulationsResponse(BaseModel):
     simulations: List[SimulationData]
     pagination: Optional[PaginationMetadata] = None
 
+
 class CreateModuleResponse(BaseModel):
     id: str
     status: str
+
 
 class ModuleData(BaseModel):
     id: str
@@ -159,13 +181,16 @@ class ModuleData(BaseModel):
     last_modified_at: str
     estimated_time: int = 0
 
+
 class FetchModulesResponse(BaseModel):
     modules: List[ModuleData]
     pagination: Optional[PaginationMetadata] = None
 
+
 class CreateTrainingPlanResponse(BaseModel):
     id: str
     status: str
+
 
 class TrainingPlanData(BaseModel):
     id: str
@@ -178,9 +203,11 @@ class TrainingPlanData(BaseModel):
     last_modified_at: str
     estimated_time: int = 0
 
+
 class FetchTrainingPlansResponse(BaseModel):
     training_plans: List[TrainingPlanData]
     pagination: Optional[PaginationMetadata] = None
+
 
 class ListItemData(BaseModel):
     name: str
@@ -188,18 +215,23 @@ class ListItemData(BaseModel):
     type: str
     sims: int = 0
 
+
 class ListTrainingPlansResponse(BaseModel):
     training_plans: List[ListItemData]
+
 
 class ListModulesResponse(BaseModel):
     modules: List[ListItemData]
 
+
 class ListSimulationsResponse(BaseModel):
     simulations: List[ListItemData]
+
 
 class CreateAssignmentResponse(BaseModel):
     id: str
     status: str
+
 
 class AssignmentData(BaseModel):
     id: str
@@ -215,9 +247,11 @@ class AssignmentData(BaseModel):
     last_modified_at: str
     status: str
 
+
 class FetchAssignmentsResponse(BaseModel):
     assignments: List[AssignmentData]
     pagination: Optional[PaginationMetadata] = None
+
 
 class SimulationDetails(BaseModel):
     simulation_id: str
@@ -231,6 +265,7 @@ class SimulationDetails(BaseModel):
     highest_attempt_score: float = 0
     assignment_id: str
 
+
 class ModuleDetails(BaseModel):
     id: str
     name: str
@@ -239,6 +274,7 @@ class ModuleDetails(BaseModel):
     due_date: str
     status: str = "not_started"
     simulations: List[SimulationDetails]
+
 
 class TrainingPlanDetails(BaseModel):
     id: str
@@ -252,16 +288,19 @@ class TrainingPlanDetails(BaseModel):
     status: str = "not_started"
     modules: List[ModuleDetails]
 
+
 class StatsData(BaseModel):
     total_simulations: int
     completed_simulations: int
     percentage: float
+
 
 class Stats(BaseModel):
     simulation_completed: StatsData
     timely_completion: StatsData
     average_sim_score: float = 0
     highest_sim_score: float = 0
+
 
 class FetchAssignedPlansResponse(BaseModel):
     training_plans: List[TrainingPlanDetails]
@@ -270,25 +309,31 @@ class FetchAssignedPlansResponse(BaseModel):
     stats: Stats
     pagination: Optional[PaginationMetadata] = None
 
+
 class SlideImageData(BaseModel):
     image_id: str
     image_data: bytes
+
 
 class StartVisualAudioPreviewResponse(BaseModel):
     simulation: SimulationData
     images: List[SlideImageData] = []
 
+
 class StartVisualChatPreviewResponse(BaseModel):
     simulation: SimulationData
     images: List[SlideImageData] = []
+
 
 class StartVisualPreviewResponse(BaseModel):
     simulation: SimulationData
     images: List[SlideImageData] = []
 
+
 class SimulationByIDResponse(BaseModel):
     simulation: SimulationData
     images: Optional[List[SlideImageData]] = None
+
 
 class TagData(BaseModel):
     id: str
@@ -298,12 +343,15 @@ class TagData(BaseModel):
     last_modified_by: str
     last_modified_at: str
 
+
 class CreateTagResponse(BaseModel):
     id: str
     status: str
 
+
 class FetchTagsResponse(BaseModel):
     tags: List[TagData]
+
 
 class StartVisualAudioAttemptResponse(BaseModel):
     id: str
@@ -311,17 +359,20 @@ class StartVisualAudioAttemptResponse(BaseModel):
     simulation: SimulationData
     images: List[SlideImageData] = []
 
+
 class StartVisualChatAttemptResponse(BaseModel):
     id: str
     status: str
     simulation: SimulationData
     images: List[SlideImageData] = []
 
+
 class StartVisualAttemptResponse(BaseModel):
     id: str
     status: str
     simulation: SimulationData
     images: List[SlideImageData] = []
+
 
 class FetchManagerDashnoardTrainingPlansDetails(BaseModel):
     id: str
@@ -337,6 +388,7 @@ class FetchManagerDashnoardTrainingPlansDetails(BaseModel):
     last_modified_at: str
     status: str
 
+
 class TrainingPlanDetailsByUser(BaseModel):
     completion_percentage: float = 0
     total_modules: int
@@ -347,6 +399,7 @@ class TrainingPlanDetailsByUser(BaseModel):
     status: str = "not_started"
     user_id: str
     modules: List[ModuleDetails]
+
 
 class TrainingPlanDetailsMinimal(BaseModel):
     id: str
@@ -363,13 +416,15 @@ class ModuleDetailsByUser(BaseModel):
     status: str = "not_started"
     user_id: str
     simulations: List[SimulationDetails]
-   
+
+
 class ModuleDetailsMinimal(BaseModel):
     id: str
     name: str
     completion_percentage: float = 0
     average_score: float = 0
     user: List[ModuleDetailsByUser]
+
 
 class SimulationDetailsByUser(BaseModel):
     simulation_id: str
@@ -383,7 +438,8 @@ class SimulationDetailsByUser(BaseModel):
     scores: dict = {}
     assignment_id: str
     user_id: str
-   
+
+
 class SimulationDetailsMinimal(BaseModel):
     id: str
     name: str
@@ -398,12 +454,14 @@ class FetchManagerDashboardResponse(BaseModel):
     simulations: List[SimulationDetailsMinimal]
     pagination: Optional[PaginationMetadata] = None
 
+
 class TraineeAssignmentAttemptStatus(BaseModel):
     name: str
     classId: int
     status: str
     dueDate: str
-    avgScore: Optional[str]  
+    avgScore: Optional[str]
+
 
 class TrainingEntity(BaseModel):
     id: str  # ID No.
@@ -415,11 +473,14 @@ class TrainingEntity(BaseModel):
     estTime: str
     assignedTrainees: int
 
+
 class ManagerDashboardTrainingEntityTableResponse(BaseModel):
     training_entity: List[TrainingEntity]
     pagination: Optional[PaginationMetadata] = None
 
+
 class FetchManagerDashboardTrainingPlansResponse(BaseModel):
+
     class TraineeStatus(BaseModel):
         name: str
         class_id: int
@@ -430,7 +491,8 @@ class FetchManagerDashboardTrainingPlansResponse(BaseModel):
     class TrainingPlan(BaseModel):
         id: str  # ID No.
         name: str  # TRP Name
-        trainees: List['FetchManagerDashboardTrainingPlansResponse.TraineeStatus']
+        trainees: List[
+            'FetchManagerDashboardTrainingPlansResponse.TraineeStatus']
         completion_rate: str
         adherence_rate: str
         avg_score: float
@@ -438,7 +500,9 @@ class FetchManagerDashboardTrainingPlansResponse(BaseModel):
 
     training_plans: List[TrainingPlan]
 
+
 class FetchManagerDashboardModulesResponse(BaseModel):
+
     class TraineeStatus(BaseModel):
         name: str
         class_id: int
@@ -459,6 +523,7 @@ class FetchManagerDashboardModulesResponse(BaseModel):
 
 
 class FetchManagerDashboardSimultaionResponse(BaseModel):
+
     class TraineeStatus(BaseModel):
         name: str
         class_id: int
@@ -477,12 +542,14 @@ class FetchManagerDashboardSimultaionResponse(BaseModel):
 
     simulations: List[Simulation]
 
+
 class ManagerDashboardAssignmentCounts(BaseModel):
     total: int = 0,
     completed: int = 0,
     inProgress: int = 0,
     notStarted: int = 0,
     overdue: int = 0
+
 
 class ManagerDashboardAggregateAssignmentCounts(BaseModel):
     trainingPlans: ManagerDashboardAssignmentCounts
@@ -495,14 +562,17 @@ class ManagerDashboardAggregateMetrics(BaseModel):
     modules: int = 0
     simulations: int = 0
 
+
 class ManagerDashboardTeamWiseAggregateMetrics(BaseModel):
     team: str
     score: int
-    
+
+
 class ManagerDashboardLeaderBoardsAggMetricWise(BaseModel):
     completion: List[ManagerDashboardTeamWiseAggregateMetrics]
     averageScore: List[ManagerDashboardTeamWiseAggregateMetrics]
     adherence: List[ManagerDashboardTeamWiseAggregateMetrics]
+
 
 class ManagerDashboardAggregateDetails(BaseModel):
     assignmentCounts: ManagerDashboardAggregateAssignmentCounts
@@ -510,6 +580,7 @@ class ManagerDashboardAggregateDetails(BaseModel):
     adherenceRates: ManagerDashboardAggregateMetrics
     averageScores: ManagerDashboardAggregateMetrics
     leaderBoards: ManagerDashboardLeaderBoardsAggMetricWise
+
 
 class AdminDashboardUserActivityStatsResponse(BaseModel):
     id: str
@@ -529,20 +600,26 @@ class AdminDashboardUserActivityStatsResponse(BaseModel):
     loginCount: int
     lastLoginOn: str
     lastSessionDuration: int
+
+
 class KeywordAnalysis(BaseModel):
     total_keywords: int
     missing_keywords: int
     missing_keywords_list: List[str]
+
 
 class KeywordScoreAnalysisScript(BaseModel):
     role: str
     script_sentence: str
     keyword_analysis: Optional[KeywordAnalysis] = None
 
+
 class KeywordScoreAnalysisWithScriptResponse(BaseModel):
     script: List[KeywordScoreAnalysisScript]
     total_keywords: int
     total_missing_keywords: int
     keyword_score: int
-    
 
+
+class CreateUserResponse(BaseModel):
+    user_id: str
