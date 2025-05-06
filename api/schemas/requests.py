@@ -390,6 +390,7 @@ class EndVisualAttemptRequest(BaseModel):
 
 class FetchManagerDashboardTrainingPlansRequest(BaseModel):
     user_id: str
+    reportee_user_ids: Optional[List[str]] = None
     pagination: Optional[PaginationParams] = None
     
     

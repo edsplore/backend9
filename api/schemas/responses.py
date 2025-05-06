@@ -525,6 +525,7 @@ class AdminDashboardUserActivityStatsResponse(BaseModel):
     loginCount: int
     lastLoginOn: str
     lastSessionDuration: int
+
 class KeywordAnalysis(BaseModel):
     total_keywords: int
     missing_keywords: int
@@ -532,13 +533,46 @@ class KeywordAnalysis(BaseModel):
 
 class KeywordScoreAnalysisScript(BaseModel):
     role: str
-    script_sentence: str
-    keyword_analysis: Optional[KeywordAnalysis] = None
+    script_sentence: Optional[str] = None
+    actual_sentence: Optional[str] = None
+    keyword_analysis: Optional[KeywordAnalysis | dict] = None
 
 class KeywordScoreAnalysisWithScriptResponse(BaseModel):
     script: List[KeywordScoreAnalysisScript]
     total_keywords: int
     total_missing_keywords: int
     keyword_score: int
+
+class ContextualScoreAnalysisScript(BaseModel):
+    role: str
+    scripted_text: Optional[str] = None
+    actual_text: Optional[str] = None
+    scripted_context: Optional[str] = None
+    actual_context: Optional[str] = None
+    summary_evaluation: Optional[str] = None
+    contextual_accuracy: Optional[int] = None
+
+class ContextualScoreAnalysisWithScriptResponse(BaseModel):
+    script: List[ContextualScoreAnalysisScript]
+    overall_contextual_accuracy: int
+
+class IndividualBehaviouralScoreAnalysis(BaseModel):
+    overall_score: int
+    evaluation: str
+
+class BehaviouralScoreAnalysis(BaseModel):
+    confidence_score: IndividualBehaviouralScoreAnalysis
+    concentration_score: IndividualBehaviouralScoreAnalysis
+    energy_score: IndividualBehaviouralScoreAnalysis
+    
+class ChatTypeScoreResponse(BaseModel):
+    keyword_accuracy: KeywordScoreAnalysisWithScriptResponse
+    contextual_accuracy: ContextualScoreAnalysisWithScriptResponse
+    confidence_accuracy: Optional[IndividualBehaviouralScoreAnalysis] = None    
+    concentration_accuracy: Optional[IndividualBehaviouralScoreAnalysis] = None
+    energy_accuracy: Optional[IndividualBehaviouralScoreAnalysis] = None
+    
+    
+
     
 
