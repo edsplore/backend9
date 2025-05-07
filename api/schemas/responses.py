@@ -582,7 +582,25 @@ class ManagerDashboardAggregateDetails(BaseModel):
     leaderBoards: ManagerDashboardLeaderBoardsAggMetricWise
 
 
+class AdminDashboardUserActivityStatsUserType(BaseModel):
+    class Breakdown(BaseModel):
+        admin: int = 0
+        manager: int = 0
+        designer: int = 0
+        trainees: int = 0
+        
+    total_users: int = 0
+    breakdown: Breakdown = Breakdown()
+
 class AdminDashboardUserActivityStatsResponse(BaseModel):
+    new_users: AdminDashboardUserActivityStatsUserType
+    active_users: AdminDashboardUserActivityStatsUserType
+    deactivated_users: AdminDashboardUserActivityStatsUserType
+    daily_active_users: AdminDashboardUserActivityStatsUserType
+    weekly_active_users: AdminDashboardUserActivityStatsUserType
+    monthly_active_users:AdminDashboardUserActivityStatsUserType
+
+class AdminDashboardUserActivityResponse(BaseModel):
     id: str
     name: str
     email: str
@@ -619,7 +637,6 @@ class KeywordScoreAnalysisWithScriptResponse(BaseModel):
     total_keywords: int
     total_missing_keywords: int
     keyword_score: int
-
 
 class CreateUserResponse(BaseModel):
     user_id: str
