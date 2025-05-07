@@ -1,8 +1,8 @@
 from fastapi import APIRouter, HTTPException
 from typing import Dict, List
 from domain.services.playback_service import PlaybackService
-from api.schemas.requests import AttemptsRequest, AttemptRequest
-from api.schemas.responses import AttemptsResponse, AttemptResponse
+from api.schemas.requests import AttemptsRequest, AttemptRequest, AttemptsStatsRequest
+from api.schemas.responses import AttemptsResponse, AttemptResponse, AttemptsStatsResponse
 from utils.logger import Logger
 
 logger = Logger.get_logger(__name__)
@@ -20,9 +20,9 @@ class PlaybackController:
 
         try:
 
-            attempts = await self.service.get_attempts(request.user_id)
-            logger.info(f"Fetched {len(attempts)} attempts for user {request.user_id}")
-            return AttemptsResponse(attempts=attempts)
+            attempts = await self.service.get_attempts(request.user_id, request.pagination)
+            logger.info(f"Fetched {attempts.total_attempts} attempts for user {request.user_id}")
+            return attempts
         except Exception as e:
             logger.error(f"Error fetching attempts: {str(e)}", exc_info=True)
             raise
@@ -47,15 +47,38 @@ class PlaybackController:
         except Exception as e:
             logger.error(f"Error fetching attempt by ID: {str(e)}", exc_info=True)
             raise
+    
+    async def get_attempt_stats(self, request: AttemptsStatsRequest) -> AttemptsStatsResponse:
+        logger.info("Received request to fetch attempt by ID.")
+        logger.debug(f"Request data: {request.dict()}")
+
+        try:
+            attemptStats = await self.service.get_attempt_stats(request.user_id)
+
+            if not attemptStats:
+                logger.warning(
+                    f"No attemps for user userId={request.user_id}")
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"No attemps for user userId={request.user_id}"
+                )
+            return attemptStats
+        except Exception as e:
+            logger.error(f"Error fetching attempt by ID: {str(e)}", exc_info=True)
+            raise
 
 controller = PlaybackController()
 
 @router.post("/attempts/fetch", tags=["Playback", "Read", "List"])
 async def fetch_simulations_attempt(request: dict) -> AttemptsResponse:
-    return await controller.get_attempts(AttemptsRequest(user_id=request.get("user_id")))
+    return await controller.get_attempts(AttemptsRequest(user_id=request.get("user_id"), pagination=request.get("pagination")))
 
 @router.post("/attempt/fetch", tags=["Playback", "Read"])
 async def get_sim_attempt_by_id(request: dict) -> AttemptResponse:
     return await controller.get_attempt_by_id(
         AttemptRequest(user_id=request.get("user_id"), attempt_id=request.get("attempt_id"))
     )
+
+@router.post("/attempts/fetch/stats", tags=["Playback", "Read", "List"])
+async def fetch_simulations_attempt(request: dict) -> AttemptsStatsResponse:
+    return await controller.get_attempt_stats(AttemptsStatsRequest(user_id=request.get("user_id")))

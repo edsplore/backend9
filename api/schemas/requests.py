@@ -37,9 +37,12 @@ class ChatHistoryItem(BaseModel):
 class TrainingDataRequest(BaseModel):
     user_id: str
 
+class AttemptsStatsRequest(BaseModel):
+    user_id: str
 
 class AttemptsRequest(BaseModel):
     user_id: str
+    pagination: Optional[PaginationParams] = None
 
 
 class AttemptRequest(BaseModel):

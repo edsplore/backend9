@@ -14,8 +14,31 @@ class PaginationMetadata(BaseModel):
 class TrainingDataResponse(BaseModel):
     stats: dict
 
+class AttemptsStatsResponse(BaseModel):
+    class SimulationCompletion(BaseModel): 
+        completed: int
+        total: int
+        total_modules: int
+
+    class OnTimeCompletion(BaseModel):
+        completed: int
+        total: int
+
+    class Scores(BaseModel):
+        percentage: int
+        difference_from_last_week: int
+        
+    simultion_completion: SimulationCompletion
+    ontime_completion: OnTimeCompletion
+    average_sim_score: Scores
+    highest_sim_score: Scores
+
+    class Config:
+        arbitrary_types_allowed = True
+
 class AttemptsResponse(BaseModel):
     attempts: List[SimulationAttemptModel]
+    total_attempts: int
 
 class AttemptResponse(BaseModel):
     attempt: AttemptAnalyticsModel
