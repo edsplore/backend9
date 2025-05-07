@@ -188,9 +188,10 @@ class ManagerService:
         logger.debug(f"user_id={user_id}")
         try:
             global_filters = {}
-            if params.assignedDateRange:
-                global_filters["start_date"] = params.assignedDateRange.startDate
-                global_filters["end_date"] = params.assignedDateRange.endDate
+            if params:
+                if params.assignedDateRange:
+                    global_filters["start_date"] = params.assignedDateRange.startDate
+                    global_filters["end_date"] = params.assignedDateRange.endDate
             training_entity_data = await self.get_assigments_attempt_stats_by_training_entity(user_id, reporting_userIds, reporting_teamIds, None, global_filters, {}, None)
             #training_plan_data = await self.get_assigments_attempt_stats_by_training_entity(user_id, reporting_userIds, ['team1'], 'TrainingPlan', {}, {}, None)
             #return training_plan_data
@@ -249,14 +250,6 @@ class ManagerService:
             module_adherence_rate = self.get_completion_rate_or_adherence_rate("modules", assignment_agg_stats_by_training_entity, "adherence_rate")
             simulation_adherence_rate = self.get_completion_rate_or_adherence_rate("simulations", assignment_agg_stats_by_training_entity, "adherence_rate")
             
-            # if assignment_agg_stats_by_training_entity["trainingPlans"]["total"] != 0:
-            #     training_plan_completion_rate = math.ceil((assignment_agg_stats_by_training_entity["trainingPlans"]["completed"] / assignment_agg_stats_by_training_entity["trainingPlans"]["total"])*100)
-            
-            # if assignment_agg_stats_by_training_entity["modules"]["total"] != 0:
-            #     module_completion_rate = math.ceil((assignment_agg_stats_by_training_entity["modules"]["completed"] / assignment_agg_stats_by_training_entity["modules"]["total"])*100)
-            
-            # if assignment_agg_stats_by_training_entity["simulations"]["total"] != 0:
-            #     simulation_completion_rate = math.ceil((assignment_agg_stats_by_training_entity["simulations"]["completed"] / assignment_agg_stats_by_training_entity["simulations"]["total"])*100)
 
             completionRates = ManagerDashboardAggregateMetrics(
                 trainingPlans=training_plan_completion_rate,

@@ -164,7 +164,7 @@ class ManagerRepository(IManagerRepository):
             if pagination:
                 page = pagination.page
                 pagesize = pagination.pagesize
-                skip = (page - 1) * pagesize
+                skip = ((page + 1) - 1) * pagesize
                 total_count = 0
                 pagination_params = PaginationMetadata(total_count=0, page=page, pagesize=pagesize, total_pages=0)
 
