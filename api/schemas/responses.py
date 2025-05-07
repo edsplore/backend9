@@ -1,4 +1,4 @@
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Union
 from pydantic import BaseModel
 from domain.models.training import TrainingDataModel
 from domain.models.playback import SimulationAttemptModel, AttemptAnalyticsModel
@@ -333,16 +333,45 @@ class FetchManagerDashnoardTrainingPlansDetails(BaseModel):
     last_modified_at: str
     status: str
 
-class TrainingPlanDetailsByUser(BaseModel):
-    completion_percentage: float = 0
-    total_modules: int
-    total_simulations: int
+class SimulationDetailsByUser(BaseModel):
+    simulation_id: str
+    name: str
+    type: str
+    level: str
     est_time: int
-    average_sim_score: float = 0
+    dueDate: str
+    status: str = "not_started"
+    highest_attempt_score: float = 0
+    average_score: int = 0
+    scores: dict = {}
+    assignment_id: str
+    user_id: str
+
+class ModuleDetailsByUser(BaseModel):
+    name: str
+    total_simulations: int
+    average_score: float = 0
     due_date: str
     status: str = "not_started"
     user_id: str
-    modules: List[ModuleDetails]
+    completion_percentage: int = 0
+    adherence_percentage: int = 0
+    est_time: int = 0
+    simulations: Optional[List[SimulationDetailsByUser]] = []
+
+class TrainingPlanDetailsByUser(BaseModel):
+    name: str
+    completion_percentage: int = 0
+    adherence_percentage: int = 0
+    total_modules: int
+    total_simulations: int
+    est_time: int
+    average_score: float = 0
+    due_date: str
+    status: str = "not_started"
+    user_id: str
+    modules: Optional[List[ModuleDetailsByUser]] = []
+    simulations: Optional[List[SimulationDetailsByUser]] = []
 
 class TrainingPlanDetailsMinimal(BaseModel):
     id: str
@@ -350,15 +379,6 @@ class TrainingPlanDetailsMinimal(BaseModel):
     completion_percentage: float = 0
     average_score: float = 0
     user: List[TrainingPlanDetailsByUser]
-
-
-class ModuleDetailsByUser(BaseModel):
-    total_simulations: int
-    average_score: float = 0
-    due_date: str
-    status: str = "not_started"
-    user_id: str
-    simulations: List[SimulationDetails]
    
 class ModuleDetailsMinimal(BaseModel):
     id: str
@@ -367,19 +387,6 @@ class ModuleDetailsMinimal(BaseModel):
     average_score: float = 0
     user: List[ModuleDetailsByUser]
 
-class SimulationDetailsByUser(BaseModel):
-    simulation_id: str
-    name: str
-    type: str
-    level: str
-    estTime: int
-    dueDate: str
-    status: str = "not_started"
-    highest_attempt_score: float = 0
-    scores: dict = {}
-    assignment_id: str
-    user_id: str
-   
 class SimulationDetailsMinimal(BaseModel):
     id: str
     name: str
@@ -387,11 +394,14 @@ class SimulationDetailsMinimal(BaseModel):
     average_score: float = 0
     user: List[SimulationDetailsByUser]
 
+class TeamsStats(BaseModel):
+    team_wise_stats: Dict[str, List[Union[TrainingPlanDetailsByUser, ModuleDetailsByUser, SimulationDetailsByUser]]]
 
 class FetchManagerDashboardResponse(BaseModel):
     training_plans: List[TrainingPlanDetailsMinimal]
     modules: List[ModuleDetailsMinimal]
     simulations: List[SimulationDetailsMinimal]
+    teams_stats: Optional[TeamsStats] = None
     pagination: Optional[PaginationMetadata] = None
 
 class TraineeAssignmentAttemptStatus(BaseModel):
@@ -399,16 +409,16 @@ class TraineeAssignmentAttemptStatus(BaseModel):
     classId: int
     status: str
     dueDate: str
-    avgScore: Optional[str]  
+    avgScore: Optional[int]  
 
 class TrainingEntity(BaseModel):
     id: str  # ID No.
     name: str  # TRP Name
     trainees: List['TraineeAssignmentAttemptStatus']
-    completionRate: str
-    adherenceRate: str
+    completionRate: int
+    adherenceRate: int
     avgScore: float
-    estTime: str
+    estTime: int
     assignedTrainees: int
 
 class ManagerDashboardTrainingEntityTableResponse(BaseModel):
