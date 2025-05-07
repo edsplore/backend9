@@ -1,17 +1,15 @@
 from typing import Dict, List, Optional , Union
 from domain.interfaces.manager_repository import IManagerRepository
-from domain.services.assignment_service import AssignmentService
 from infrastructure.repositories.manager_repository import ManagerRepository
 from infrastructure.database import Database
 from api.schemas.requests import ManagerDashboardParams, PaginationParams
-from api.schemas.responses import (FetchManagerDashboardTrainingPlansResponse, 
-    FetchManagerDashboardModulesResponse, FetchManagerDashboardSimultaionResponse,  ManagerDashboardAggregateAssignmentCounts,
+from api.schemas.responses import (ManagerDashboardAggregateAssignmentCounts,
     ManagerDashboardAssignmentCounts, ManagerDashboardAggregateDetails, ManagerDashboardAggregateMetrics,
-    ManagerDashboardLeaderBoardsAggMetricWise, ManagerDashboardTeamWiseAggregateMetrics, TeamsStats,
-    TraineeAssignmentAttemptStatus, TrainingEntity,ManagerDashboardTrainingEntityTableResponse, TrainingPlanDetailsByUser,
+    ManagerDashboardLeaderBoardsAggMetricWise, ManagerDashboardTeamWiseAggregateMetrics,
+    TraineeAssignmentAttemptStatus, TrainingEntity, ManagerDashboardTrainingEntityTableResponse, TrainingPlanDetailsByUser,
     TrainingPlanDetailsMinimal, ModuleDetailsMinimal, FetchManagerDashboardResponse,
     ModuleDetailsByUser, SimulationDetailsByUser,
-    SimulationDetailsMinimal, PaginationMetadata)
+    SimulationDetailsMinimal)
 from fastapi import HTTPException
 import math
 from utils.logger import Logger  # Make sure the import path is correct for your project
@@ -27,6 +25,7 @@ class ManagerService:
         for each_assigned_training_entity in training_entity_list:
             for each_assigned_user in each_assigned_training_entity.user:
                 assignment_agg_stats_by_training_entity[training_entity]["total"] +=1
+                assignment_agg_stats_by_training_entity[training_entity]["average_score"] += each_assigned_user.average_score
                 if each_assigned_user.status == "completed_on_time":
                     assignment_agg_stats_by_training_entity[training_entity]["completed_on_time"] +=1
                 if each_assigned_user.status == "completed" or each_assigned_user.status == "completed_on_time":
@@ -157,9 +156,6 @@ class ManagerService:
                                             team_wise_stats[team_id].extend(user_map[team_member_id])
                                         else:
                                             team_wise_stats[team_id] = user_map[team_member_id]
-                teams_stats = TeamsStats(
-                    team_wise_stats=team_wise_stats
-                )
             # Add pagination metadata if pagination is provided
             if pagination:
                 logger.info(f"Pagination metadata: {pagination_params}")
@@ -175,7 +171,7 @@ class ManagerService:
                     training_plans=training_plans, 
                     modules=modules, 
                     simulations=simulations,
-                    teams_stats=teams_stats
+                    teams_stats=team_wise_stats
                 )
             
         except Exception as e:
@@ -193,15 +189,6 @@ class ManagerService:
                     global_filters["start_date"] = params.assignedDateRange.startDate
                     global_filters["end_date"] = params.assignedDateRange.endDate
             training_entity_data = await self.get_assigments_attempt_stats_by_training_entity(user_id, reporting_userIds, reporting_teamIds, None, global_filters, {}, None)
-            #training_plan_data = await self.get_assigments_attempt_stats_by_training_entity(user_id, reporting_userIds, ['team1'], 'TrainingPlan', {}, {}, None)
-            #return training_plan_data
-            # training_plan_data = await self.repository.get_all_assigments_by_user_details(user_id, reporting_userIds, 'TrainingPlan')
-            # return training_plan_data
-            # module_data = await self.repository.get_all_assigments_by_user_details_temp(user_id, reporting_userIds, ['team1'], 'Module', {}, {}, None)
-            # return module_data
-            pagination = PaginationParams(page=1, pagesize=10)
-            # simulation_data = await self.get_assigments_attempt_stats_by_training_entity(user_id, reporting_userIds, reporting_team_ids, 'Simulation', global_filters, {}, None)
-            #return simulation_data
             assignment_agg_stats_by_training_entity = {
                 "trainingPlans": {
                     "total": 0,
@@ -209,7 +196,8 @@ class ManagerService:
                     "inProgress": 0,
                     "notStarted": 0,
                     "overdue": 0,
-                    "completed_on_time": 0
+                    "completed_on_time": 0,
+                    "average_score": 0
                 },
                 "modules": {
                     "total": 0,
@@ -217,7 +205,8 @@ class ManagerService:
                     "inProgress": 0,
                     "notStarted": 0,
                     "overdue": 0,
-                    "completed_on_time": 0
+                    "completed_on_time": 0,
+                    "average_score": 0
                 },
                 "simulations": {
                     "total": 0,
@@ -225,7 +214,8 @@ class ManagerService:
                     "inProgress": 0,
                     "notStarted": 0,
                     "overdue": 0,
-                    "completed_on_time": 0
+                    "completed_on_time": 0,
+                    "average_score": 0
                 }
             }
             self.assign_training_entity_stats_agg_metrics(assignment_agg_stats_by_training_entity, "trainingPlans", training_entity_data.training_plans)
@@ -255,12 +245,24 @@ class ManagerService:
                 trainingPlans=training_plan_completion_rate,
                 modules=module_completion_rate,
                 simulations=simulation_completion_rate
-            )  
+            )
+
+            training_plans_average_score = 0
+            modules_average_score = 0
+            simulations_average_score = 0
+
+            if assignment_agg_stats_by_training_entity["trainingPlans"]["total"] > 0:
+                training_plans_average_score = math.ceil(assignment_agg_stats_by_training_entity["trainingPlans"]["average_score"]/assignment_agg_stats_by_training_entity["trainingPlans"]["total"])
+            if assignment_agg_stats_by_training_entity["modules"]["total"] > 0:
+                modules_average_score = math.ceil(assignment_agg_stats_by_training_entity["modules"]["average_score"]/assignment_agg_stats_by_training_entity["modules"]["total"])
+            if assignment_agg_stats_by_training_entity["simulations"]["total"] > 0:
+                simulations_average_score = math.ceil(assignment_agg_stats_by_training_entity["simulations"]["average_score"]/assignment_agg_stats_by_training_entity["simulations"]["total"])
+            
 
             averageScores = ManagerDashboardAggregateMetrics(
-                trainingPlans=0,
-                modules=0,
-                simulations=0
+                trainingPlans=training_plans_average_score,
+                modules=modules_average_score,
+                simulations=simulations_average_score 
             )
 
             adherenceRates = ManagerDashboardAggregateMetrics(
@@ -269,17 +271,74 @@ class ManagerService:
                 simulations=simulation_adherence_rate
             )
 
-            mockDataTeamWiseAggMetrics = [
-                ManagerDashboardTeamWiseAggregateMetrics(team="Team 1",score=95),
-                ManagerDashboardTeamWiseAggregateMetrics(team="Team 2",score=85),
-                ManagerDashboardTeamWiseAggregateMetrics(team="Team 3",score=80),
-                ManagerDashboardTeamWiseAggregateMetrics(team="Team 4",score=60),
-                ManagerDashboardTeamWiseAggregateMetrics(team="Team 5",score=37),
-            ]
+            team_wise_metric_stats = {}
+            for teamId, team_user_assignments in training_entity_data.teams_stats.items():
+                team_agg_status = {
+                    "total": 0,
+                    "completed": 0,
+                    "inProgress": 0,
+                    "notStarted": 0,
+                    "overdue": 0,
+                    "completed_on_time": 0
+                }
+                team_assignments_average_scores_list = []
+                for each_user_assignment in team_user_assignments:
+                    team_assignments_average_scores_list.append(each_user_assignment.average_score)
+                    team_agg_status["total"] +=1
+                    if each_user_assignment.status == "completed_on_time":
+                        team_agg_status["completed_on_time"] +=1
+                    if each_user_assignment.status == "completed" or each_user_assignment.status == "completed_on_time":
+                        team_agg_status["completed"] +=1
+                    elif each_user_assignment.status == "in_progress":
+                        team_agg_status["inProgress"] +=1
+                    elif each_user_assignment.status == "not_started":
+                        team_agg_status["notStarted"] +=1
+                    elif each_user_assignment.status == "over_due":
+                        team_agg_status["overdue"] +=1
+                completion_rate = 0
+                adherence_rate = 0
+                average_score = 0
+                if team_agg_status["total"] > 0:
+                    completion_rate = math.ceil((team_agg_status.get("completed") / team_agg_status.get("total"))*100)
+                if team_agg_status["completed"] > 0:
+                    adherence_rate = math.ceil((team_agg_status.get("completed_on_time") / team_agg_status.get("completed"))*100)
+                if len(team_assignments_average_scores_list) > 0:
+                    average_score = math.ceil(sum(team_assignments_average_scores_list) / len(team_assignments_average_scores_list))
+                
+                if team_wise_metric_stats.get("completion_rate"):
+                    team_wise_metric_stats["completion_rate"].append(ManagerDashboardTeamWiseAggregateMetrics(team=teamId,score=completion_rate))
+                else:
+                    team_wise_metric_stats["completion_rate"] = [ManagerDashboardTeamWiseAggregateMetrics(team=teamId,score=completion_rate)]
+                
+                if team_wise_metric_stats.get("adherence_rate"):
+                    team_wise_metric_stats["adherence_rate"].append(ManagerDashboardTeamWiseAggregateMetrics(team=teamId,score=adherence_rate))
+                else:
+                    team_wise_metric_stats["adherence_rate"] = [ManagerDashboardTeamWiseAggregateMetrics(team=teamId,score=adherence_rate)]
+                
+                if team_wise_metric_stats.get("average_score"):
+                    team_wise_metric_stats["average_score"].append(ManagerDashboardTeamWiseAggregateMetrics(team=teamId,score=average_score))
+                else:
+                    team_wise_metric_stats["average_score"] = [ManagerDashboardTeamWiseAggregateMetrics(team=teamId,score=average_score)]
+            
+            if team_wise_metric_stats.get("completion_rate"):
+                sorted_team_wise_completion_rate_metric = sorted(team_wise_metric_stats["completion_rate"], key=lambda team: team.score, reverse=True)
+            else:
+                sorted_team_wise_completion_rate_metric = []
+            
+            if team_wise_metric_stats.get("adherence_rate"):
+                sorted_team_wise_adherence_rate_metric = sorted(team_wise_metric_stats["adherence_rate"], key=lambda team: team.score, reverse=True)
+            else:
+                sorted_team_wise_adherence_rate_metric = []
+            
+            if team_wise_metric_stats.get("average_score"):
+                sorted_team_wise_average_score_metric = sorted(team_wise_metric_stats["average_score"], key=lambda team: team.score, reverse=True)
+            else:
+                sorted_team_wise_average_score_metric = []
+            
             leaderBoards = ManagerDashboardLeaderBoardsAggMetricWise(
-                completion=mockDataTeamWiseAggMetrics,
-                averageScore=mockDataTeamWiseAggMetrics,
-                adherence=mockDataTeamWiseAggMetrics
+                completion=sorted_team_wise_completion_rate_metric,
+                averageScore=sorted_team_wise_average_score_metric,
+                adherence=sorted_team_wise_adherence_rate_metric
             )
            
             logger.info(

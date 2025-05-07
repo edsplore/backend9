@@ -394,14 +394,11 @@ class SimulationDetailsMinimal(BaseModel):
     average_score: float = 0
     user: List[SimulationDetailsByUser]
 
-class TeamsStats(BaseModel):
-    team_wise_stats: Dict[str, List[Union[TrainingPlanDetailsByUser, ModuleDetailsByUser, SimulationDetailsByUser]]]
-
 class FetchManagerDashboardResponse(BaseModel):
     training_plans: List[TrainingPlanDetailsMinimal]
     modules: List[ModuleDetailsMinimal]
     simulations: List[SimulationDetailsMinimal]
-    teams_stats: Optional[TeamsStats] = None
+    teams_stats: Optional[Dict[str, List[Union[TrainingPlanDetailsByUser, ModuleDetailsByUser, SimulationDetailsByUser]]]] = None
     pagination: Optional[PaginationMetadata] = None
 
 class TraineeAssignmentAttemptStatus(BaseModel):
