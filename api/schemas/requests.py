@@ -394,12 +394,31 @@ class EndVisualAttemptRequest(BaseModel):
 
 class FetchManagerDashboardTrainingPlansRequest(BaseModel):
     user_id: str
+    reportee_user_ids: Optional[List[str]] = None
     pagination: Optional[PaginationParams] = None
-    
+
+class DateRange(BaseModel):
+    startDate: Optional[str] = None
+    endDate: Optional[str] = None
+
+class ManagerDashboardParams(BaseModel):
+    assignedDateRange: Optional[DateRange] = None
+    trainingEntityDateRange: Optional[DateRange] = None
+    trainingEntityCreatedBy: Optional[List[str]] = None
+    trainingEntityTeams: Optional[List[str]] = None
+
+class ManagerDashboardAggregateRequest(BaseModel):
+    user_id: str
+    reportee_user_ids: Optional[List[str]] = None
+    reportee_team_ids: Optional[List[str]] = None
+    params: Optional[ManagerDashboardParams] = None
     
 class FetchManagerDashboardTrainingEntityRequest(BaseModel):
     user_id: str
     type: str
+    reportee_user_ids: Optional[List[str]] = None
+    reportee_team_ids: Optional[List[str]] = None
+    params: Optional[ManagerDashboardParams] = None
     pagination: Optional[PaginationParams] = None
 
 class AdminDashboardUserActivityRequest(BaseModel):

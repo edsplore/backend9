@@ -1,4 +1,4 @@
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Union
 from pydantic import BaseModel
 from domain.models.training import TrainingDataModel
 from domain.models.playback import SimulationAttemptModel, AttemptAnalyticsModel
@@ -358,16 +358,45 @@ class FetchManagerDashnoardTrainingPlansDetails(BaseModel):
     last_modified_at: str
     status: str
 
-class TrainingPlanDetailsByUser(BaseModel):
-    completion_percentage: float = 0
-    total_modules: int
-    total_simulations: int
+class SimulationDetailsByUser(BaseModel):
+    simulation_id: str
+    name: str
+    type: str
+    level: str
     est_time: int
-    average_sim_score: float = 0
+    dueDate: str
+    status: str = "not_started"
+    highest_attempt_score: float = 0
+    average_score: int = 0
+    scores: dict = {}
+    assignment_id: str
+    user_id: str
+
+class ModuleDetailsByUser(BaseModel):
+    name: str
+    total_simulations: int
+    average_score: float = 0
     due_date: str
     status: str = "not_started"
     user_id: str
-    modules: List[ModuleDetails]
+    completion_percentage: int = 0
+    adherence_percentage: int = 0
+    est_time: int = 0
+    simulations: Optional[List[SimulationDetailsByUser]] = []
+
+class TrainingPlanDetailsByUser(BaseModel):
+    name: str
+    completion_percentage: int = 0
+    adherence_percentage: int = 0
+    total_modules: int
+    total_simulations: int
+    est_time: int
+    average_score: float = 0
+    due_date: str
+    status: str = "not_started"
+    user_id: str
+    modules: Optional[List[ModuleDetailsByUser]] = []
+    simulations: Optional[List[SimulationDetailsByUser]] = []
 
 class TrainingPlanDetailsMinimal(BaseModel):
     id: str
@@ -375,15 +404,6 @@ class TrainingPlanDetailsMinimal(BaseModel):
     completion_percentage: float = 0
     average_score: float = 0
     user: List[TrainingPlanDetailsByUser]
-
-
-class ModuleDetailsByUser(BaseModel):
-    total_simulations: int
-    average_score: float = 0
-    due_date: str
-    status: str = "not_started"
-    user_id: str
-    simulations: List[SimulationDetails]
    
 class ModuleDetailsMinimal(BaseModel):
     id: str
@@ -392,19 +412,6 @@ class ModuleDetailsMinimal(BaseModel):
     average_score: float = 0
     user: List[ModuleDetailsByUser]
 
-class SimulationDetailsByUser(BaseModel):
-    simulation_id: str
-    name: str
-    type: str
-    level: str
-    estTime: int
-    dueDate: str
-    status: str = "not_started"
-    highest_attempt_score: float = 0
-    scores: dict = {}
-    assignment_id: str
-    user_id: str
-   
 class SimulationDetailsMinimal(BaseModel):
     id: str
     name: str
@@ -412,11 +419,14 @@ class SimulationDetailsMinimal(BaseModel):
     average_score: float = 0
     user: List[SimulationDetailsByUser]
 
+class TeamsStats(BaseModel):
+    team_wise_stats: Dict[str, List[Union[TrainingPlanDetailsByUser, ModuleDetailsByUser, SimulationDetailsByUser]]]
 
 class FetchManagerDashboardResponse(BaseModel):
     training_plans: List[TrainingPlanDetailsMinimal]
     modules: List[ModuleDetailsMinimal]
     simulations: List[SimulationDetailsMinimal]
+    teams_stats: Optional[TeamsStats] = None
     pagination: Optional[PaginationMetadata] = None
 
 class TraineeAssignmentAttemptStatus(BaseModel):
@@ -424,16 +434,16 @@ class TraineeAssignmentAttemptStatus(BaseModel):
     classId: int
     status: str
     dueDate: str
-    avgScore: Optional[str]  
+    avgScore: Optional[int]  
 
 class TrainingEntity(BaseModel):
     id: str  # ID No.
     name: str  # TRP Name
     trainees: List['TraineeAssignmentAttemptStatus']
-    completionRate: str
-    adherenceRate: str
+    completionRate: int
+    adherenceRate: int
     avgScore: float
-    estTime: str
+    estTime: int
     assignedTrainees: int
 
 class ManagerDashboardTrainingEntityTableResponse(BaseModel):
@@ -566,6 +576,7 @@ class AdminDashboardUserActivityResponse(BaseModel):
     loginCount: int
     lastLoginOn: str
     lastSessionDuration: int
+
 class KeywordAnalysis(BaseModel):
     total_keywords: int
     missing_keywords: int
@@ -573,13 +584,45 @@ class KeywordAnalysis(BaseModel):
 
 class KeywordScoreAnalysisScript(BaseModel):
     role: str
-    script_sentence: str
-    keyword_analysis: Optional[KeywordAnalysis] = None
+    script_sentence: Optional[str] = None
+    actual_sentence: Optional[str] = None
+    keyword_analysis: Optional[KeywordAnalysis | dict] = None
 
 class KeywordScoreAnalysisWithScriptResponse(BaseModel):
     script: List[KeywordScoreAnalysisScript]
     total_keywords: int
     total_missing_keywords: int
     keyword_score: int
+
 class CreateUserResponse(BaseModel):
     user_id: str
+
+class ContextualScoreAnalysisScript(BaseModel):
+    role: str
+    scripted_text: Optional[str] = None
+    actual_text: Optional[str] = None
+    scripted_context: Optional[str] = None
+    actual_context: Optional[str] = None
+    summary_evaluation: Optional[str] = None
+    contextual_accuracy: Optional[int] = None
+
+class ContextualScoreAnalysisWithScriptResponse(BaseModel):
+    script: List[ContextualScoreAnalysisScript]
+    overall_contextual_accuracy: int
+
+class IndividualBehaviouralScoreAnalysis(BaseModel):
+    overall_score: int
+    evaluation: str
+
+class BehaviouralScoreAnalysis(BaseModel):
+    confidence_score: IndividualBehaviouralScoreAnalysis
+    concentration_score: IndividualBehaviouralScoreAnalysis
+    energy_score: IndividualBehaviouralScoreAnalysis
+    
+class ChatTypeScoreResponse(BaseModel):
+    keyword_accuracy: KeywordScoreAnalysisWithScriptResponse
+    contextual_accuracy: ContextualScoreAnalysisWithScriptResponse
+    confidence_accuracy: Optional[IndividualBehaviouralScoreAnalysis] = None    
+    concentration_accuracy: Optional[IndividualBehaviouralScoreAnalysis] = None
+    energy_accuracy: Optional[IndividualBehaviouralScoreAnalysis] = None
+
