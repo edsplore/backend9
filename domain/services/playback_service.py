@@ -5,6 +5,9 @@ from infrastructure.repositories.playback_repository import PlaybackRepository
 from domain.interfaces.playback_repository import IPlaybackRepository
 from bson import ObjectId
 
+from api.schemas.requests import PaginationParams
+from api.schemas.responses import AttemptsStatsResponse, AttemptsResponse
+
 from utils.logger import Logger  # Adjust import path if needed
 from fastapi import HTTPException
 
@@ -18,11 +21,45 @@ class PlaybackService:
         self.repository = repository or PlaybackRepository()
         logger.info("PlaybackService initialized.")
 
-    async def get_attempts(self, user_id: str) -> List[SimulationAttemptModel]:
+    async def get_attempts(self, user_id: str, pagination: Optional[PaginationParams] ) -> AttemptsResponse:
         logger.info("Fetching attempts.")
         logger.debug(f"user_id={user_id}")
         try:
-            cursor = self.db.user_sim_progress.find({"userId": user_id})
+            query = {}
+            
+            if user_id:
+                query['userId'] = user_id
+
+            if pagination:
+                logger.debug(f"Applying pagination parameters: {pagination}")
+
+                # Apply search filter if provided
+                if pagination.search:
+                    search_regex = {
+                        "$regex": pagination.search,
+                        "$options": "i"
+                    }
+                    query["$or"] = [{
+                        "name": search_regex
+                    }]
+            
+            # Get total count for pagination metadata
+            total_count = await self.db.user_sim_progress.count_documents(query)
+
+            # Calculate pagination
+            skip = 0
+            limit = 50  # Default limit
+            
+
+            if pagination:
+                limit = pagination.pagesize
+                skip = (pagination.page - 1) * limit
+            
+            logger.debug(f"Query filter: {query}")
+            logger.debug(f"Skip: {skip}, Limit: {limit}")
+
+            cursor = self.db.user_sim_progress.find(query).skip(
+                skip).limit(limit)
             # attempts = await self.db.sim_attempts.find({"userId": user_id})
             attempts = []
             async for doc in cursor:
@@ -51,6 +88,7 @@ class PlaybackService:
             for attempt in attempts:
                 if  attempt.get("assignment") == None:
                     continue;
+                
                 simLevel = "lvl1";
                 if(attempt["simulation"]["lvl2"]["isEnabled"]):
                     simLevel = "lvl2";
@@ -80,7 +118,7 @@ class PlaybackService:
                         attemptCount=4
                     )
                 )
-            return simulationsAttemps
+            return AttemptsResponse(attempts=simulationsAttemps, total_attempts=total_count)
         except Exception as e:
             logger.error(f"Error fetching attempts for dashboard: {str(e)}", exc_info=True)
             raise HTTPException(status_code=500, detail=f"Error fetching attempts for dashboard: {str(e)}")
@@ -134,3 +172,43 @@ class PlaybackService:
         except Exception as e:
             logger.error(f"Error fetching attempt: {str(e)}", exc_info=True)
             raise HTTPException(status_code=500, detail=f"Error fetching attempt: {str(e)}")
+
+    async def get_attempt_stats(self, user_id: str) -> AttemptsStatsResponse:
+        try:
+            attempts = await self.get_attempts(user_id);
+            
+            simulations = {}
+            for attempt in attempts:
+                if attempt.simId not in simulations:
+                    simulations[attempt.simId] = attempt
+                else:
+                    if attempt.status == "completed":
+                        simulations[attempt.simId].status = "completed"
+            
+            total_simulations = len(simulations.keys())
+            completed_simulations = len([sim for sim in simulations.values() if sim.status == "completed"])
+
+            
+            final_response = AttemptsStatsResponse(
+                            simultion_completion = AttemptsStatsResponse.SimulationCompletion(
+                                completed = completed_simulations,
+                                total = total_simulations,
+                                total_modules = 0
+                            ),
+                            ontime_completion  = AttemptsStatsResponse.OnTimeCompletion(
+                                completed = completed_simulations,
+                                total = total_simulations
+                            ),
+                            average_sim_score =  AttemptsStatsResponse.Scores(
+                                percentage = 0,
+                                difference_from_last_week = 0
+                            ),
+                            highest_sim_score = AttemptsStatsResponse.Scores(
+                                percentage = 0,
+                                difference_from_last_week = 0
+                            )
+                        )
+            return final_response
+        except Exception as e:
+            logger.error(f"Error fetching attempt stats: {str(e)}", exc_info=True)
+            raise HTTPException(status_code=500, detail=f"Error fetching attempt stats: {str(e)}");
