@@ -1538,6 +1538,7 @@ class SimulationService:
                 'SimAccuracy': 0,
                 'KeywordScore': 0,
                 'ClickScore': 0,
+                'DataAccuracy': 0,
                 'Confidence': 0,
                 'Energy': 0,
                 'Concentration': 0
@@ -1556,6 +1557,7 @@ class SimulationService:
             simulation: SimulationByIDResponse = await self.get_simulation_by_id(simulation_id);
             main_script = simulation.simulation.script
             slide_data_script = []
+            data_accuracy_script = {}
 
             for slide in simulation.simulation.slidesData:
                 for seq in slide.sequence:
@@ -1565,6 +1567,8 @@ class SimulationService:
                             'role': seq.role,
                             'keywords': []
                         })
+                    if seq.type == 'hotspot' and seq.hotspotType == 'textfield':
+                        data_accuracy_script[seq.id] = seq
 
             for index, slide_script in enumerate(slide_data_script):
                 for script in main_script:
@@ -1582,6 +1586,15 @@ class SimulationService:
             total_clicks = wrong_click + correct_click
             click_score = (correct_click / total_clicks) * 100 if total_clicks > 0 else 0
             scores['ClickScore'] = click_score
+
+            #DataAccuracy - get hotspot with textField
+            textfield_hotspots = [item for item in userAttemptSequence if item.type == "hotspot" and item.hotspotType == 'textfield']
+            correct_data = sum(1 for textfield_hotspot in textfield_hotspots if textfield_hotspot.userInput == data_accuracy_script[textfield_hotspot.id].settings["expectedValue"])
+            wrong_data = len(textfield_hotspots) - correct_data
+            total_data = correct_data + wrong_data
+            data_accuracy_score = (correct_data / total_data) * 100 if total_data > 0 else 0
+            scores['DataAccuracy'] = data_accuracy_score
+                
 
             update_doc = {
                 "status": "completed",
