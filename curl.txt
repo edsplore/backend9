@@ -1,3 +1,8 @@
+sudo lsof -i :3000
+
+nohup uvicorn main:app --host 0.0.0.0 --port 3000 > fastapi_output.log 2>&1 &
+
+tail -f fastapi_output.log
 fetch assignments
 
 # Example 1 – simple pagination for assignments

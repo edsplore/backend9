@@ -167,6 +167,15 @@ class SimulationScoringMetrics(BaseModel):
     is_enabled: bool = False
     keyword_score: int = 0
     click_score: int = 0
+    points_per_keyword: int = 1
+    points_per_click: int = 1
+
+class MetricWeightage(BaseModel):
+    click_accuracy: int = 0
+    keyword_accuracy: int = 0
+    data_entry_accuracy: int = 0
+    contextual_accuracy: int = 0
+    sentiment_measures: int = 0
 
 
 class SimulationPractice(BaseModel):
@@ -208,6 +217,7 @@ class UpdateSimulationRequest(BaseModel):
     simulation_max_repetition: int | None = None
     final_simulation_score_criteria: str | None = None
     simulation_scoring_metrics: SimulationScoringMetrics | None = None
+    metric_weightage: MetricWeightage | None = None
     sim_practice: SimulationPractice | None = None
     is_locked: bool | None = None
     version: int | None = None

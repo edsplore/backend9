@@ -2,7 +2,7 @@ from typing import List, Optional, Dict, Any, Union
 from pydantic import BaseModel
 from domain.models.training import TrainingDataModel
 from domain.models.playback import SimulationAttemptModel, AttemptAnalyticsModel
-from api.schemas.requests import SimulationScoringMetrics, SimulationPractice
+from api.schemas.requests import SimulationScoringMetrics, SimulationPractice, MetricWeightage
 
 
 class PaginationMetadata(BaseModel):
@@ -15,8 +15,10 @@ class PaginationMetadata(BaseModel):
 class TrainingDataResponse(BaseModel):
     stats: dict
 
+
 class AttemptsStatsResponse(BaseModel):
-    class SimulationCompletion(BaseModel): 
+
+    class SimulationCompletion(BaseModel):
         completed: int
         total: int
         total_modules: int
@@ -28,7 +30,7 @@ class AttemptsStatsResponse(BaseModel):
     class Scores(BaseModel):
         percentage: int
         difference_from_last_week: int
-        
+
     simultion_completion: SimulationCompletion
     ontime_completion: OnTimeCompletion
     average_sim_score: Scores
@@ -36,6 +38,7 @@ class AttemptsStatsResponse(BaseModel):
 
     class Config:
         arbitrary_types_allowed = True
+
 
 class AttemptsResponse(BaseModel):
     attempts: List[SimulationAttemptModel]
@@ -176,6 +179,7 @@ class SimulationData(BaseModel):
     simulation_max_repetition: int | None = None
     final_simulation_score_criteria: str | None = None
     simulation_scoring_metrics: SimulationScoringMetrics | None = None
+    metric_weightage: MetricWeightage | None = None
     sim_practice: SimulationPractice | None = None
     estimated_time_to_attempt_in_mins: int | None = None
     mood: str | None = None
@@ -410,6 +414,7 @@ class FetchManagerDashnoardTrainingPlansDetails(BaseModel):
     last_modified_at: str
     status: str
 
+
 class SimulationDetailsByUser(BaseModel):
     simulation_id: str
     name: str
@@ -424,6 +429,7 @@ class SimulationDetailsByUser(BaseModel):
     assignment_id: str
     user_id: str
 
+
 class ModuleDetailsByUser(BaseModel):
     name: str
     total_simulations: int
@@ -435,6 +441,7 @@ class ModuleDetailsByUser(BaseModel):
     adherence_percentage: int = 0
     est_time: int = 0
     simulations: Optional[List[SimulationDetailsByUser]] = []
+
 
 class TrainingPlanDetailsByUser(BaseModel):
     name: str
@@ -458,6 +465,7 @@ class TrainingPlanDetailsMinimal(BaseModel):
     average_score: float = 0
     user: List[TrainingPlanDetailsByUser]
 
+
 class ModuleDetailsMinimal(BaseModel):
     id: str
     name: str
@@ -473,11 +481,15 @@ class SimulationDetailsMinimal(BaseModel):
     average_score: float = 0
     user: List[SimulationDetailsByUser]
 
+
 class FetchManagerDashboardResponse(BaseModel):
     training_plans: List[TrainingPlanDetailsMinimal]
     modules: List[ModuleDetailsMinimal]
     simulations: List[SimulationDetailsMinimal]
-    teams_stats: Optional[Dict[str, List[Union[TrainingPlanDetailsByUser, ModuleDetailsByUser, SimulationDetailsByUser]]]] = None
+    teams_stats: Optional[Dict[str,
+                               List[Union[TrainingPlanDetailsByUser,
+                                          ModuleDetailsByUser,
+                                          SimulationDetailsByUser]]]] = None
     pagination: Optional[PaginationMetadata] = None
 
 
@@ -486,7 +498,8 @@ class TraineeAssignmentAttemptStatus(BaseModel):
     classId: int
     status: str
     dueDate: str
-    avgScore: Optional[int]  
+    avgScore: Optional[int]
+
 
 class TrainingEntity(BaseModel):
     id: str  # ID No.
@@ -608,14 +621,16 @@ class ManagerDashboardAggregateDetails(BaseModel):
 
 
 class AdminDashboardUserActivityStatsUserType(BaseModel):
+
     class Breakdown(BaseModel):
         admin: int = 0
         manager: int = 0
         designer: int = 0
         trainees: int = 0
-        
+
     total_users: int = 0
     breakdown: Breakdown = Breakdown()
+
 
 class AdminDashboardUserActivityStatsResponse(BaseModel):
     new_users: AdminDashboardUserActivityStatsUserType
@@ -623,7 +638,8 @@ class AdminDashboardUserActivityStatsResponse(BaseModel):
     deactivated_users: AdminDashboardUserActivityStatsUserType
     daily_active_users: AdminDashboardUserActivityStatsUserType
     weekly_active_users: AdminDashboardUserActivityStatsUserType
-    monthly_active_users:AdminDashboardUserActivityStatsUserType
+    monthly_active_users: AdminDashboardUserActivityStatsUserType
+
 
 class AdminDashboardUserActivityResponse(BaseModel):
     id: str
@@ -664,8 +680,10 @@ class KeywordScoreAnalysisWithScriptResponse(BaseModel):
     total_missing_keywords: int
     keyword_score: int
 
+
 class CreateUserResponse(BaseModel):
     user_id: str
+
 
 class ContextualScoreAnalysisScript(BaseModel):
     role: str
@@ -676,23 +694,26 @@ class ContextualScoreAnalysisScript(BaseModel):
     summary_evaluation: Optional[str] = None
     contextual_accuracy: Optional[int] = None
 
+
 class ContextualScoreAnalysisWithScriptResponse(BaseModel):
     script: List[ContextualScoreAnalysisScript]
     overall_contextual_accuracy: int
+
 
 class IndividualBehaviouralScoreAnalysis(BaseModel):
     overall_score: int
     evaluation: str
 
+
 class BehaviouralScoreAnalysis(BaseModel):
     confidence_score: IndividualBehaviouralScoreAnalysis
     concentration_score: IndividualBehaviouralScoreAnalysis
     energy_score: IndividualBehaviouralScoreAnalysis
-    
+
+
 class ChatTypeScoreResponse(BaseModel):
     keyword_accuracy: KeywordScoreAnalysisWithScriptResponse
     contextual_accuracy: ContextualScoreAnalysisWithScriptResponse
-    confidence_accuracy: Optional[IndividualBehaviouralScoreAnalysis] = None    
+    confidence_accuracy: Optional[IndividualBehaviouralScoreAnalysis] = None
     concentration_accuracy: Optional[IndividualBehaviouralScoreAnalysis] = None
     energy_accuracy: Optional[IndividualBehaviouralScoreAnalysis] = None
-

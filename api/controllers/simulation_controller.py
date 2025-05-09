@@ -873,6 +873,7 @@ async def update_simulation(
         form_data = await req.form()
         data = dict(form_data)
         import json
+
         json_fields = [
             "script",
             "slidesData",
@@ -883,6 +884,7 @@ async def update_simulation(
             "lvl2",
             "lvl3",
             "simulation_scoring_metrics",
+            "metric_weightage",
             "sim_practice",
         ]
         for field_name in json_fields:
@@ -891,27 +893,23 @@ async def update_simulation(
                     data[field_name] = json.loads(data[field_name])
                 except Exception as e:
                     logger.debug(f"Could not parse '{field_name}': {e}")
-
         slides_files = {}
         for key, value in form_data.multi_items():
             if key.startswith("slide_"):
                 image_id = key[6:]
                 slides_files[image_id] = value
-                logger.debug(
-                    f"Found file for image ID {image_id}: {value.filename}")
-
+                logger.debug(f"Found file for image ID {image_id}: {value.filename}")
     from api.schemas.requests import UpdateSimulationRequest
+
     try:
         update_request = UpdateSimulationRequest.parse_obj(data)
     except Exception as e:
         logger.error("Error parsing UpdateSimulationRequest", exc_info=True)
         raise HTTPException(status_code=422, detail="Request validation error")
-
     logger.info(
         f"Forwarding update simulation request to controller for sim_id={sim_id}"
     )
-    return await controller.update_simulation(sim_id, update_request,
-                                              slides_files)
+    return await controller.update_simulation(sim_id, update_request, slides_files)
 
 
 @router.post("/simulations/start-audio-preview", tags=["Simulations", "Audio"])
