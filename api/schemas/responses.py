@@ -712,8 +712,8 @@ class BehaviouralScoreAnalysis(BaseModel):
 
 
 class ChatTypeScoreResponse(BaseModel):
-    keyword_accuracy: KeywordScoreAnalysisWithScriptResponse
-    contextual_accuracy: ContextualScoreAnalysisWithScriptResponse
-    confidence_accuracy: Optional[IndividualBehaviouralScoreAnalysis] = None
+    keyword_accuracy: Optional[KeywordScoreAnalysisWithScriptResponse] = None
+    contextual_accuracy: Optional[ContextualScoreAnalysisWithScriptResponse] = None
+    confidence_accuracy: Optional[IndividualBehaviouralScoreAnalysis] = None    
     concentration_accuracy: Optional[IndividualBehaviouralScoreAnalysis] = None
     energy_accuracy: Optional[IndividualBehaviouralScoreAnalysis] = None

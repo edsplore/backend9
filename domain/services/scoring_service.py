@@ -4,11 +4,12 @@ from fastapi import HTTPException
 import json
 from api.schemas.responses import (KeywordScoreAnalysisScript, KeywordScoreAnalysisWithScriptResponse,
 ContextualScoreAnalysisScript, ContextualScoreAnalysisWithScriptResponse, BehaviouralScoreAnalysis,
-ChatTypeScoreResponse)
-from typing import List
+ChatTypeScoreResponse, KeywordAnalysis)
+from typing import List, Dict
 import math
 import domain.utils.constants as constants
-
+import re
+import string
 from utils.logger import Logger
 logger = Logger.get_logger(__name__)
 
@@ -30,6 +31,20 @@ class ScoringService:
         except json.JSONDecodeError as e:
             logger.error("Failed to parse LLM response string.")
             return {}
+
+    def normalize_text(self, text: str) -> str:
+        # Remove punctuation and convert to lowercase
+        return re.sub(rf"[{re.escape(string.punctuation)}]", "", text).lower()
+
+    def parse_transcript(self, transcript: str) -> List[Dict[str, str]]:
+        lines = transcript.strip().split('\n')
+        parsed = []
+        for line in lines:
+            if line.startswith("Trainee:"):
+                parsed.append({"role": "Trainee", "actual_sentence": line[len("Trainee:"):].strip()})
+            elif line.startswith("Customer:"):
+                parsed.append({"role": "Customer", "actual_sentence": line[len("Customer:"):].strip()})
+        return parsed
 
     def get_keyword_analysis_response(self, keyword_analysis_list: List[KeywordScoreAnalysisScript]):
         try:
@@ -64,7 +79,57 @@ class ScoringService:
                     keyword_score=0
                 )
     
-    async def get_keyword_score_analysis(self, inputScript, transcript)-> KeywordScoreAnalysisWithScriptResponse:
+    async def get_keyword_score_analysis_regex(self, inputScript, transcript: str) -> KeywordScoreAnalysisWithScriptResponse:
+        try:
+            parsed_transcript = self.parse_transcript(transcript)
+
+            result: List[KeywordScoreAnalysisScript] = []
+
+            for i, script_line in enumerate(inputScript):
+                role = script_line["role"]
+                script_sentence = script_line["script_sentence"]
+                actual_sentence = parsed_transcript[i]["actual_sentence"] if i < len(parsed_transcript) else ""
+                if role != "Trainee":
+                    result.append(KeywordScoreAnalysisScript(
+                        role=role,
+                        script_sentence=script_sentence,
+                        actual_sentence=actual_sentence,
+                        keyword_analysis={}
+                    ))
+                    continue
+
+                keywords = [k["text"] for k in script_line["keywords"]]
+                normalized_actual = self.normalize_text(actual_sentence)
+
+                missing_keywords = []
+                total_keywords = 0
+                for keyword in keywords:
+                    if keyword:
+                        normalized_keyword = self.normalize_text(keyword)
+                        # Word-boundary not needed due to punctuation tolerance
+                        if not re.search(rf"\b{re.escape(normalized_keyword)}\b", normalized_actual):
+                            if normalized_keyword not in normalized_actual:
+                                missing_keywords.append(keyword)
+                        total_keywords += 1
+                keyword_analysis = KeywordAnalysis(
+                    total_keywords=total_keywords,
+                    missing_keywords=len(missing_keywords),
+                    missing_keywords_list=missing_keywords
+                )
+
+                result.append(KeywordScoreAnalysisScript(
+                    role=role,
+                    script_sentence=script_sentence,
+                    actual_sentence=actual_sentence,
+                    keyword_analysis=keyword_analysis
+                ))
+            return self.get_keyword_analysis_response(result)
+        except Exception as e:
+            logger.error("Failed to calculate keyword score using regex.")
+            logger.exception(e)
+            raise HTTPException(status_code=500, detail="Failed to calculate keyword score using regex.")
+    
+    async def get_keyword_score_analysis_llm(self, inputScript, transcript)-> KeywordScoreAnalysisWithScriptResponse:
         try:
             system_message = constants.SYSTEM_PROMPT_KEYWORD_SCORING
             user_prompt = (
@@ -175,19 +240,26 @@ class ScoringService:
             raise HTTPException(status_code=500, detail="Failed to calculate behavioural score for attempt.")
     
     async def calculate_attempt_scores_chat_type(self, inputScript = None, transcript = None):
-        try:  
-            keyword_score_analysis: KeywordScoreAnalysisWithScriptResponse = await self.get_keyword_score_analysis(constants.testInputScript, constants.testScoringTranscript2)
-            context_score_analysis: ContextualScoreAnalysisWithScriptResponse = await self.get_context_score_analysis(constants.testInputScript, constants.testScoringTranscript2)
-            behavioural_score_analysis: BehaviouralScoreAnalysis = await self.get_behavioural_score_analysis(constants.testInputScript, constants.testScoringTranscript2)
-            chat_score_analysis: ChatTypeScoreResponse = ChatTypeScoreResponse(
-                keyword_accuracy=keyword_score_analysis,
-                contextual_accuracy=context_score_analysis,
-                confidence_accuracy=getattr(behavioural_score_analysis, 'confidence_score', None),
-                concentration_accuracy=getattr(behavioural_score_analysis, 'concentration_score', None),
-                energy_accuracy=getattr(behavioural_score_analysis, 'energy_score', None)
+        try:
+            if inputScript and transcript:
+                keyword_score_analysis: KeywordScoreAnalysisWithScriptResponse = await self.get_keyword_score_analysis_regex(inputScript, transcript)
+                context_score_analysis: ContextualScoreAnalysisWithScriptResponse = await self.get_context_score_analysis(inputScript, transcript)
+                behavioural_score_analysis: BehaviouralScoreAnalysis = await self.get_behavioural_score_analysis(inputScript, transcript)
+                chat_score_analysis: ChatTypeScoreResponse = ChatTypeScoreResponse(
+                    keyword_accuracy=keyword_score_analysis,
+                    contextual_accuracy=context_score_analysis,
+                    confidence_accuracy=getattr(behavioural_score_analysis, 'confidence_score', None),
+                    concentration_accuracy=getattr(behavioural_score_analysis, 'concentration_score', None),
+                    energy_accuracy=getattr(behavioural_score_analysis, 'energy_score', None)
+                )
+                return chat_score_analysis
+            return ChatTypeScoreResponse(
+                keyword_accuracy=None,
+                contextual_accuracy=None,
+                confidence_accuracy=None,
+                concentration_accuracy=None,
+                energy_accuracy=None
             )
-            return chat_score_analysis
-            
         except Exception as e:
             logger.error("Failed to get chat simulation score analysis for attempt.")
             logger.exception(e)
