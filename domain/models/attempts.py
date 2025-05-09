@@ -34,7 +34,7 @@ class AttemptModel(BaseModel):
     type: Literal["hotspot", "message"]
     name: Optional[str] = None
     role: Optional[str] = None
-    hotspotType: Optional[Literal["button", "textfield"]] = None
+    hotspotType: Optional[Literal["button", "textfield", 'dropdown']] = None
     coordinates: Optional[CoordinatesModel] = None
     text: Optional[str] = None
     userText: Optional[str] = None

@@ -1567,7 +1567,7 @@ class SimulationService:
                             'role': seq.role,
                             'keywords': []
                         })
-                    if seq.type == 'hotspot' and seq.hotspotType == 'textfield':
+                    if seq.type == 'hotspot' and (seq.hotspotType == 'textfield' or seq.hotspotType == 'dropdown'):
                         data_accuracy_script[seq.id] = seq
 
             for index, slide_script in enumerate(slide_data_script):
@@ -1588,7 +1588,7 @@ class SimulationService:
             scores['ClickScore'] = click_score
 
             #DataAccuracy - get hotspot with textField
-            textfield_hotspots = [item for item in userAttemptSequence if item.type == "hotspot" and item.hotspotType == 'textfield']
+            textfield_hotspots = [item for item in userAttemptSequence if item.type == "hotspot" and (item.hotspotType == 'textfield' or item.hotspotType == 'dropdown')]
             correct_data = sum(1 for textfield_hotspot in textfield_hotspots if textfield_hotspot.userInput == data_accuracy_script[textfield_hotspot.id].settings["expectedValue"])
             wrong_data = len(textfield_hotspots) - correct_data
             total_data = correct_data + wrong_data
