@@ -464,6 +464,7 @@ class TrainingPlanDetailsMinimal(BaseModel):
     completion_percentage: float = 0
     average_score: float = 0
     user: List[TrainingPlanDetailsByUser]
+    est_time: int = 0
 
 
 class ModuleDetailsMinimal(BaseModel):
@@ -472,6 +473,7 @@ class ModuleDetailsMinimal(BaseModel):
     completion_percentage: float = 0
     average_score: float = 0
     user: List[ModuleDetailsByUser]
+    est_time: int = 0
 
 
 class SimulationDetailsMinimal(BaseModel):
@@ -480,6 +482,7 @@ class SimulationDetailsMinimal(BaseModel):
     completion_percentage: float = 0
     average_score: float = 0
     user: List[SimulationDetailsByUser]
+    est_time: int = 0
 
 
 class FetchManagerDashboardResponse(BaseModel):

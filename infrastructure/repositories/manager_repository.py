@@ -150,6 +150,17 @@ class ManagerRepository(IManagerRepository):
                     curr_team_members.append(team_member_id)
                 unique_teams[team_id] = curr_team_members
         return team_ids, unique_teams
+
+    def assign_team_member_ids_to_team_id(self, teams, unique_teams):
+        for team in teams:
+            team_id = team.get("team_id")
+            if not unique_teams.get(team_id):
+                curr_team_members = []
+                for member in team.get("team_members", []):
+                    team_member_id = member.get("user_id")
+                    curr_team_members.append(team_member_id)
+                unique_teams[team_id] = curr_team_members
+        return unique_teams
     
     async def fetch_assignments_by_training_entity(self, user_id: str, reporting_userIds: List[str], reporting_teamIds: List[str],  type: str, filters: Dict, training_entity_filters: Dict, pagination: Optional[PaginationParams] = None):
         logger.info(f"Fetching assignments by training entity for user_id: {user_id}")
@@ -242,46 +253,69 @@ class ManagerRepository(IManagerRepository):
 
             assignments = await self.db.assignments.find(final_query).to_list()
             for assignment in assignments:
+                self.assign_team_member_ids_to_team_id(assignment["teamId"], unique_teams)
                 if assignmentWithUsersAndTeamsObj.get(assignment["id"]):
-                    updated_trainee_ids = assignmentWithUsersAndTeamsObj[assignment["id"]]["traineeId"] + assignment["traineeId"]
-                    updated_teams = assignmentWithUsersAndTeamsObj[assignment["id"]]["teamId"] + assignment["teamId"]
-                    team_ids, unique_teams = self.get_team_ids_from_teams(assignment["teamId"], unique_teams)
-                    updated_team_ids = assignmentWithUsersAndTeamsObj[assignment["id"]]["team_ids"] + team_ids
-                    assignmentWithUsersAndTeamsObj[assignment["id"]].update({
-                        "traineeId": updated_trainee_ids,
-                        "teamId": updated_teams,
-                        "team_ids": updated_team_ids,
-                    })
+                    assignmentWithUsersAndTeamsObj.get(assignment["id"]).append(assignment)
                 else:
-                    assignment["_id"] = str(assignment["_id"])
-                    team_ids, unique_teams = self.get_team_ids_from_teams(assignment['teamId'], unique_teams)
-                    assignment["team_ids"] = team_ids
-                    assignmentWithUsersAndTeamsObj[assignment["id"]] = assignment
+                    assignmentWithUsersAndTeamsObj[assignment["id"]] = [assignment]
             
-            for assignment_id, assignment in assignmentWithUsersAndTeamsObj.items():
-                common_trainee_ids = set(assignment["traineeId"]).intersection(reporting_userIds)
-                filtered_trainee_ids = list(common_trainee_ids) if common_trainee_ids else []
+            unique_user_id_by_assignment = {}
+            unique_team_id_by_assignment = {}
+            assignmentWithUserAttemptsByAssignmentId = {}
 
-                common_team_ids = set(assignment["team_ids"]).intersection(reporting_teamIds)
-                filtered_team_ids = list(common_team_ids) if common_team_ids else []
+            for assignment_id, assigned_assignments in assignmentWithUsersAndTeamsObj.items():
+                if not assignmentWithUserAttemptsByAssignmentId.get(assignment_id):
+                    assignmentWithUserAttemptsByAssignmentId[assignment_id] = []
+                for assignment in assigned_assignments:
+                    if not unique_user_id_by_assignment.get(assignment_id):
+                        unique_user_id_by_assignment[assignment_id] = []
+                    if not unique_team_id_by_assignment.get(assignment_id):
+                        unique_team_id_by_assignment[assignment_id] = []
 
-                for team_id in filtered_team_ids:
-                    if unique_teams.get(team_id):
-                        filtered_trainee_ids.extend(unique_teams[team_id])
+                    # Removing duplicates- if same user has been assigned same training entity before then its not considered 
+                    user_ids_not_previously_assigned = []
+                    for each_trainee_id in assignment["traineeId"]:
+                        if each_trainee_id not in unique_user_id_by_assignment[assignment_id]:
+                            user_ids_not_previously_assigned.append(each_trainee_id)
+                            unique_user_id_by_assignment[assignment_id].append(each_trainee_id)
 
-                assignment.update({
-                    "traineeId": filtered_trainee_ids,
-                    "team_ids": filtered_team_ids
-                })
-                assignmentWithUsersAndTeamsObj[assignment_id] = assignment
-                assignmentWithUsersAndTeamsList.append(assignment)
-            
+                    # Removing duplicates- if same team has been assigned same training entity before then its not considered 
+                    team_ids_not_previously_assigned = []
+                    
+                    for each_team in assignment["teamId"]:
+                        if each_team.get("team_id") not in unique_team_id_by_assignment[assignment_id]:
+                            team_ids_not_previously_assigned.append(each_team.get("team_id"))
+                            unique_team_id_by_assignment[assignment_id].append(each_team.get("team_id"))
+
+                    # Filtering out the trainees that are not reporting to the manager
+                    common_trainee_ids = set(user_ids_not_previously_assigned).intersection(reporting_userIds)
+                    filtered_trainee_ids = list(common_trainee_ids) if common_trainee_ids else []
+
+                    # Filtering out the teams that are not reporting to the manager
+                    common_team_ids = set(team_ids_not_previously_assigned).intersection(reporting_teamIds)
+                    filtered_team_ids = list(common_team_ids) if common_team_ids else []
+
+                    # Add all filtered teams members to the filtered trainee list and also check dupliacates if a certain team member has been assigned same training entity before
+                    for team_id in filtered_team_ids:
+                        if unique_teams.get(team_id):
+                            team_members_ids = unique_teams[team_id]
+                            for each_member_id in team_members_ids:
+                                if each_member_id not in filtered_trainee_ids:
+                                    filtered_trainee_ids.append(each_member_id)
+
+                    assignment.update({
+                        "traineeId": filtered_trainee_ids,
+                        "team_ids": filtered_team_ids
+                    })
+                    #assignmentWithUsersAndTeamsObj[assignment_id] = assignment
+                    #assignmentWithUsersAndTeamsList.append(assignment)
+                    assignmentWithUserAttemptsByAssignmentId[assignment_id].append(assignment)
+                
             if pagination:
                 pagination_params.total_count = total_count
                 pagination_params.total_pages = math.ceil(total_count / pagination_params.pagesize)
-                
-
-            return assignmentWithUsersAndTeamsList, unique_teams, pagination_params
+            
+            return assignmentWithUserAttemptsByAssignmentId, unique_teams, pagination_params
         except Exception as e:
             logger.error(f"Error fetching assignments by training entity: {str(e)}", exc_info=True)
             raise HTTPException(status_code=500, detail=f"Error fetching assignments by training entity: {str(e)}")
@@ -430,122 +464,6 @@ class ManagerRepository(IManagerRepository):
         except Exception as e:
             logger.error(f"Error fetching training plan stats: {str(e)}", exc_info=True)
             return None
-
-    async def get_all_assigments_by_user_details_temp(self,
-        user_id: str, reporting_userIds: List[str], reporting_teamIds: List[str], type: str,
-        filters: Dict, training_entity_filters: Dict, pagination: Optional[PaginationParams] = None) -> FetchManagerDashboardResponse:
-        """Get All Assignments By User Details
-        
-        Returns:
-            FetchManagerDashboardResponse containing training plans, modules, and simulations
-        """
-        logger.info(f"Get All Assignments By User Details user_id={user_id}, reporting_userIds={reporting_userIds}")
-        if pagination:
-            logger.info(f"Pagination={pagination}")
-        
-        try:
-            assignmentWithUsers = []
-            total_count = 0
-
-            assignmentWithUsers, unique_teams = await self.fetch_assignments_by_training_entity(user_id, reporting_userIds, reporting_teamIds, type, filters, training_entity_filters, pagination)
-
-            userMap = {}
-            training_plans = []
-            modules = []
-            simulations = []
-            total_simulations = 0
-
-            for assignment in assignmentWithUsers:
-                logger.debug(f"Processing assignment: {assignment}")
-                if assignment["type"] == "TrainingPlan":
-                    training_plans_by_user = []
-                    training_plan_name = ""
-                    for userId in assignment['traineeId']:
-                        training_plan_user_stats = await self.get_training_plan_stats(assignment, userId)
-                        if training_plan_user_stats:
-                            if userMap.get(userId):
-                                userMap[userId].append(training_plan_user_stats)
-                            else:
-                                userMap[userId] = [training_plan_user_stats]
-                            if training_plan_name == "":
-                                training_plan_name = getattr(training_plan_user_stats, "name", "")
-                            training_plans_by_user.append(training_plan_user_stats)
-                    training_plans.append(
-                        TrainingPlanDetailsMinimal(
-                            id=assignment["id"],
-                            name=training_plan_name,
-                            completion_percentage=0,
-                            average_score=0,
-                            user=training_plans_by_user
-                        ))
-                elif assignment["type"] == "Module":
-                    module_by_user_stats = []
-                    for userId in assignment['traineeId']:
-                        module_details = await self.get_module_stats(assignment["id"], str(assignment["_id"]), userId, assignment["endDate"])
-                        if module_details:
-                            module_by_user_stats.append(module_details)
-                            if userMap.get(userId):
-                                userMap[userId].append(module_by_user_stats)
-                            else:
-                                userMap[userId] = [module_by_user_stats]
-                    modules.append(
-                        ModuleDetailsMinimal(
-                            id=assignment["id"],
-                            name=module_details.name,
-                            completion_percentage=0,
-                            average_score=module_details.average_score,
-                            user=module_by_user_stats
-                        )
-                    )       
-                elif assignment["type"] == "Simulation":
-                    simulation_by_user_stats = []
-                    for userId in assignment['traineeId']:
-                        sim_details = await self.get_simulation_stats(assignment["id"], str(assignment["_id"]), userId, assignment["endDate"])
-                        if sim_details:
-                            simulation_by_user_stats.append(sim_details)
-                            total_simulations += 1
-                            if userMap.get(userId):
-                                userMap[userId].append(simulation_by_user_stats)
-                            else:
-                                userMap[userId] = [simulation_by_user_stats]
-                    simulations.append(
-                        SimulationDetailsMinimal(
-                            id=sim_details.simulation_id,
-                            name=sim_details.name,
-                            completion_percentage=0,
-                            average_score=sim_details.highest_attempt_score,
-                            user=simulation_by_user_stats
-                        )
-                    )
-
-            # Add pagination metadata if pagination is provided
-            if pagination:
-                total_pages = math.ceil(total_count / pagesize)
-                pagination_metadata = PaginationMetadata(
-                    total_count=total_count,
-                    page=page,
-                    pagesize=pagesize,
-                    total_pages=total_pages
-                )
-                logger.info(f"Pagination metadata: {pagination_metadata}")
-                return FetchManagerDashboardResponse(
-                    training_plans=training_plans, 
-                    modules=modules, 
-                    simulations=simulations, 
-                    pagination=pagination_metadata
-                )
-            else:
-                # Return response without pagination metadata
-                return FetchManagerDashboardResponse(
-                    training_plans=training_plans, 
-                    modules=modules, 
-                    simulations=simulations
-                )
-            
-        except Exception as e:
-            logger.error(f"Error Getting All Assignment By User Details {str(e)}", exc_info=True)
-            raise HTTPException(status_code=500, detail=f"Error Getting All Assignment By User Details {str(e)}")
-
     
     async def get_all_assigments_by_user_details(self,
         user_id: str, reporting_userIds: List[str], type: str, 

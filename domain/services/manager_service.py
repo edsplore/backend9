@@ -21,7 +21,6 @@ class ManagerService:
         self.repository = ManagerRepository()
         logger.info("ManagerService initialized.")
 
-    
     def assign_training_entity_stats_agg_metrics(self, assignment_agg_stats_by_training_entity, training_entity: str, training_entity_list):
         for each_assigned_training_entity in training_entity_list:
             for each_assigned_user in each_assigned_training_entity.user:
@@ -59,7 +58,6 @@ class ManagerService:
             else:
                 return 0
         return 0
-    
     async def get_assigments_attempt_stats_by_training_entity(self,
         user_id: str, reporting_userIds: List[str], reporting_teamIds: List[str], type: str,
         filters: Dict, training_entity_filters: Dict, pagination: Optional[PaginationParams] = None) -> FetchManagerDashboardResponse:
@@ -73,8 +71,8 @@ class ManagerService:
             logger.info(f"Pagination={pagination}")
         
         try:
-            assignmentWithUsers = []
-            assignmentWithUsers, unique_teams, pagination_params = await self.repository.fetch_assignments_by_training_entity(user_id, reporting_userIds, reporting_teamIds, type, filters, training_entity_filters, pagination)
+            assignmentWithUserAttemptsByAssignmentId = {}
+            assignmentWithUserAttemptsByAssignmentId, unique_teams, pagination_params = await self.repository.fetch_assignments_by_training_entity(user_id, reporting_userIds, reporting_teamIds, type, filters, training_entity_filters, pagination)
             training_plans = []
             modules = []
             simulations = []
@@ -82,81 +80,103 @@ class ManagerService:
             # key - user_id, value - list of training plan, module, simulation details progress by user
             user_map: Dict[str, List[Union[TrainingPlanDetailsByUser, ModuleDetailsByUser, SimulationDetailsByUser]]] = {}
 
-            for assignment in assignmentWithUsers:
-                logger.debug(f"Processing assignment: {assignment}")
+            for assignment_id, assignment_attempts in assignmentWithUserAttemptsByAssignmentId.items():
+                logger.debug(f"Processing assignment: {assignment_attempts}")
+                training_plans_by_user = []
+                module_by_user_stats = []
+                simulation_by_user_stats = []
+                training_plan_name = ""
+                module_name = ""
+                simulation_name = ""
+                training_plan_est_time = 0
+                module_est_time = 0
+                simulation_est_time = 0
+                id = assignment_id
+                for assignment in assignment_attempts:
+                    if assignment["type"] == "TrainingPlan":
+                        for userId in assignment['traineeId']:
+                            training_plan_user_stats = await self.repository.get_training_plan_stats(assignment, userId)
+                            if training_plan_user_stats:
+                                training_plans_by_user.append(training_plan_user_stats)
+                                if user_map.get(userId):
+                                    user_map[userId].append(training_plan_user_stats)
+                                else:
+                                    user_map[userId] = [training_plan_user_stats]
+                                if training_plan_name == "":
+                                    training_plan_name = getattr(training_plan_user_stats, "name", "")
+                                training_plan_est_time = getattr(training_plan_user_stats, "est_time", 0)
+                    elif assignment["type"] == "Module":
+                        for userId in assignment['traineeId']:
+                            module_details = await self.repository.get_module_stats(assignment["id"], str(assignment["_id"]), userId, assignment["endDate"])
+                            if module_details:
+                                module_by_user_stats.append(module_details)
+                                if user_map.get(userId):
+                                    user_map[userId].append(module_by_user_stats)
+                                else:
+                                    user_map[userId] = [module_by_user_stats]
+                                if module_name == "":
+                                    module_name = getattr(module_details, "name", "")     
+                                module_est_time = getattr(module_details, "est_time", 0)
+                    elif assignment["type"] == "Simulation":
+                        for userId in assignment['traineeId']:
+                            sim_details = await self.repository.get_simulation_stats(assignment["id"], str(assignment["_id"]), userId, assignment["endDate"])
+                            if sim_details:
+                                simulation_by_user_stats.append(sim_details)
+                                total_simulations += 1
+                                if simulation_name == "":
+                                    simulation_name = getattr(sim_details, "name", "")
+                                if user_map.get(userId):
+                                    user_map[userId].append(simulation_by_user_stats)
+                                else:
+                                    user_map[userId] = [simulation_by_user_stats]
+                                simulation_est_time = getattr(sim_details, "est_time", 0)
                 if assignment["type"] == "TrainingPlan":
-                    training_plans_by_user = []
-                    training_plan_name = ""
-                    for userId in assignment['traineeId']:
-                        training_plan_user_stats = await self.repository.get_training_plan_stats(assignment, userId)
-                        if training_plan_user_stats:
-                            if user_map.get(userId):
-                                user_map[userId].append(training_plan_user_stats)
-                            else:
-                                user_map[userId] = [training_plan_user_stats]
-                            if training_plan_name == "":
-                                training_plan_name = getattr(training_plan_user_stats, "name", "")
-                            training_plans_by_user.append(training_plan_user_stats)
                     training_plans.append(
                         TrainingPlanDetailsMinimal(
-                            id=assignment["id"],
+                            id=id,
                             name=training_plan_name,
                             completion_percentage=0,
                             average_score=0,
-                            user=training_plans_by_user
+                            user=training_plans_by_user,
+                            est_time = training_plan_est_time
                         ))
                 elif assignment["type"] == "Module":
-                    module_by_user_stats = []
-                    for userId in assignment['traineeId']:
-                        module_details = await self.repository.get_module_stats(assignment["id"], str(assignment["_id"]), userId, assignment["endDate"])
-                        if module_details:
-                            module_by_user_stats.append(module_details)
-                            if user_map.get(userId):
-                                user_map[userId].append(module_by_user_stats)
-                            else:
-                                user_map[userId] = [module_by_user_stats]
                     modules.append(
                         ModuleDetailsMinimal(
-                            id=assignment["id"],
-                            name=module_details.name,
+                            id=id,
+                            name=module_name,
                             completion_percentage=0,
-                            average_score=module_details.average_score,
-                            user=module_by_user_stats
-                        )
-                    )       
-                elif assignment["type"] == "Simulation":
-                    simulation_by_user_stats = []
-                    for userId in assignment['traineeId']:
-                        sim_details = await self.repository.get_simulation_stats(assignment["id"], str(assignment["_id"]), userId, assignment["endDate"])
-                        if sim_details:
-                            simulation_by_user_stats.append(sim_details)
-                            total_simulations += 1
-                            if user_map.get(userId):
-                                user_map[userId].append(simulation_by_user_stats)
-                            else:
-                                user_map[userId] = [simulation_by_user_stats]
-                    simulations.append(
-                        SimulationDetailsMinimal(
-                            id=sim_details.simulation_id,
-                            name=sim_details.name,
-                            completion_percentage=0,
-                            average_score=sim_details.highest_attempt_score,
-                            user=simulation_by_user_stats
+                            average_score=0,
+                            user=module_by_user_stats,
+                            est_time = module_est_time
                         )
                     )
-            if not pagination:
+                elif assignment["type"] == "Simulation":
+                    simulations.append(
+                        SimulationDetailsMinimal(
+                            id=id,
+                            name=simulation_name,
+                            completion_percentage=0,
+                            average_score=0,
+                            user=simulation_by_user_stats,
+                            est_time = simulation_est_time
+                        )
+                    )
+            if not pagination and not type:
                 # key - team_id, value - list of training plan, module, simulation details progress by each of the team members
                 team_wise_stats: Dict[str, List[Union[TrainingPlanDetailsByUser, ModuleDetailsByUser, SimulationDetailsByUser]]] = {}
-                for assignment in assignmentWithUsers:
-                    if assignment.get("team_ids"):
-                        for team_id in assignment.get("team_ids"):
-                            if unique_teams.get(team_id):
-                                for team_member_id in unique_teams[team_id]:
-                                    if user_map.get(team_member_id):
-                                        if team_wise_stats.get(team_id):
-                                            team_wise_stats[team_id].extend(user_map[team_member_id])
-                                        else:
-                                            team_wise_stats[team_id] = user_map[team_member_id]
+                for assignment_id, assignment_attempts in assignmentWithUserAttemptsByAssignmentId.items():
+                    for assignment_attempt in assignment_attempts:
+                        if assignment_attempt.get("team_ids"):
+                            for team_id in assignment_attempt.get("team_ids"):
+                                if unique_teams.get(team_id):
+                                    for team_member_id in unique_teams[team_id]:
+                                        if user_map.get(team_member_id):
+                                            if team_wise_stats.get(team_id):
+                                                team_wise_stats[team_id].extend(user_map[team_member_id])
+                                            else:
+                                                team_wise_stats[team_id] = user_map[team_member_id]
+            
             # Add pagination metadata if pagination is provided
             if pagination:
                 logger.info(f"Pagination metadata: {pagination_params}")
@@ -383,7 +403,7 @@ class ManagerService:
                     training_entity_filters["team_ids"] = params.trainingEntityTeams
             
             if not pagination and assignment_type:
-                pagination = PaginationParams(page=1, pagesize=5)
+                pagination = PaginationParams(page=0, pagesize=5)
 
             dashboard_response = await self.get_assigments_attempt_stats_by_training_entity(user_id, reporting_userIds, reporting_teamIds, assignment_type, global_filters, training_entity_filters, pagination)
             # Transform the data into the appropriate response format
@@ -427,7 +447,7 @@ class ManagerService:
                     completionRate=completion_rate_percent,  
                     adherenceRate=adherence_rate_percent,  
                     avgScore=avg_score,
-                    estTime=total_est_time,    
+                    estTime=item.est_time,    
                     trainees=trainees,
                     assignedTrainees=assigned_trainees
                 )
