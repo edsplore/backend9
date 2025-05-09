@@ -52,7 +52,7 @@ class ScoringService:
                 total_keywords = 0
                 missing_keywords = 0
                 for entry in keyword_analysis_list:
-                    if entry.role == "Trainee" and entry.keyword_analysis:
+                    if (entry.role == "Trainee" or entry.role == 'assistant') and entry.keyword_analysis:
                         total_keywords += entry.keyword_analysis.total_keywords
                         missing_keywords += entry.keyword_analysis.missing_keywords
             
@@ -89,7 +89,7 @@ class ScoringService:
                 role = script_line["role"]
                 script_sentence = script_line["script_sentence"]
                 actual_sentence = parsed_transcript[i]["actual_sentence"] if i < len(parsed_transcript) else ""
-                if role != "Trainee":
+                if role != "Trainee" and role != 'assistant':
                     result.append(KeywordScoreAnalysisScript(
                         role=role,
                         script_sentence=script_sentence,
@@ -98,7 +98,7 @@ class ScoringService:
                     ))
                     continue
 
-                keywords = [k["text"] for k in script_line["keywords"]]
+                keywords = script_line["keywords"]
                 normalized_actual = self.normalize_text(actual_sentence)
 
                 missing_keywords = []

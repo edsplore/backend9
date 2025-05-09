@@ -1,3 +1,4 @@
+import asyncio
 from typing import Dict, List, Optional
 import json
 import aiohttp
@@ -12,7 +13,7 @@ from infrastructure.database import Database
 from api.schemas.requests import (CreateSimulationRequest,
                                   UpdateSimulationRequest,
                                   CloneSimulationRequest, PaginationParams,
-                                  SimulationScoringMetrics, MetricWeightage)
+                                  SimulationScoringMetrics, MetricWeightage, AttemptModel, ChatHistoryItem)
 from api.schemas.responses import SimulationByIDResponse, SimulationData
 from fastapi import HTTPException, UploadFile
 from semantic_kernel import Kernel
@@ -25,7 +26,10 @@ from semantic_kernel.connectors.ai.open_ai.prompt_execution_settings.azure_chat_
 from api.schemas.responses import (StartVisualAudioPreviewResponse,
                                    StartVisualChatPreviewResponse,
                                    StartVisualPreviewResponse, SimulationData,
-                                   SimulationByIDResponse)
+                                   SimulationByIDResponse, EndSimulationResponse)
+
+from domain.services.scoring_service import ScoringService
+
 from bson import ObjectId
 
 from utils.logger import Logger
@@ -62,6 +66,8 @@ class SimulationService:
             logger.debug("Connecting to database...")
             self.db = Database()
             logger.info("Database initialized successfully.")
+            
+            self.scoring_service = ScoringService();
         except Exception as e:
             logger.error("Failed to initialize database.")
             logger.exception(e)
@@ -1469,3 +1475,333 @@ class SimulationService:
             raise HTTPException(
                 status_code=500,
                 detail=f"Error fetching simulation by ID: {str(e)}")
+        
+    async def end_visual_audio_attempt(self, user_id: str, simulation_id: str, usersimulationprogress_id: str, userAttemptSequence: List[AttemptModel]) -> EndSimulationResponse:
+        logger.info(f"Ending Visual Audio Attempt: {simulation_id}")
+        try:
+
+            scores = {
+                'SimAccuracy': 0,
+                'KeywordScore': 0,
+                'ClickScore': 0,
+                'Confidence': 0,
+                'Energy': 0,
+                'Concentration': 0
+            }
+
+            # Keyword Scores 
+            
+
+            #Click Accurracy
+            wrong_click = sum(1 for userAttempt in userAttemptSequence if userAttempt.type == 'wrong_click')
+            correct_click = sum(1 for userAttempt in userAttemptSequence if userAttempt.type == 'hotspot')
+            total_clicks = wrong_click + correct_click
+            click_score = (correct_click / total_clicks) * 100 if total_clicks > 0 else 0
+            scores['ClickScore'] = click_score
+
+            update_doc = {
+                "status": "completed",
+                "transcript": "",
+                "audioUrl": "",
+                "duration": 0,
+                "scores": scores,
+                "completedAt": datetime.utcnow(),
+                "lastModifiedAt": datetime.utcnow(),
+                "userAttemptSequence": [attempt.dict() for attempt in userAttemptSequence] 
+            }
+
+            response = await self.db.user_sim_progress.update_one(
+                {"_id": ObjectId(usersimulationprogress_id)},
+                {"$set": update_doc})
+            
+            print("response ====== ",response)
+
+            return EndSimulationResponse(id=usersimulationprogress_id,
+                                         status="success",
+                                         scores={},
+                                         duration=0,
+                                         transcript="",
+                                         audio_url="")
+        except Exception as e:
+            logger.error(f"Error End Visual Audio Attempt by ID: {str(e)}",
+                         exc_info=True)
+            raise HTTPException(
+                status_code=500,
+                detail=f"Error End Visual Audio Attempt by ID: {str(e)}")
+    
+    async def end_visual_chat_attempt(self, user_id: str, simulation_id: str, usersimulationprogress_id: str, userAttemptSequence: List[AttemptModel]) -> EndSimulationResponse:
+        logger.info(f"Ending Visual Chat Attempt: {simulation_id}")
+        try:
+
+            transcript = ""
+            scores = {
+                'SimAccuracy': 0,
+                'KeywordScore': 0,
+                'ClickScore': 0,
+                'Confidence': 0,
+                'Energy': 0,
+                'Concentration': 0
+            }
+
+
+            # Filter message entries
+            messages = [item for item in userAttemptSequence if item.type == "message"]
+
+            for message in messages:
+                role = message.role if message.role is not None else "Unknown"
+                user_text = message.userText.strip()
+                if user_text:
+                    transcript = transcript + (f"{role}: {user_text}\n")
+
+            simulation: SimulationByIDResponse = await self.get_simulation_by_id(simulation_id);
+            main_script = simulation.simulation.script
+            slide_data_script = []
+
+            for slide in simulation.simulation.slidesData:
+                for seq in slide.sequence:
+                    if seq.type == 'message':
+                        slide_data_script.append({
+                            'script_sentence': seq.text,
+                            'role': seq.role,
+                            'keywords': []
+                        })
+
+            for index, slide_script in enumerate(slide_data_script):
+                for script in main_script:
+                    if slide_script['script_sentence'].strip() == re.sub('<.*?>', '', script.script_sentence).strip():
+                        if script.keywords:
+                            slide_data_script[index]['keywords'] = script.keywords.copy()
+
+            keyword_score = await self.scoring_service.get_keyword_score_analysis_regex(slide_data_script, transcript);
+            if keyword_score:
+                scores['KeywordScore'] = keyword_score.keyword_score
+
+            #Click Accurracy
+            wrong_click = sum(len(userAttempt.wrong_clicks) for userAttempt in userAttemptSequence if userAttempt.wrong_clicks)
+            correct_click = sum(1 for userAttempt in userAttemptSequence if userAttempt.type == 'hotspot' and userAttempt.isClicked)
+            total_clicks = wrong_click + correct_click
+            click_score = (correct_click / total_clicks) * 100 if total_clicks > 0 else 0
+            scores['ClickScore'] = click_score
+
+            update_doc = {
+                "status": "completed",
+                "transcript": transcript,
+                "chatHistory": [],
+                "duration": 0,
+                "scores": scores,
+                "completedAt": datetime.utcnow(),
+                "lastModifiedAt": datetime.utcnow(),
+                "userAttemptSequence": [attempt.dict() for attempt in userAttemptSequence] 
+            }
+
+            await self.db.user_sim_progress.update_one(
+                {"_id": ObjectId(usersimulationprogress_id)},
+                {"$set": update_doc})
+
+            return EndSimulationResponse(id=usersimulationprogress_id,
+                                         status="success",
+                                         scores=scores,
+                                         duration=0,
+                                         transcript=transcript,
+                                         audio_url="")
+        except Exception as e:
+            logger.error(f"Error ending Visual Chat Attempt by ID: {str(e)}",
+                            exc_info=True)
+            raise HTTPException(
+                status_code=500,
+                detail=f"Error ending Visual Chat Attempt by ID: {str(e)}")
+
+
+    async def end_chat_simulation(self, user_id: str, simulation_id: str, usersimulationprogress_id: str, chat_history: List[ChatHistoryItem]) -> EndSimulationResponse:
+        try:
+            sim: SimulationByIDResponse = await self.get_simulation_by_id(simulation_id);
+            if not sim:
+                logger.warning(
+                    f"Simulation {simulation_id} not found for end_chat_simulation."
+                )
+                raise HTTPException(
+                    status_code=404,
+                    detail=
+                    f"Simulation with id {simulation_id} not found")
+
+            scores = {
+                'SimAccuracy': 0,
+                'KeywordScore': 0,
+                'ClickScore': 0,
+                'Confidence': 0,
+                'Energy': 0,
+                'Concentration': 0
+            }
+            
+            original_script = [
+                                {
+                                    **s.dict(),
+                                    "script_sentence": re.sub('<.*?>', '', s.script_sentence) 
+                                }
+                                for s in sim.simulation.script
+                            ]
+
+            transcript = "\n".join(f"{msg.role}: {msg.sentence}"
+                                   for msg in chat_history)
+            
+            keyword_score = await self.scoring_service.get_keyword_score_analysis_regex(original_script, transcript);
+            if keyword_score:
+                scores['KeywordScore'] = keyword_score.keyword_score
+            
+            duration = 300  # 5 minutes default for chat simulations
+
+            update_doc = {
+                "status": "completed",
+                "transcript": transcript,
+                "chatHistory": [msg.dict() for msg in chat_history],
+                "duration": duration,
+                "scores": scores,
+                "completedAt": datetime.utcnow(),
+                "lastModifiedAt": datetime.utcnow()
+            }
+
+            await self.db.user_sim_progress.update_one(
+                {"_id": ObjectId(usersimulationprogress_id)},
+                {"$set": update_doc})
+
+            logger.info(
+                f"Chat simulation ended. ID={usersimulationprogress_id}"
+            )
+            return EndSimulationResponse(id=usersimulationprogress_id,
+                                         status="success",
+                                         scores=scores,
+                                         duration=duration,
+                                         transcript=transcript,
+                                         audio_url="")
+        except Exception as e:
+            logger.error(f"Error ending Chat Attempt by ID: {str(e)}",
+                            exc_info=True)
+            raise HTTPException(
+                status_code=500,
+                detail=f"Error ending Chat Attempt by ID: {str(e)}")
+        
+    async def end_audio_simulation(self, user_id: str, simulation_id: str, usersimulationprogress_id: str, call_id: str) -> EndSimulationResponse:
+        try:
+            await asyncio.sleep(15)
+            async with aiohttp.ClientSession() as session:
+                headers = {"Authorization": f"Bearer {RETELL_API_KEY}"}
+                url = f"https://api.retellai.com/v2/get-call/{call_id}"
+
+                async with session.get(url, headers=headers) as response:
+                    if response.status != 200:
+                        logger.warning(
+                            f"Failed to fetch call details. Status: {response.status}"
+                        )
+                        raise HTTPException(
+                            status_code=response.status,
+                            detail="Failed to fetch call details from Retell AI"
+                        )
+                    call_data = await response.json()
+
+            sim: SimulationByIDResponse = await self.get_simulation_by_id(simulation_id);
+            if not sim:
+                logger.warning(
+                    f"Simulation {simulation_id} not found for end_chat_simulation."
+                )
+                raise HTTPException(
+                    status_code=404,
+                    detail=
+                    f"Simulation with id {simulation_id} not found")
+
+            scores = {
+                'SimAccuracy': 0,
+                'KeywordScore': 0,
+                'ClickScore': 0,
+                'Confidence': 0,
+                'Energy': 0,
+                'Concentration': 0
+            }
+            original_script = [
+                                {
+                                    **s.dict(),
+                                    "script_sentence": re.sub('<.*?>', '', s.script_sentence) 
+                                }
+                                for s in sim.simulation.script]
+            transcript = call_data.get("transcript", "").replace("User", "Customer").replace("Agent", "Trainee")
+            
+            keyword_score = await self.scoring_service.get_keyword_score_analysis_regex(original_script, transcript);
+            if keyword_score:
+                scores['KeywordScore'] = keyword_score.keyword_score
+          
+            transcriptObject = call_data.get("transcript_object", {})
+            duration = (call_data.get("end_timestamp", 0) -
+                        call_data.get("start_timestamp", 0)) // 1000
+
+            update_doc = {
+                "status": "completed",
+                "transcript": transcript,
+                "transcriptObject": transcriptObject,
+                "audioUrl": call_data.get("recording_url", ""),
+                "duration": duration,
+                "scores": scores,
+                "completedAt": datetime.utcnow(),
+                "lastModifiedAt": datetime.utcnow()
+            }
+
+            await self.db.user_sim_progress.update_one(
+                {"_id": ObjectId(usersimulationprogress_id)},
+                {"$set": update_doc})
+
+            logger.info(
+                f"Audio simulation ended. ID={usersimulationprogress_id}"
+            )
+            return EndSimulationResponse(id=usersimulationprogress_id,
+                                         status="success",
+                                         scores=scores,
+                                         duration=duration,
+                                         transcript=transcript,
+                                         audio_url=call_data.get(
+                                             "recording_url", ""))
+        except HTTPException as he:
+            raise he
+        except Exception as e:
+            logger.error(f"Error ending audio simulation: {e}", exc_info=True)
+            raise HTTPException(
+                status_code=500,
+                detail=f"Error ending audio simulation: {str(e)}")
+        
+    async def end_visual_attempt(self, user_id: str, simulation_id: str, usersimulationprogress_id: str, userAttemptSequence: List[AttemptModel]) -> EndSimulationResponse:
+        try:
+            scores = {
+                'SimAccuracy': 0,
+                'KeywordScore': 0,
+                'ClickScore': 0,
+                'Confidence': 0,
+                'Energy': 0,
+                'Concentration': 0
+            }
+
+            #Click Accurracy
+            wrong_click = sum(len(userAttempt.wrong_clicks) for userAttempt in userAttemptSequence if userAttempt.wrong_clicks)
+            correct_click = sum(1 for userAttempt in userAttemptSequence if userAttempt.type == 'hotspot' and userAttempt.isClicked)
+            total_clicks = wrong_click + correct_click
+            click_score = (correct_click / total_clicks) * 100 if total_clicks > 0 else 0
+            scores['ClickScore'] = click_score
+             
+            update_doc = {
+                "status": "completed",
+                "duration": 0,
+                "scores": scores,
+                "completedAt": datetime.utcnow(),
+                "lastModifiedAt": datetime.utcnow()
+            }
+
+            await self.db.user_sim_progress.update_one(
+                {"_id": ObjectId(usersimulationprogress_id)},
+                {"$set": update_doc})
+
+            return EndSimulationResponse(id=usersimulationprogress_id,
+                                         status="success",
+                                         scores={},
+                                         duration=0,
+                                         transcript="",
+                                         audio_url="")
+        except Exception as e:
+            logger.error(f"[end_visual_attempt] {str(e)}", exc_info=True)
+            raise HTTPException(status_code=500,
+                                detail="Internal server error")

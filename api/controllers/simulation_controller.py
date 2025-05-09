@@ -459,63 +459,8 @@ class SimulationController:
             self, request: EndAudioSimulationRequest) -> EndSimulationResponse:
         logger.info("Received request to end audio simulation.")
         try:
-            async with aiohttp.ClientSession() as session:
-                headers = {"Authorization": f"Bearer {RETELL_API_KEY}"}
-                url = f"https://api.retellai.com/v2/get-call/{request.call_id}"
-
-                async with session.get(url, headers=headers) as response:
-                    if response.status != 200:
-                        logger.warning(
-                            f"Failed to fetch call details. Status: {response.status}"
-                        )
-                        raise HTTPException(
-                            status_code=response.status,
-                            detail="Failed to fetch call details from Retell AI"
-                        )
-                    call_data = await response.json()
-
-            sim = await self.db.simulations.find_one(
-                {"_id": ObjectId(request.simulation_id)})
-            if not sim:
-                logger.warning(
-                    f"Simulation {request.simulation_id} not found for end_audio_simulation."
-                )
-                raise HTTPException(
-                    status_code=404,
-                    detail=
-                    f"Simulation with id {request.simulation_id} not found")
-
-            transcript = call_data.get("transcript", "")
-            scores = await self._calculate_scores(sim, transcript)
-            transcriptObject = call_data.get("transcript_object", {})
-            duration = (call_data.get("end_timestamp", 0) -
-                        call_data.get("start_timestamp", 0)) // 1000
-
-            update_doc = {
-                "status": "completed",
-                "transcript": transcript,
-                "transcriptObject": transcriptObject,
-                "audioUrl": call_data.get("recording_url", ""),
-                "duration": duration,
-                "scores": scores,
-                "completedAt": datetime.utcnow(),
-                "lastModifiedAt": datetime.utcnow()
-            }
-
-            await self.db.user_sim_progress.update_one(
-                {"_id": ObjectId(request.usersimulationprogress_id)},
-                {"$set": update_doc})
-
-            logger.info(
-                f"Audio simulation ended. ID={request.usersimulationprogress_id}"
-            )
-            return EndSimulationResponse(id=request.usersimulationprogress_id,
-                                         status="success",
-                                         scores=scores,
-                                         duration=duration,
-                                         transcript=transcript,
-                                         audio_url=call_data.get(
-                                             "recording_url", ""))
+            end_simulation = await self.service.end_audio_simulation(request.user_id, request.simulation_id, request.usersimulationprogress_id, request.call_id)
+            return end_simulation
         except HTTPException as he:
             raise he
         except Exception as e:
@@ -528,45 +473,8 @@ class SimulationController:
             self, request: EndChatSimulationRequest) -> EndSimulationResponse:
         logger.info("Received request to end chat simulation.")
         try:
-            sim = await self.db.simulations.find_one(
-                {"_id": ObjectId(request.simulation_id)})
-            if not sim:
-                logger.warning(
-                    f"Simulation {request.simulation_id} not found for end_chat_simulation."
-                )
-                raise HTTPException(
-                    status_code=404,
-                    detail=
-                    f"Simulation with id {request.simulation_id} not found")
-
-            transcript = "\n".join(f"{msg.role}: {msg.sentence}"
-                                   for msg in request.chat_history)
-            scores = await self._calculate_scores(sim, transcript)
-            duration = 300  # 5 minutes default for chat simulations
-
-            update_doc = {
-                "status": "completed",
-                "transcript": transcript,
-                "chatHistory": [msg.dict() for msg in request.chat_history],
-                "duration": duration,
-                "scores": scores,
-                "completedAt": datetime.utcnow(),
-                "lastModifiedAt": datetime.utcnow()
-            }
-
-            await self.db.user_sim_progress.update_one(
-                {"_id": ObjectId(request.usersimulationprogress_id)},
-                {"$set": update_doc})
-
-            logger.info(
-                f"Chat simulation ended. ID={request.usersimulationprogress_id}"
-            )
-            return EndSimulationResponse(id=request.usersimulationprogress_id,
-                                         status="success",
-                                         scores=scores,
-                                         duration=duration,
-                                         transcript=transcript,
-                                         audio_url="")
+           end_simulation = await self.service.end_chat_simulation(request.user_id, request.simulation_id, request.usersimulationprogress_id, request.chat_history)
+           return end_simulation
         except HTTPException as he:
             raise he
         except Exception as e:
@@ -769,26 +677,9 @@ class SimulationController:
             self,
             request: EndVisualAudioAttemptRequest) -> EndSimulationResponse:
         try:
-            update_doc = {
-                "status": "completed",
-                "transcript": "",
-                "audioUrl": "",
-                "duration": 0,
-                "scores": {},
-                "completedAt": datetime.utcnow(),
-                "lastModifiedAt": datetime.utcnow()
-            }
-
-            await self.db.user_sim_progress.update_one(
-                {"_id": ObjectId(request.usersimulationprogress_id)},
-                {"$set": update_doc})
-
-            return EndSimulationResponse(id=request.usersimulationprogress_id,
-                                         status="success",
-                                         scores={},
-                                         duration=0,
-                                         transcript="",
-                                         audio_url="")
+            simulation = await self.service.end_visual_audio_attempt(request.user_id, request.simulation_id, request.usersimulationprogress_id, request.userAttemptSequence)
+            logger.info(f"Ended {simulation} attempts for user {request.user_id}")
+            return simulation
         except Exception as e:
             logger.error(f"[end_visual_audio_attempt] {str(e)}", exc_info=True)
             raise HTTPException(status_code=500,
@@ -798,29 +689,9 @@ class SimulationController:
             self,
             request: EndVisualChatAttemptRequest) -> EndSimulationResponse:
         try:
-            transcript = ""
-            scores = {}
-
-            update_doc = {
-                "status": "completed",
-                "transcript": transcript,
-                "chatHistory": [],
-                "duration": 0,
-                "scores": scores,
-                "completedAt": datetime.utcnow(),
-                "lastModifiedAt": datetime.utcnow()
-            }
-
-            await self.db.user_sim_progress.update_one(
-                {"_id": ObjectId(request.usersimulationprogress_id)},
-                {"$set": update_doc})
-
-            return EndSimulationResponse(id=request.usersimulationprogress_id,
-                                         status="success",
-                                         scores=scores,
-                                         duration=0,
-                                         transcript=transcript,
-                                         audio_url="")
+            simulation = await self.service.end_visual_chat_attempt(request.user_id, request.simulation_id, request.usersimulationprogress_id, request.userAttemptSequence)
+            logger.info(f"Ended {simulation} attempts for user {request.user_id}")
+            return simulation
         except Exception as e:
             logger.error(f"[end_visual_chat_attempt] {str(e)}", exc_info=True)
             raise HTTPException(status_code=500,
@@ -829,24 +700,9 @@ class SimulationController:
     async def end_visual_attempt(
             self, request: EndVisualAttemptRequest) -> EndSimulationResponse:
         try:
-            update_doc = {
-                "status": "completed",
-                "duration": 0,
-                "scores": {},
-                "completedAt": datetime.utcnow(),
-                "lastModifiedAt": datetime.utcnow()
-            }
-
-            await self.db.user_sim_progress.update_one(
-                {"_id": ObjectId(request.usersimulationprogress_id)},
-                {"$set": update_doc})
-
-            return EndSimulationResponse(id=request.usersimulationprogress_id,
-                                         status="success",
-                                         scores={},
-                                         duration=0,
-                                         transcript="",
-                                         audio_url="")
+            simulation = await self.service.end_visual_attempt(request.user_id, request.simulation_id, request.usersimulationprogress_id, request.userAttemptSequence)
+            logger.info(f"Ended {simulation} attempts for user {request.user_id}")
+            return simulation
         except Exception as e:
             logger.error(f"[end_visual_attempt] {str(e)}", exc_info=True)
             raise HTTPException(status_code=500,
