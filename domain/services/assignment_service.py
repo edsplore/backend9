@@ -21,12 +21,38 @@ class AssignmentService:
         self.db = Database()
         logger.info("AssignmentService initialized.")
 
+    # New method in your service class
+    async def assignment_name_exists(self, name: str) -> bool:
+        """Check if a simulation with the given name already exists"""
+        logger.info(f"Checking if simulation name '{name}' exists")
+        try:
+            # Query the database for simulations with the same name
+            count = await self.db.assignments.count_documents({"name": name})
+            return count > 0
+        except Exception as e:
+            logger.error(f"Error checking simulation name existence: {str(e)}",
+                         exc_info=True)
+            raise HTTPException(
+                status_code=500,
+                detail=f"Error checking simulation name: {str(e)}")
+            
     async def create_assignment(self,
                                 request: CreateAssignmentRequest) -> Dict:
         """Create a new assignment"""
         logger.info("Received request to create a new assignment.")
         logger.debug(f"Assignment request data: {request.dict()}")
         try:
+            # Check if a simulation with this name already exists
+            name_exists = await self.assignment_name_exists(request.name)
+            if name_exists:
+                logger.warning(
+                    f"Assignment with name '{request.name}' already exists")
+                # Return a specific error for duplicate names
+                return {
+                    "status": "error",
+                    "message": "Assignment with this name already exists",
+                }
+                
             assignment_doc = {
                 "id": request.id,
                 "name": request.name,
@@ -160,6 +186,9 @@ class AssignmentService:
                     }, {
                         "type": search_regex
                     }]
+
+                if pagination.type:
+                    query["type"] = pagination.type
 
                 # Apply created by filter if provided
                 if pagination.createdBy:

@@ -13,6 +13,7 @@ class PaginationParams(BaseModel):
     page: int = 1
     pagesize: int = 50
     search: Optional[str] = None
+    type: Optional[str] = None
     sortBy: Optional[str] = None
     sortDir: SortDirection = SortDirection.ASC
     tags: Optional[List[str]] = None
