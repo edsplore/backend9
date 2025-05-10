@@ -151,21 +151,22 @@ class SimulationController:
     async def start_audio_simulation_preview(
         self, request: StartAudioSimulationPreviewRequest
     ) -> StartAudioSimulationPreviewResponse:
-
         logger.info("Received request to start audio simulation preview.")
         try:
-
             result = await self.service.start_audio_simulation_preview(
-                request.sim_id, request.user_id)
+                request.sim_id, request.user_id
+            )
             logger.info(
                 f"Audio simulation preview started. Access token: {result['access_token']}"
             )
             return StartAudioSimulationPreviewResponse(
-                access_token=result["access_token"])
+                access_token=result["access_token"],
+                simulation_details=result["simulation_details"],
+            )  # Added simulation details
         except Exception as e:
-            logger.error(f"Error starting audio simulation preview: {e}",
-                         exc_info=True)
+            logger.error(f"Error starting audio simulation preview: {e}", exc_info=True)
             raise
+
 
     async def start_visual_audio_preview(
         self, request: StartVisualAudioPreviewRequest
@@ -304,9 +305,77 @@ class SimulationController:
                 "callId": web_call.get("call_id"),
                 "accessToken": web_call.get("access_token"),
                 "createdAt": datetime.utcnow(),
-                "lastModifiedAt": datetime.utcnow()
+                "lastModifiedAt": datetime.utcnow(),
             }
             result = await self.db.user_sim_progress.insert_one(progress_doc)
+
+            # Extract simulation details for response
+            sim_details = {
+                "sim_name":
+                simulation.get("name", ""),
+                "version":
+                simulation.get("version", ""),
+                "lvl1":
+                simulation.get("lvl1", {}),
+                "lvl2":
+                simulation.get("lvl2", {}),
+                "lvl3":
+                simulation.get("lvl3", {}),
+                "sim_type":
+                simulation.get("type", ""),
+                "status":
+                simulation.get("status", ""),
+                "tags":
+                simulation.get("tags", []),
+                "est_time":
+                simulation.get("est_time", ""),
+                "last_modified":
+                simulation.get("last_modified", ""),
+                "modified_by":
+                simulation.get("modified_by", ""),
+                "created_on":
+                simulation.get("created_on", ""),
+                "created_by":
+                simulation.get("created_by", ""),
+                "islocked":
+                simulation.get("islocked", False),
+                "division_id":
+                simulation.get("divisionId", ""),
+                "department_id":
+                simulation.get("departmentId", ""),
+                "voice_id":
+                simulation.get("voice_id"),
+                "script":
+                simulation.get("script"),
+                "slidesData":
+                simulation.get("slidesData"),
+                "prompt":
+                simulation.get("prompt"),
+                "key_objectives":
+                simulation.get("keyObjectives"),
+                "overview_video":
+                simulation.get("overviewVideo"),
+                "quick_tips":
+                simulation.get("quickTips"),
+                "simulation_completion_repetition":
+                simulation.get("simulationCompletionRepetition"),
+                "simulation_max_repetition":
+                simulation.get("simulation_max_repetition"),
+                "final_simulation_score_criteria":
+                simulation.get("finalSimulationScoreCriteria"),
+                "simulation_scoring_metrics":
+                simulation.get("simulation_scoring_metrics"),
+                "metric_weightage":
+                simulation.get("metric_weightage"),
+                "sim_practice":
+                simulation.get("simPractice"),
+                "estimated_time_to_attempt_in_mins":
+                simulation.get("estimatedTimeToAttemptInMins"),
+                "mood":
+                simulation.get("mood"),
+                "voice_speed":
+                simulation.get("voice_speed"),
+            }
 
             logger.info(
                 f"Audio simulation started. call_id={web_call['call_id']}")
@@ -314,7 +383,9 @@ class SimulationController:
                 id=str(result.inserted_id),
                 status="success",
                 access_token=web_call["access_token"],
-                call_id=web_call["call_id"])
+                call_id=web_call["call_id"],
+                simulation_details=sim_details,
+            )  # Added simulation details to response
         except Exception as e:
             logger.error(f"Error starting audio simulation: {e}",
                          exc_info=True)
@@ -873,6 +944,7 @@ async def update_simulation(
         form_data = await req.form()
         data = dict(form_data)
         import json
+
         json_fields = [
             "script",
             "slidesData",
@@ -883,6 +955,7 @@ async def update_simulation(
             "lvl2",
             "lvl3",
             "simulation_scoring_metrics",
+            "metric_weightage",
             "sim_practice",
         ]
         for field_name in json_fields:
@@ -891,7 +964,6 @@ async def update_simulation(
                     data[field_name] = json.loads(data[field_name])
                 except Exception as e:
                     logger.debug(f"Could not parse '{field_name}': {e}")
-
         slides_files = {}
         for key, value in form_data.multi_items():
             if key.startswith("slide_"):
@@ -899,14 +971,13 @@ async def update_simulation(
                 slides_files[image_id] = value
                 logger.debug(
                     f"Found file for image ID {image_id}: {value.filename}")
-
     from api.schemas.requests import UpdateSimulationRequest
+
     try:
         update_request = UpdateSimulationRequest.parse_obj(data)
     except Exception as e:
         logger.error("Error parsing UpdateSimulationRequest", exc_info=True)
         raise HTTPException(status_code=422, detail="Request validation error")
-
     logger.info(
         f"Forwarding update simulation request to controller for sim_id={sim_id}"
     )

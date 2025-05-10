@@ -1,8 +1,13 @@
+sudo lsof -i :3000
+
+nohup uvicorn main:app --host 0.0.0.0 --port 3000 > fastapi_output.log 2>&1 &
+
+tail -f fastapi_output.log
 fetch assignments
 
 # Example 1 – simple pagination for assignments
 curl -X POST \
-  'https://9801e0d2-eaff-4aa0-843f-36000db37c9e-00-1j8cq2p4gyd6h.pike.replit.dev/fetch-assignments' \
+  'https://1d1af155-4b31-443e-b7f4-734bf003281a-00-6px8vaye8p33.pike.replit.dev/fetch-assignments' \
   -H 'Content-Type: application/json' \
   --data '{"pagination":{"page":1,"pagesize":20}}'
 

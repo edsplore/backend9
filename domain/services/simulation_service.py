@@ -11,7 +11,8 @@ from config import (AZURE_OPENAI_DEPLOYMENT_NAME, AZURE_OPENAI_KEY,
 from infrastructure.database import Database
 from api.schemas.requests import (CreateSimulationRequest,
                                   UpdateSimulationRequest,
-                                  CloneSimulationRequest, PaginationParams)
+                                  CloneSimulationRequest, PaginationParams,
+                                  SimulationScoringMetrics, MetricWeightage)
 from api.schemas.responses import SimulationByIDResponse, SimulationData
 from fastapi import HTTPException, UploadFile
 from semantic_kernel import Kernel
@@ -369,7 +370,7 @@ class SimulationService:
                 "version": "version",
                 "assistant_id": "assistantId",
                 "slides": "slides",
-                "voice_id": "voice_id",
+                "voice_id": "voiceId",
             }
             for field, doc_field in field_mappings.items():
                 add_if_exists(field, doc_field)
@@ -386,7 +387,9 @@ class SimulationService:
                     update_doc["prompt"] = prompt
 
             if request.slidesData is not None and sim_type in [
-                    "visual-audio", "visual-chat", "visual"
+                    "visual-audio",
+                    "visual-chat",
+                    "visual",
             ]:
                 processed_slides = []
                 logger.debug("Processing slidesData for visual simulation.")
@@ -490,11 +493,31 @@ class SimulationService:
             if request.simulation_scoring_metrics is not None:
                 logger.debug("Updating simulation scoring metrics.")
                 update_doc["simulationScoringMetrics"] = {
-                    "isEnabled": request.simulation_scoring_metrics.is_enabled,
+                    "isEnabled":
+                    request.simulation_scoring_metrics.is_enabled,
                     "keywordScore":
                     request.simulation_scoring_metrics.keyword_score,
                     "clickScore":
                     request.simulation_scoring_metrics.click_score,
+                    "pointsPerKeyword":
+                    request.simulation_scoring_metrics.points_per_keyword,
+                    "pointsPerClick":
+                    request.simulation_scoring_metrics.points_per_click,
+                }
+
+            if request.metric_weightage is not None:
+                logger.debug("Updating metric weightage.")
+                update_doc["metricWeightage"] = {
+                    "clickAccuracy":
+                    request.metric_weightage.click_accuracy,
+                    "keywordAccuracy":
+                    request.metric_weightage.keyword_accuracy,
+                    "dataEntryAccuracy":
+                    request.metric_weightage.data_entry_accuracy,
+                    "contextualAccuracy":
+                    request.metric_weightage.contextual_accuracy,
+                    "sentimentMeasures":
+                    request.metric_weightage.sentiment_measures,
                 }
 
             if request.sim_practice is not None:
@@ -532,7 +555,8 @@ class SimulationService:
                             update_doc["script"]) > 0:
                         first_role = update_doc["script"][0].get("role",
                                                                  "").lower()
-                        assistant_first = first_role == "assistant" or first_role == "customer"
+                        assistant_first = (first_role == "assistant"
+                                           or first_role == "customer")
                         logger.debug(
                             f"First script role is {first_role}, assistant_first={assistant_first}"
                         )
@@ -595,6 +619,34 @@ class SimulationService:
                     status_code=404,
                     detail=f"Simulation with id {sim_id} not found")
 
+            # Extract simulation scoring metrics with new fields
+            simulation_scoring_metrics = None
+            if simulation_doc.get("simulationScoringMetrics"):
+                sim_metrics = simulation_doc.get("simulationScoringMetrics",
+                                                 {})
+                simulation_scoring_metrics = SimulationScoringMetrics(
+                    is_enabled=sim_metrics.get("isEnabled", False),
+                    keyword_score=sim_metrics.get("keywordScore", 0),
+                    click_score=sim_metrics.get("clickScore", 0),
+                    points_per_keyword=sim_metrics.get("pointsPerKeyword", 1),
+                    points_per_click=sim_metrics.get("pointsPerClick", 1),
+                )
+
+            # Extract metric weightage
+            metric_weightage = None
+            if simulation_doc.get("metricWeightage"):
+                metric_weights = simulation_doc.get("metricWeightage", {})
+                metric_weightage = MetricWeightage(
+                    click_accuracy=metric_weights.get("clickAccuracy", 0),
+                    keyword_accuracy=metric_weights.get("keywordAccuracy", 0),
+                    data_entry_accuracy=metric_weights.get(
+                        "dataEntryAccuracy", 0),
+                    contextual_accuracy=metric_weights.get(
+                        "contextualAccuracy", 0),
+                    sentiment_measures=metric_weights.get(
+                        "sentimentMeasures", 0),
+                )
+
             simulation = SimulationData(
                 id=str(simulation_doc["_id"]),
                 sim_name=simulation_doc.get("name", ""),
@@ -616,11 +668,14 @@ class SimulationService:
                 division_id=simulation_doc.get("divisionId", ""),
                 department_id=simulation_doc.get("departmentId", ""),
                 script=simulation_doc.get("script", []),
-                voice_id=simulation_doc.get("voice_id", "11labs-Adrian"),
+                voice_id=simulation_doc.get("voiceId", "11labs-Adrian"),
                 lvl1=simulation_doc.get("lvl1", {}),
                 lvl2=simulation_doc.get("lvl2", {}),
                 lvl3=simulation_doc.get("lvl3", {}),
-                slidesData=simulation_doc.get("slidesData", []))
+                slidesData=simulation_doc.get("slidesData", []),
+                simulation_scoring_metrics=simulation_scoring_metrics,
+                metric_weightage=metric_weightage,
+            )
 
             images = []
             if simulation_doc.get("slidesData"):
@@ -636,7 +691,7 @@ class SimulationService:
                                     slide["imageId"],
                                     "image_data":
                                     base64.b64encode(
-                                        image_doc["data"]).decode("utf-8")
+                                        image_doc["data"]).decode("utf-8"),
                                 })
                         except Exception as image_err:
                             logger.warning(
@@ -675,6 +730,34 @@ class SimulationService:
                     status_code=404,
                     detail=f"Simulation with id {sim_id} not found")
 
+            # Extract simulation scoring metrics with new fields
+            simulation_scoring_metrics = None
+            if simulation_doc.get("simulationScoringMetrics"):
+                sim_metrics = simulation_doc.get("simulationScoringMetrics",
+                                                 {})
+                simulation_scoring_metrics = SimulationScoringMetrics(
+                    is_enabled=sim_metrics.get("isEnabled", False),
+                    keyword_score=sim_metrics.get("keywordScore", 0),
+                    click_score=sim_metrics.get("clickScore", 0),
+                    points_per_keyword=sim_metrics.get("pointsPerKeyword", 1),
+                    points_per_click=sim_metrics.get("pointsPerClick", 1),
+                )
+
+            # Extract metric weightage
+            metric_weightage = None
+            if simulation_doc.get("metricWeightage"):
+                metric_weights = simulation_doc.get("metricWeightage", {})
+                metric_weightage = MetricWeightage(
+                    click_accuracy=metric_weights.get("clickAccuracy", 0),
+                    keyword_accuracy=metric_weights.get("keywordAccuracy", 0),
+                    data_entry_accuracy=metric_weights.get(
+                        "dataEntryAccuracy", 0),
+                    contextual_accuracy=metric_weights.get(
+                        "contextualAccuracy", 0),
+                    sentiment_measures=metric_weights.get(
+                        "sentimentMeasures", 0),
+                )
+
             simulation = SimulationData(
                 id=str(simulation_doc["_id"]),
                 sim_name=simulation_doc.get("name", ""),
@@ -699,7 +782,10 @@ class SimulationService:
                 lvl1=simulation_doc.get("lvl1", {}),
                 lvl2=simulation_doc.get("lvl2", {}),
                 lvl3=simulation_doc.get("lvl3", {}),
-                slidesData=simulation_doc.get("slidesData", []))
+                slidesData=simulation_doc.get("slidesData", []),
+                simulation_scoring_metrics=simulation_scoring_metrics,
+                metric_weightage=metric_weightage,
+            )
 
             images = []
             if simulation_doc.get("slidesData"):
@@ -715,7 +801,7 @@ class SimulationService:
                                     slide["imageId"],
                                     "image_data":
                                     base64.b64encode(
-                                        image_doc["data"]).decode("utf-8")
+                                        image_doc["data"]).decode("utf-8"),
                                 })
                         except Exception as image_err:
                             logger.warning(
@@ -753,6 +839,34 @@ class SimulationService:
                     status_code=404,
                     detail=f"Simulation with id {sim_id} not found")
 
+            # Extract simulation scoring metrics with new fields
+            simulation_scoring_metrics = None
+            if simulation_doc.get("simulationScoringMetrics"):
+                sim_metrics = simulation_doc.get("simulationScoringMetrics",
+                                                 {})
+                simulation_scoring_metrics = SimulationScoringMetrics(
+                    is_enabled=sim_metrics.get("isEnabled", False),
+                    keyword_score=sim_metrics.get("keywordScore", 0),
+                    click_score=sim_metrics.get("clickScore", 0),
+                    points_per_keyword=sim_metrics.get("pointsPerKeyword", 1),
+                    points_per_click=sim_metrics.get("pointsPerClick", 1),
+                )
+
+            # Extract metric weightage
+            metric_weightage = None
+            if simulation_doc.get("metricWeightage"):
+                metric_weights = simulation_doc.get("metricWeightage", {})
+                metric_weightage = MetricWeightage(
+                    click_accuracy=metric_weights.get("clickAccuracy", 0),
+                    keyword_accuracy=metric_weights.get("keywordAccuracy", 0),
+                    data_entry_accuracy=metric_weights.get(
+                        "dataEntryAccuracy", 0),
+                    contextual_accuracy=metric_weights.get(
+                        "contextualAccuracy", 0),
+                    sentiment_measures=metric_weights.get(
+                        "sentimentMeasures", 0),
+                )
+
             simulation = SimulationData(
                 id=str(simulation_doc["_id"]),
                 sim_name=simulation_doc.get("name", ""),
@@ -777,7 +891,10 @@ class SimulationService:
                 lvl1=simulation_doc.get("lvl1", {}),
                 lvl2=simulation_doc.get("lvl2", {}),
                 lvl3=simulation_doc.get("lvl3", {}),
-                slidesData=simulation_doc.get("slidesData", []))
+                slidesData=simulation_doc.get("slidesData", []),
+                simulation_scoring_metrics=simulation_scoring_metrics,
+                metric_weightage=metric_weightage,
+            )
 
             images = []
             if simulation_doc.get("slidesData"):
@@ -793,7 +910,7 @@ class SimulationService:
                                     slide["imageId"],
                                     "image_data":
                                     base64.b64encode(
-                                        image_doc["data"]).decode("utf-8")
+                                        image_doc["data"]).decode("utf-8"),
                                 })
                         except Exception as image_err:
                             logger.warning(
@@ -827,8 +944,7 @@ class SimulationService:
                     'Authorization': f'Bearer {RETELL_API_KEY}',
                     'Content-Type': 'application/json'
                 }
-                data = {"general_prompt": prompt, 
-                        "model": "gpt-4.1"}
+                data = {"general_prompt": prompt, "model": "gpt-4.1"}
 
                 # Add begin_message field if trainee speaks first
                 if assistant_first:
@@ -988,7 +1104,6 @@ class SimulationService:
                 raise HTTPException(
                     status_code=404,
                     detail=f"Simulation with id {sim_id} not found")
-
             agent_id = simulation.get("agentId")
             if not agent_id:
                 logger.warning(
@@ -999,15 +1114,87 @@ class SimulationService:
                     detail="Simulation does not have an agent configured")
 
             web_call = await self._create_web_call(agent_id)
+
+            # Extract simulation details for response (same as in start_audio_simulation)
+            sim_details = {
+                "sim_name":
+                simulation.get("name", ""),
+                "version":
+                simulation.get("version", ""),
+                "lvl1":
+                simulation.get("lvl1", {}),
+                "lvl2":
+                simulation.get("lvl2", {}),
+                "lvl3":
+                simulation.get("lvl3", {}),
+                "sim_type":
+                simulation.get("type", ""),
+                "status":
+                simulation.get("status", ""),
+                "tags":
+                simulation.get("tags", []),
+                "est_time":
+                simulation.get("est_time", ""),
+                "last_modified":
+                simulation.get("last_modified", ""),
+                "modified_by":
+                simulation.get("modified_by", ""),
+                "created_on":
+                simulation.get("created_on", ""),
+                "created_by":
+                simulation.get("created_by", ""),
+                "islocked":
+                simulation.get("islocked", False),
+                "division_id":
+                simulation.get("divisionId", ""),
+                "department_id":
+                simulation.get("departmentId", ""),
+                "voice_id":
+                simulation.get("voice_id"),
+                "script":
+                simulation.get("script"),
+                "slidesData":
+                simulation.get("slidesData"),
+                "prompt":
+                simulation.get("prompt"),
+                "key_objectives":
+                simulation.get("keyObjectives"),
+                "overview_video":
+                simulation.get("overviewVideo"),
+                "quick_tips":
+                simulation.get("quickTips"),
+                "simulation_completion_repetition":
+                simulation.get("simulationCompletionRepetition"),
+                "simulation_max_repetition":
+                simulation.get("simulation_max_repetition"),
+                "final_simulation_score_criteria":
+                simulation.get("finalSimulationScoreCriteria"),
+                "simulation_scoring_metrics":
+                simulation.get("simulation_scoring_metrics"),
+                "metric_weightage":
+                simulation.get("metric_weightage"),
+                "sim_practice":
+                simulation.get("simPractice"),
+                "estimated_time_to_attempt_in_mins":
+                simulation.get("estimatedTimeToAttemptInMins"),
+                "mood":
+                simulation.get("mood"),
+                "voice_speed":
+                simulation.get("voice_speed"),
+            }
+
             logger.info(
                 f"Audio simulation preview created. Access token: {web_call['access_token']}"
             )
-            return {"access_token": web_call["access_token"]}
-
+            return {
+                "access_token": web_call["access_token"],
+                "simulation_details": sim_details,
+            }
         except HTTPException as he:
             logger.error(
                 f"HTTPException in start_audio_simulation_preview: {he.detail}",
-                exc_info=True)
+                exc_info=True,
+            )
             raise he
         except Exception as e:
             logger.error(f"Error starting audio simulation preview: {str(e)}",
@@ -1159,11 +1346,40 @@ class SimulationService:
             logger.debug(f"Skip: {skip}, Limit: {limit}")
 
             # Execute the query with pagination
-            cursor = self.db.simulations.find(query).sort(sort_options).skip(
-                skip).limit(limit)
+            cursor = (self.db.simulations.find(query).sort(sort_options).skip(
+                skip).limit(limit))
             simulations = []
 
             async for doc in cursor:
+                # Extract simulation scoring metrics with new fields
+                simulation_scoring_metrics = None
+                if doc.get("simulationScoringMetrics"):
+                    sim_metrics = doc.get("simulationScoringMetrics", {})
+                    simulation_scoring_metrics = SimulationScoringMetrics(
+                        is_enabled=sim_metrics.get("isEnabled", False),
+                        keyword_score=sim_metrics.get("keywordScore", 0),
+                        click_score=sim_metrics.get("clickScore", 0),
+                        points_per_keyword=sim_metrics.get(
+                            "pointsPerKeyword", 1),
+                        points_per_click=sim_metrics.get("pointsPerClick", 1),
+                    )
+
+                # Extract metric weightage
+                metric_weightage = None
+                if doc.get("metricWeightage"):
+                    metric_weights = doc.get("metricWeightage", {})
+                    metric_weightage = MetricWeightage(
+                        click_accuracy=metric_weights.get("clickAccuracy", 0),
+                        keyword_accuracy=metric_weights.get(
+                            "keywordAccuracy", 0),
+                        data_entry_accuracy=metric_weights.get(
+                            "dataEntryAccuracy", 0),
+                        contextual_accuracy=metric_weights.get(
+                            "contextualAccuracy", 0),
+                        sentiment_measures=metric_weights.get(
+                            "sentimentMeasures", 0),
+                    )
+
                 simulation = SimulationData(
                     id=str(doc["_id"]),
                     sim_name=doc.get("name", ""),
@@ -1187,7 +1403,10 @@ class SimulationService:
                     division_id=doc.get("divisionId", ""),
                     department_id=doc.get("departmentId", ""),
                     script=doc.get("script", None),
-                    slidesData=doc.get("slidesData", None))
+                    slidesData=doc.get("slidesData", None),
+                    simulation_scoring_metrics=simulation_scoring_metrics,
+                    metric_weightage=metric_weightage,
+                )
                 simulations.append(simulation)
 
             # Get total count for pagination metadata
@@ -1219,6 +1438,34 @@ class SimulationService:
                     status_code=404,
                     detail=f"Simulation with id {sim_id} not found")
 
+            # Extract simulation scoring metrics with new fields
+            simulation_scoring_metrics = None
+            if simulation_doc.get("simulationScoringMetrics"):
+                sim_metrics = simulation_doc.get("simulationScoringMetrics",
+                                                 {})
+                simulation_scoring_metrics = SimulationScoringMetrics(
+                    is_enabled=sim_metrics.get("isEnabled", False),
+                    keyword_score=sim_metrics.get("keywordScore", 0),
+                    click_score=sim_metrics.get("clickScore", 0),
+                    points_per_keyword=sim_metrics.get("pointsPerKeyword", 1),
+                    points_per_click=sim_metrics.get("pointsPerClick", 1),
+                )
+
+            # Extract metric weightage
+            metric_weightage = None
+            if simulation_doc.get("metricWeightage"):
+                metric_weights = simulation_doc.get("metricWeightage", {})
+                metric_weightage = MetricWeightage(
+                    click_accuracy=metric_weights.get("clickAccuracy", 0),
+                    keyword_accuracy=metric_weights.get("keywordAccuracy", 0),
+                    data_entry_accuracy=metric_weights.get(
+                        "dataEntryAccuracy", 0),
+                    contextual_accuracy=metric_weights.get(
+                        "contextualAccuracy", 0),
+                    sentiment_measures=metric_weights.get(
+                        "sentimentMeasures", 0),
+                )
+
             simulation = SimulationData(
                 id=str(simulation_doc["_id"]),
                 sim_name=simulation_doc.get("name", ""),
@@ -1240,7 +1487,7 @@ class SimulationService:
                 division_id=simulation_doc.get("divisionId", ""),
                 department_id=simulation_doc.get("departmentId", ""),
                 script=simulation_doc.get("script", []),
-                voice_id=simulation_doc.get("voice_id", "11labs-Adrian"),
+                voice_id=simulation_doc.get("voiceId", "11labs-Adrian"),
                 lvl1=simulation_doc.get("lvl1", {}),
                 lvl2=simulation_doc.get("lvl2", {}),
                 lvl3=simulation_doc.get("lvl3", {}),
@@ -1254,10 +1501,11 @@ class SimulationService:
                     "simulationCompletionRepetition", 1),
                 simulation_max_repetition=simulation_doc.get(
                     "simulationMaxRepetition", 1),
-                simulation_scoring_metrics=simulation_doc.get(
-                    "simulationScoringMetrics", {}),
+                simulation_scoring_metrics=simulation_scoring_metrics,
+                metric_weightage=metric_weightage,
                 sim_practice=simulation_doc.get("simPractice", {}),
-                prompt=simulation_doc.get("prompt", ""))
+                prompt=simulation_doc.get("prompt", ""),
+            )
 
             images = []
             if simulation_doc.get("slidesData"):
@@ -1267,14 +1515,13 @@ class SimulationService:
                             image_id = slide["imageId"]
                             image_doc = await self.db.images.find_one(
                                 {"imageId": image_id})
-                            print(image_id)
                             if image_doc:
                                 images.append({
                                     "image_id":
                                     slide["imageId"],
                                     "image_data":
                                     base64.b64encode(
-                                        image_doc["data"]).decode("utf-8")
+                                        image_doc["data"]).decode("utf-8"),
                                 })
                         except Exception as image_err:
                             logger.warning(
@@ -1292,4 +1539,4 @@ class SimulationService:
                          exc_info=True)
             raise HTTPException(
                 status_code=500,
-                detail=f"Error starting visual preview: {str(e)}")
+                detail=f"Error fetching simulation by ID: {str(e)}")
