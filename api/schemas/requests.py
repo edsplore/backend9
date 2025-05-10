@@ -423,6 +423,7 @@ class ManagerDashboardParams(BaseModel):
     trainingEntityDateRange: Optional[DateRange] = None
     trainingEntityCreatedBy: Optional[List[str]] = None
     trainingEntityTeams: Optional[List[str]] = None
+    trainingEntitySearchQuery: Optional[str] = None
 
 class ManagerDashboardAggregateRequest(BaseModel):
     user_id: str

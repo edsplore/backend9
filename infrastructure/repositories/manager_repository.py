@@ -170,6 +170,8 @@ class ManagerRepository(IManagerRepository):
             assignmentWithUsersAndTeamsList = []
             unique_teams = {}
             query = {}
+            # --- Training Entity Filtering ---
+            training_entity_query = {}
             # Set pagination parameters
             pagination_params = PaginationMetadata(total_count=0, page=0, pagesize=0, total_pages=0)
             if pagination:
@@ -186,10 +188,25 @@ class ManagerRepository(IManagerRepository):
             # Add traineeIds condition if reporting_userIds is provided
             if reporting_userIds:
                 or_conditions.append({"traineeId": {"$in": reporting_userIds}})
-            
+
             # Add teamIds condition if reporting_teamIds is provided
             if reporting_teamIds:
                 or_conditions.append({"teamId": {"$in": reporting_teamIds}})
+            
+            # # Add teamIds condition if reporting_teamIds is provided
+            # all_team_ids = []
+            # # if reporting_teamIds:
+            # #     all_team_ids.extend(reporting_teamIds)
+            
+            # # Handle createdBy filter for Training Plans or Modules or Simualtions Collections
+            # if training_entity_filters.get("team_ids"):
+            #     all_team_ids.extend(training_entity_filters["team_ids"])
+            # else:
+            #     if reporting_teamIds:
+            #         all_team_ids.extend(reporting_teamIds)
+
+            # if all_team_ids:
+            #     or_conditions.append({"teamId": {"$in": all_team_ids}})
 
             if or_conditions:
                 query["$or"] = or_conditions
@@ -204,9 +221,6 @@ class ManagerRepository(IManagerRepository):
                     end_date = datetime.strptime(filters.get("end_date"), "%Y-%m-%d")
                     date_filter["$lte"] = end_date
                 query["createdAt"] = date_filter
-            
-            # --- Training Entity Filtering ---
-            training_entity_query = {}
 
             # Handle date filters on createdAt for Training Plans or Modules or Simualtions Collections
             if training_entity_filters.get("start_date") or training_entity_filters.get("end_date"):
@@ -218,8 +232,28 @@ class ManagerRepository(IManagerRepository):
                 training_entity_query["createdAt"] = entity_date_filter
 
             # Handle createdBy filter for Training Plans or Modules or Simualtions Collections
-            if training_entity_filters.get("createdBy"):
-                training_entity_query["createdBy"] =  {"$in": training_entity_filters["createdBy"]}
+            if training_entity_filters.get("created_by"):
+                training_entity_query["createdBy"] =  {"$in": training_entity_filters["created_by"]}
+            # Handle search query filter
+            search_query = training_entity_filters.get("training_entity_search_query")
+            if search_query:
+                # Use regex for partial matching (case-insensitive)
+                search_regex = {"$regex": search_query, "$options": "i"}
+
+                # Attempt to convert search query to ObjectId if valid
+                object_id_query = None
+                try:
+                    object_id_query = ObjectId(search_query)
+                except Exception:
+                    # If conversion fails, skip adding the `_id` condition
+                    pass
+
+                # Apply search query to both `name` and `_id` fields
+                search_conditions = [{"name": search_regex}]
+                if object_id_query:
+                    search_conditions.append({"_id": object_id_query})
+
+                training_entity_query["$or"] = search_conditions
 
             # Fetch training entity IDs based on filters
             if type == "TrainingPlan":
