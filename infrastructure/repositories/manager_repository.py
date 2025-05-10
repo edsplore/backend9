@@ -188,25 +188,24 @@ class ManagerRepository(IManagerRepository):
             # Add traineeIds condition if reporting_userIds is provided
             if reporting_userIds:
                 or_conditions.append({"traineeId": {"$in": reporting_userIds}})
-
+            
             # Add teamIds condition if reporting_teamIds is provided
-            if reporting_teamIds:
-                or_conditions.append({"teamId": {"$in": reporting_teamIds}})
-            
-            # # Add teamIds condition if reporting_teamIds is provided
-            # all_team_ids = []
-            # # if reporting_teamIds:
-            # #     all_team_ids.extend(reporting_teamIds)
-            
-            # # Handle createdBy filter for Training Plans or Modules or Simualtions Collections
-            # if training_entity_filters.get("team_ids"):
-            #     all_team_ids.extend(training_entity_filters["team_ids"])
-            # else:
-            #     if reporting_teamIds:
-            #         all_team_ids.extend(reporting_teamIds)
+            all_team_ids = []
+            # Handle createdBy filter for Training Plans or Modules or Simualtions Collections
+            if training_entity_filters.get("team_ids"):
+                all_team_ids.extend(training_entity_filters["team_ids"])
+            else:
+                if reporting_teamIds:
+                    all_team_ids.extend(reporting_teamIds)
 
-            # if all_team_ids:
-            #     or_conditions.append({"teamId": {"$in": all_team_ids}})
+            if all_team_ids:
+                or_conditions.append({
+                    "teamId": {
+                        "$elemMatch": {
+                            "team_id": {"$in": all_team_ids}
+                        }
+                    }
+                })
 
             if or_conditions:
                 query["$or"] = or_conditions
@@ -326,7 +325,7 @@ class ManagerRepository(IManagerRepository):
                     filtered_trainee_ids = list(common_trainee_ids) if common_trainee_ids else []
 
                     # Filtering out the teams that are not reporting to the manager
-                    common_team_ids = set(team_ids_not_previously_assigned).intersection(reporting_teamIds)
+                    common_team_ids = set(team_ids_not_previously_assigned).intersection(all_team_ids)
                     filtered_team_ids = list(common_team_ids) if common_team_ids else []
 
                     # Add all filtered teams members to the filtered trainee list and also check dupliacates if a certain team member has been assigned same training entity before
