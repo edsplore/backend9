@@ -19,12 +19,37 @@ class TrainingPlanService:
         self.db = Database()
         logger.info("TrainingPlanService initialized.")
 
+    async def training_plan_name_exists(self, name: str) -> bool:
+        """Check if a training plan with the given name already exists"""
+        logger.info(f"Checking if training plan name '{name}' exists")
+        try:
+            # Query the database for training plan with the same name
+            count = await self.db.training_plans.count_documents({"name": name})
+            return count > 0
+        except Exception as e:
+            logger.error(f"Error checking training plan name existence: {str(e)}",
+                         exc_info=True)
+            raise HTTPException(
+                status_code=500,
+                detail=f"Error checking training plan name: {str(e)}")
+
     async def create_training_plan(self,
                                    request: CreateTrainingPlanRequest) -> Dict:
         """Create a new training plan"""
         logger.info("Received request to create a training plan.")
         logger.debug(f"CreateTrainingPlanRequest data: {request.dict()}")
         try:
+            # Check if a training plan with this name already exists
+            name_exists = await self.training_plan_name_exists(request.training_plan_name)
+            if name_exists:
+                logger.warning(
+                    f"Training Plan with name '{request.training_plan_name}' already exists")
+                # Return a specific error for duplicate names
+                return {
+                    "status": "error",
+                    "message": "Training Plan with this name already exists",
+                }
+                
             # Validate added objects
             for obj in request.added_object:
                 logger.debug(

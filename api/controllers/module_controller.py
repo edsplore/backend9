@@ -27,6 +27,18 @@ class ModuleController:
         try:
 
             result = await self.service.create_module(request)
+
+            # Check for duplicate name error
+            if result.get("status") == "error":
+                # Return a 409 Conflict for duplicate names
+                if "already exists" in result.get("message", ""):
+                    raise HTTPException(status_code=409,
+                                        detail=result["message"])
+                # Handle other errors with a 400 Bad Request
+                else:
+                    raise HTTPException(status_code=400,
+                                        detail=result["message"])
+                    
             logger.info(f"Module created with ID: {result['id']}")
             return CreateModuleResponse(id=result["id"],
                                         status=result["status"])

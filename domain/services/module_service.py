@@ -18,11 +18,36 @@ class ModuleService:
         self.db = Database()
         logger.info("ModuleService initialized.")
 
+    async def module_name_exists(self, name: str) -> bool:
+        """Check if a module with the given name already exists"""
+        logger.info(f"Checking if module name '{name}' exists")
+        try:
+            # Query the database for module with the same name
+            count = await self.db.modules.count_documents({"name": name})
+            return count > 0
+        except Exception as e:
+            logger.error(f"Error checking module name existence: {str(e)}",
+                         exc_info=True)
+            raise HTTPException(
+                status_code=500,
+                detail=f"Error checking module name: {str(e)}")
+            
     async def create_module(self, request: CreateModuleRequest) -> Dict:
         """Create a new module"""
         logger.info("Received request to create a new module.")
         logger.debug(f"CreateModuleRequest data: {request.dict()}")
         try:
+            # Check if a module with this name already exists
+            name_exists = await self.module_name_exists(request.module_name)
+            if name_exists:
+                logger.warning(
+                    f"Module with name '{request.module_name}' already exists")
+                # Return a specific error for duplicate names
+                return {
+                    "status": "error",
+                    "message": "Module with this name already exists",
+                }
+                
             # Validate simulation IDs
             for sim_id in request.simulations:
                 logger.debug(f"Validating simulation ID: {sim_id}")

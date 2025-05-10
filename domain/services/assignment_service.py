@@ -23,18 +23,18 @@ class AssignmentService:
 
     # New method in your service class
     async def assignment_name_exists(self, name: str) -> bool:
-        """Check if a simulation with the given name already exists"""
-        logger.info(f"Checking if simulation name '{name}' exists")
+        """Check if a assignment with the given name already exists"""
+        logger.info(f"Checking if assignment name '{name}' exists")
         try:
-            # Query the database for simulations with the same name
+            # Query the database for assignment with the same name
             count = await self.db.assignments.count_documents({"name": name})
             return count > 0
         except Exception as e:
-            logger.error(f"Error checking simulation name existence: {str(e)}",
+            logger.error(f"Error checking assignment name existence: {str(e)}",
                          exc_info=True)
             raise HTTPException(
                 status_code=500,
-                detail=f"Error checking simulation name: {str(e)}")
+                detail=f"Error checking assignment name: {str(e)}")
             
     async def create_assignment(self,
                                 request: CreateAssignmentRequest) -> Dict:
@@ -42,7 +42,7 @@ class AssignmentService:
         logger.info("Received request to create a new assignment.")
         logger.debug(f"Assignment request data: {request.dict()}")
         try:
-            # Check if a simulation with this name already exists
+            # Check if a assignment with this name already exists
             name_exists = await self.assignment_name_exists(request.name)
             if name_exists:
                 logger.warning(
