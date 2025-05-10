@@ -58,6 +58,7 @@ class ManagerService:
             else:
                 return 0
         return 0
+    
     async def get_assigments_attempt_stats_by_training_entity(self,
         user_id: str, reporting_userIds: List[str], reporting_teamIds: List[str], type: str,
         filters: Dict, training_entity_filters: Dict, pagination: Optional[PaginationParams] = None) -> FetchManagerDashboardResponse:
@@ -199,7 +200,6 @@ class ManagerService:
             logger.error(f"Error Getting All Assignment By User Details {str(e)}", exc_info=True)
             raise HTTPException(status_code=500, detail=f"Error Getting All Assignment By User Details {str(e)}")
 
-    
     async def get_manager_dashboard_data(self, user_id: str, reporting_userIds: List[str], reporting_teamIds: List[str], params: ManagerDashboardParams) -> ManagerDashboardAggregateDetails:
         logger.info("Fetching Manager Dashboard data.")
         logger.debug(f"user_id={user_id}")
@@ -401,6 +401,8 @@ class ManagerService:
                     training_entity_filters["created_by"] = params.trainingEntityCreatedBy
                 if params.trainingEntityTeams:
                     training_entity_filters["team_ids"] = params.trainingEntityTeams
+                if params.trainingEntitySearchQuery:
+                    training_entity_filters["training_entity_search_query"] = params.trainingEntitySearchQuery
             
             if not pagination and assignment_type:
                 pagination = PaginationParams(page=0, pagesize=5)
