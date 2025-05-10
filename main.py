@@ -25,7 +25,7 @@ logger = Logger.get_logger(__name__)
 app = FastAPI()
 
 # Add JWT authentication middleware
-# app.add_middleware(JWTAuthMiddleware)
+app.add_middleware(JWTAuthMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
