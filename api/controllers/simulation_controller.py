@@ -154,8 +154,7 @@ class SimulationController:
         logger.info("Received request to start audio simulation preview.")
         try:
             result = await self.service.start_audio_simulation_preview(
-                request.sim_id, request.user_id
-            )
+                request.sim_id, request.user_id)
             logger.info(
                 f"Audio simulation preview started. Access token: {result['access_token']}"
             )
@@ -164,9 +163,9 @@ class SimulationController:
                 simulation_details=result["simulation_details"],
             )  # Added simulation details
         except Exception as e:
-            logger.error(f"Error starting audio simulation preview: {e}", exc_info=True)
+            logger.error(f"Error starting audio simulation preview: {e}",
+                         exc_info=True)
             raise
-
 
     async def start_visual_audio_preview(
         self, request: StartVisualAudioPreviewRequest
@@ -840,26 +839,76 @@ class SimulationController:
             self,
             request: EndVisualAudioAttemptRequest) -> EndSimulationResponse:
         try:
+            # Extract transcript from slides_data if available
+            transcript = ""
+            if request.slides_data:
+                transcript_parts = []
+
+                # Iterate through slides and extract message transcriptions
+                for slide in request.slides_data:
+                    if "sequence" in slide and slide["sequence"]:
+                        for item in slide["sequence"]:
+                            if item.get("type") == "message":
+                                # Format as "Role: Text"
+                                role = item.get("role", "")
+                                text = item.get("text", "")
+                                if role and text:
+                                    transcript_parts.append(f"{role}: {text}")
+
+                # Join all messages into a single transcript
+                if transcript_parts:
+                    transcript = "\n".join(transcript_parts)
+
+            # Calculate simple scores based on transcript length or other metrics
+            # This is a placeholder - implement your actual scoring logic
+            transcript_length = len(transcript)
+            sim_accuracy = min(80 + (transcript_length / 100),
+                               98)  # Simple example
+
+            scores = {
+                "sim_accuracy": sim_accuracy,
+                "keyword_score": 85,  # Placeholder
+                "click_score": 90,  # Placeholder
+                "confidence": 75,  # Placeholder
+                "energy": 85,  # Placeholder
+                "concentration": 80,  # Placeholder
+            }
+
+            # Get duration from the simulation progress record
+            sim_progress = await self.db.user_sim_progress.find_one(
+                {"_id": ObjectId(request.usersimulationprogress_id)})
+
+            duration = 0
+            if sim_progress:
+                # Calculate duration from startedAt to now
+                started_at = sim_progress.get("startedAt")
+                if started_at:
+                    duration = (datetime.utcnow() - started_at).total_seconds()
+
             update_doc = {
                 "status": "completed",
-                "transcript": "",
-                "audioUrl": "",
-                "duration": 0,
-                "scores": {},
+                "transcript": transcript,
+                "audioUrl": "",  # No audio URL in this implementation
+                "duration": int(duration),
+                "scores": scores,
                 "completedAt": datetime.utcnow(),
-                "lastModifiedAt": datetime.utcnow()
+                "lastModifiedAt": datetime.utcnow(),
+                "transcription_data": request.
+                slides_data,  # Store the complete slides data with transcriptions
             }
 
             await self.db.user_sim_progress.update_one(
                 {"_id": ObjectId(request.usersimulationprogress_id)},
                 {"$set": update_doc})
 
-            return EndSimulationResponse(id=request.usersimulationprogress_id,
-                                         status="success",
-                                         scores={},
-                                         duration=0,
-                                         transcript="",
-                                         audio_url="")
+            return EndSimulationResponse(
+                id=request.usersimulationprogress_id,
+                status="success",
+                scores=scores,
+                duration=int(duration),
+                transcript=transcript,
+                audio_url="",
+            )
         except Exception as e:
             logger.error(f"[end_visual_audio_attempt] {str(e)}", exc_info=True)
             raise HTTPException(status_code=500,
