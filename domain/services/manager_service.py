@@ -60,7 +60,7 @@ class ManagerService:
         return 0
 
     async def get_assigments_attempt_stats_by_training_entity(self,
-        user_id: str, reporting_userIds: List[str], reporting_teamIds: List[str], type: str,
+        user_id: str, reporting_userIds: List[str], reporting_teamIds: List[str], type: Optional[str],
         filters: Dict, training_entity_filters: Dict, pagination: Optional[PaginationParams] = None) -> FetchManagerDashboardResponse:
         """Get All Assignments By User Details
 
@@ -72,7 +72,7 @@ class ManagerService:
             logger.info(f"Pagination={pagination}")
 
         try:
-            assignmentWithUserAttemptsByAssignmentId = {}
+            #assignmentWithUserAttemptsByAssignmentId = {}
             assignmentWithUserAttemptsByAssignmentId, unique_teams, pagination_params = await self.repository.fetch_assignments_by_training_entity(user_id, reporting_userIds, reporting_teamIds, type, filters, training_entity_filters, pagination)
             training_plans = []
             modules = []
@@ -80,7 +80,7 @@ class ManagerService:
             total_simulations = 0
             # key - user_id, value - list of training plan, module, simulation details progress by user
             user_map: Dict[str, List[Union[TrainingPlanDetailsByUser, ModuleDetailsByUser, SimulationDetailsByUser]]] = {}
-
+            team_wise_stats: Dict[str, List[Union[TrainingPlanDetailsByUser, ModuleDetailsByUser, SimulationDetailsByUser]]] = {}
             for assignment_id, assignment_attempts in assignmentWithUserAttemptsByAssignmentId.items():
                 logger.debug(f"Processing assignment: {assignment_attempts}")
                 training_plans_by_user = []
@@ -93,7 +93,9 @@ class ManagerService:
                 module_est_time = 0
                 simulation_est_time = 0
                 id = assignment_id
+                assignment_type = ""
                 for assignment in assignment_attempts:
+                    assignment_type = assignment["type"]
                     if assignment["type"] == "TrainingPlan":
                         for userId in assignment['traineeId']:
                             training_plan_user_stats = await self.repository.get_training_plan_stats(assignment, userId)
@@ -112,9 +114,9 @@ class ManagerService:
                             if module_details:
                                 module_by_user_stats.append(module_details)
                                 if user_map.get(userId):
-                                    user_map[userId].append(module_by_user_stats)
+                                    user_map[userId].append(module_details)
                                 else:
-                                    user_map[userId] = [module_by_user_stats]
+                                    user_map[userId] = [module_details]
                                 if module_name == "":
                                     module_name = getattr(module_details, "name", "")     
                                 module_est_time = getattr(module_details, "est_time", 0)
@@ -127,11 +129,11 @@ class ManagerService:
                                 if simulation_name == "":
                                     simulation_name = getattr(sim_details, "name", "")
                                 if user_map.get(userId):
-                                    user_map[userId].append(simulation_by_user_stats)
+                                    user_map[userId].append(sim_details)
                                 else:
-                                    user_map[userId] = [simulation_by_user_stats]
+                                    user_map[userId] = [sim_details]
                                 simulation_est_time = getattr(sim_details, "est_time", 0)
-                if assignment["type"] == "TrainingPlan":
+                if assignment_type == "TrainingPlan":
                     training_plans.append(
                         TrainingPlanDetailsMinimal(
                             id=id,
@@ -141,7 +143,7 @@ class ManagerService:
                             user=training_plans_by_user,
                             est_time = training_plan_est_time
                         ))
-                elif assignment["type"] == "Module":
+                elif assignment_type == "Module":
                     modules.append(
                         ModuleDetailsMinimal(
                             id=id,
@@ -152,7 +154,7 @@ class ManagerService:
                             est_time = module_est_time
                         )
                     )
-                elif assignment["type"] == "Simulation":
+                elif assignment_type == "Simulation":
                     simulations.append(
                         SimulationDetailsMinimal(
                             id=id,
@@ -165,7 +167,6 @@ class ManagerService:
                     )
             if not pagination and not type:
                 # key - team_id, value - list of training plan, module, simulation details progress by each of the team members
-                team_wise_stats: Dict[str, List[Union[TrainingPlanDetailsByUser, ModuleDetailsByUser, SimulationDetailsByUser]]] = {}
                 for assignment_id, assignment_attempts in assignmentWithUserAttemptsByAssignmentId.items():
                     for assignment_attempt in assignment_attempts:
                         if assignment_attempt.get("team_ids"):
@@ -177,7 +178,6 @@ class ManagerService:
                                                 team_wise_stats[team_id].extend(user_map[team_member_id])
                                             else:
                                                 team_wise_stats[team_id] = user_map[team_member_id]
-
             # Add pagination metadata if pagination is provided
             if pagination:
                 logger.info(f"Pagination metadata: {pagination_params}")
@@ -198,7 +198,7 @@ class ManagerService:
 
         except Exception as e:
             logger.error(f"Error Getting All Assignment By User Details {str(e)}", exc_info=True)
-            raise HTTPException(status_code=500, detail=f"Error Getting All Assignment By User Details {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Error Getting All Assignment By User Details ")
 
     async def get_manager_dashboard_data(self, user_id: str, reporting_userIds: List[str], reporting_teamIds: List[str], params: ManagerDashboardParams) -> ManagerDashboardAggregateDetails:
         logger.info("Fetching Manager Dashboard data.")
@@ -210,7 +210,6 @@ class ManagerService:
                     global_filters["start_date"] = params.assignedDateRange.startDate
                     global_filters["end_date"] = params.assignedDateRange.endDate
             training_entity_data = await self.get_assigments_attempt_stats_by_training_entity(user_id, reporting_userIds, reporting_teamIds, None, global_filters, {}, None)
-            
             assignment_agg_stats_by_training_entity = {
                 "trainingPlans": {
                     "total": 0,
@@ -294,53 +293,54 @@ class ManagerService:
             )
 
             team_wise_metric_stats = {}
-            for teamId, team_user_assignments in training_entity_data.teams_stats.items():
-                team_agg_status = {
-                    "total": 0,
-                    "completed": 0,
-                    "inProgress": 0,
-                    "notStarted": 0,
-                    "overdue": 0,
-                    "completed_on_time": 0
-                }
-                team_assignments_average_scores_list = []
-                for each_user_assignment in team_user_assignments:
-                    team_assignments_average_scores_list.append(each_user_assignment.average_score)
-                    team_agg_status["total"] +=1
-                    if each_user_assignment.status == "completed_on_time":
-                        team_agg_status["completed_on_time"] +=1
-                    if each_user_assignment.status == "completed" or each_user_assignment.status == "completed_on_time":
-                        team_agg_status["completed"] +=1
-                    elif each_user_assignment.status == "in_progress":
-                        team_agg_status["inProgress"] +=1
-                    elif each_user_assignment.status == "not_started":
-                        team_agg_status["notStarted"] +=1
-                    elif each_user_assignment.status == "over_due":
-                        team_agg_status["overdue"] +=1
-                completion_rate = 0
-                adherence_rate = 0
-                average_score = 0
-                if team_agg_status["total"] > 0:
-                    completion_rate = math.ceil((team_agg_status.get("completed") / team_agg_status.get("total"))*100)
-                if team_agg_status["completed"] > 0:
-                    adherence_rate = math.ceil((team_agg_status.get("completed_on_time") / team_agg_status.get("completed"))*100)
-                if len(team_assignments_average_scores_list) > 0:
-                    average_score = math.ceil(sum(team_assignments_average_scores_list) / len(team_assignments_average_scores_list))
-
-                if team_wise_metric_stats.get("completion_rate"):
-                    team_wise_metric_stats["completion_rate"].append(ManagerDashboardTeamWiseAggregateMetrics(team=teamId,score=completion_rate))
-                else:
-                    team_wise_metric_stats["completion_rate"] = [ManagerDashboardTeamWiseAggregateMetrics(team=teamId,score=completion_rate)]
-
-                if team_wise_metric_stats.get("adherence_rate"):
-                    team_wise_metric_stats["adherence_rate"].append(ManagerDashboardTeamWiseAggregateMetrics(team=teamId,score=adherence_rate))
-                else:
-                    team_wise_metric_stats["adherence_rate"] = [ManagerDashboardTeamWiseAggregateMetrics(team=teamId,score=adherence_rate)]
-
-                if team_wise_metric_stats.get("average_score"):
-                    team_wise_metric_stats["average_score"].append(ManagerDashboardTeamWiseAggregateMetrics(team=teamId,score=average_score))
-                else:
-                    team_wise_metric_stats["average_score"] = [ManagerDashboardTeamWiseAggregateMetrics(team=teamId,score=average_score)]
+            if training_entity_data.teams_stats:
+                for teamId, team_user_assignments in training_entity_data.teams_stats.items():
+                    team_agg_status = {
+                        "total": 0,
+                        "completed": 0,
+                        "inProgress": 0,
+                        "notStarted": 0,
+                        "overdue": 0,
+                        "completed_on_time": 0
+                    }
+                    team_assignments_average_scores_list = []
+                    for each_user_assignment in team_user_assignments:
+                        team_assignments_average_scores_list.append(each_user_assignment.average_score)
+                        team_agg_status["total"] +=1
+                        if each_user_assignment.status == "completed_on_time":
+                            team_agg_status["completed_on_time"] +=1
+                        if each_user_assignment.status == "completed" or each_user_assignment.status == "completed_on_time":
+                            team_agg_status["completed"] +=1
+                        elif each_user_assignment.status == "in_progress":
+                            team_agg_status["inProgress"] +=1
+                        elif each_user_assignment.status == "not_started":
+                            team_agg_status["notStarted"] +=1
+                        elif each_user_assignment.status == "over_due":
+                            team_agg_status["overdue"] +=1
+                    completion_rate = 0
+                    adherence_rate = 0
+                    average_score = 0
+                    if team_agg_status["total"] > 0:
+                        completion_rate = math.ceil((team_agg_status.get("completed") / team_agg_status.get("total"))*100)
+                    if team_agg_status["completed"] > 0:
+                        adherence_rate = math.ceil((team_agg_status.get("completed_on_time") / team_agg_status.get("completed"))*100)
+                    if len(team_assignments_average_scores_list) > 0:
+                        average_score = math.ceil(sum(team_assignments_average_scores_list) / len(team_assignments_average_scores_list))
+    
+                    if team_wise_metric_stats.get("completion_rate"):
+                        team_wise_metric_stats["completion_rate"].append(ManagerDashboardTeamWiseAggregateMetrics(team=teamId,score=completion_rate))
+                    else:
+                        team_wise_metric_stats["completion_rate"] = [ManagerDashboardTeamWiseAggregateMetrics(team=teamId,score=completion_rate)]
+    
+                    if team_wise_metric_stats.get("adherence_rate"):
+                        team_wise_metric_stats["adherence_rate"].append(ManagerDashboardTeamWiseAggregateMetrics(team=teamId,score=adherence_rate))
+                    else:
+                        team_wise_metric_stats["adherence_rate"] = [ManagerDashboardTeamWiseAggregateMetrics(team=teamId,score=adherence_rate)]
+    
+                    if team_wise_metric_stats.get("average_score"):
+                        team_wise_metric_stats["average_score"].append(ManagerDashboardTeamWiseAggregateMetrics(team=teamId,score=average_score))
+                    else:
+                        team_wise_metric_stats["average_score"] = [ManagerDashboardTeamWiseAggregateMetrics(team=teamId,score=average_score)]
 
             if team_wise_metric_stats.get("completion_rate"):
                 sorted_team_wise_completion_rate_metric = sorted(team_wise_metric_stats["completion_rate"], key=lambda team: team.score, reverse=True)

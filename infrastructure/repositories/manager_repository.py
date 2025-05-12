@@ -162,7 +162,7 @@ class ManagerRepository(IManagerRepository):
                 unique_teams[team_id] = curr_team_members
         return unique_teams
 
-    async def fetch_assignments_by_training_entity(self, user_id: str, reporting_userIds: List[str], reporting_teamIds: List[str],  type: str, filters: Dict, training_entity_filters: Dict, pagination: Optional[PaginationParams] = None):
+    async def fetch_assignments_by_training_entity(self, user_id: str, reporting_userIds: List[str], reporting_teamIds: List[str],  type: Optional[str], filters: Dict, training_entity_filters: Dict, pagination: Optional[PaginationParams] = None):
         logger.info(f"Fetching assignments by training entity for user_id: {user_id}")
         try:
             # Fetch assignments
@@ -255,19 +255,19 @@ class ManagerRepository(IManagerRepository):
                 training_entity_query["$or"] = search_conditions
 
             # Fetch training entity IDs based on filters
-            if type == "TrainingPlan":
+            if type and type == "TrainingPlan":
                 matching_training_plan_ids = await self.db.training_plans.distinct("_id", training_entity_query)
                 matching_training_plan_ids_str = [str(id) for id in matching_training_plan_ids]
 
                 # Filter assignments using matching training plan IDs
                 query["id"] = {"$in": matching_training_plan_ids_str}
-            elif type == "Module":
+            elif type and type == "Module":
                 matching_module_ids = await self.db.modules.distinct("_id", training_entity_query)
                 matching_module_ids_str = [str(id) for id in matching_module_ids]
 
                 # Filter assignments using matching module IDs
                 query["id"] = {"$in": matching_module_ids_str}
-            elif type == "Simulation":
+            elif type and type == "Simulation":
                 matching_simulation_ids = await self.db.simulations.distinct("_id", training_entity_query)
                 matching_simulation_ids_str = [str(id) for id in matching_simulation_ids]
 

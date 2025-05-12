@@ -20,7 +20,7 @@ class DeepgramPlugin:
         Transcribes audio content using Deepgram API
         """
         logger.info("Received request to transcribe audio using Deepgram.")
-        url = "https://api.deepgram.com/v1/listen?model=nova-2&smart_format=true&diarize=true"
+        url = "https://api.deepgram.com/v1/listen?model=nova-2&smart_format=true&diarize=true&redact=pci&redact=pii"
         headers = {
             "Authorization": f"Token {self.api_key}",
             "Content-Type": "audio/wav"
