@@ -763,76 +763,80 @@ class SimulationController:
             request: EndVisualAudioAttemptRequest) -> EndSimulationResponse:
         try:
 
+            simulation = await self.service.end_visual_audio_attempt(request.user_id, request.simulation_id, request.usersimulationprogress_id, request.userAttemptSequence, request.slides_data)
+            logger.info(f"Ended {simulation} attempts for user {request.user_id}")
+            return simulation
+
             # Extract transcript from slides_data if available
-            transcript = ""
-            if request.slides_data:
-                transcript_parts = []
+            # transcript = ""
+            # if request.slides_data:
+            #     transcript_parts = []
 
-                # Iterate through slides and extract message transcriptions
-                for slide in request.slides_data:
-                    if "sequence" in slide and slide["sequence"]:
-                        for item in slide["sequence"]:
-                            if item.get("type") == "message":
-                                # Format as "Role: Text"
-                                role = item.get("role", "")
-                                text = item.get("text", "")
-                                if role and text:
-                                    transcript_parts.append(f"{role}: {text}")
+            #     # Iterate through slides and extract message transcriptions
+            #     for slide in request.slides_data:
+            #         if "sequence" in slide and slide["sequence"]:
+            #             for item in slide["sequence"]:
+            #                 if item.get("type") == "message":
+            #                     # Format as "Role: Text"
+            #                     role = item.get("role", "")
+            #                     text = item.get("text", "")
+            #                     if role and text:
+            #                         transcript_parts.append(f"{role}: {text}")
 
-                # Join all messages into a single transcript
-                if transcript_parts:
-                    transcript = "\n".join(transcript_parts)
+            #     # Join all messages into a single transcript
+            #     if transcript_parts:
+            #         transcript = "\n".join(transcript_parts)
 
-            # Calculate simple scores based on transcript length or other metrics
-            # This is a placeholder - implement your actual scoring logic
-            transcript_length = len(transcript)
-            sim_accuracy = min(80 + (transcript_length / 100),
-                               98)  # Simple example
+            # # Calculate simple scores based on transcript length or other metrics
+            # # This is a placeholder - implement your actual scoring logic
+            # transcript_length = len(transcript)
+            # sim_accuracy = min(80 + (transcript_length / 100),
+            #                    98)  # Simple example
 
-            scores = {
-                "sim_accuracy": sim_accuracy,
-                "keyword_score": 85,  # Placeholder
-                "click_score": 90,  # Placeholder
-                "confidence": 75,  # Placeholder
-                "energy": 85,  # Placeholder
-                "concentration": 80,  # Placeholder
-            }
+            # scores = {
+            #     "sim_accuracy": sim_accuracy,
+            #     "keyword_score": 85,  # Placeholder
+            #     "click_score": 90,  # Placeholder
+            #     "confidence": 75,  # Placeholder
+            #     "energy": 85,  # Placeholder
+            #     "concentration": 80,  # Placeholder
+            # }
 
-            # Get duration from the simulation progress record
-            sim_progress = await self.db.user_sim_progress.find_one(
-                {"_id": ObjectId(request.usersimulationprogress_id)})
+            # # Get duration from the simulation progress record
+            # sim_progress = await self.db.user_sim_progress.find_one(
+            #     {"_id": ObjectId(request.usersimulationprogress_id)})
 
-            duration = 0
-            if sim_progress:
-                # Calculate duration from startedAt to now
-                started_at = sim_progress.get("startedAt")
-                if started_at:
-                    duration = (datetime.utcnow() - started_at).total_seconds()
+            # duration = 0
+            # if sim_progress:
+            #     # Calculate duration from startedAt to now
+            #     started_at = sim_progress.get("startedAt")
+            #     if started_at:
+            #         duration = (datetime.utcnow() - started_at).total_seconds()
 
-            update_doc = {
-                "status": "completed",
-                "transcript": transcript,
-                "audioUrl": "",  # No audio URL in this implementation
-                "duration": int(duration),
-                "scores": scores,
-                "completedAt": datetime.utcnow(),
-                "lastModifiedAt": datetime.utcnow(),
-                "transcription_data": request.
-                slides_data,  # Store the complete slides data with transcriptions
-            }
+            # update_doc = {
+            #     "status": "completed",
+            #     "transcript": transcript,
+            #     "audioUrl": "",  # No audio URL in this implementation
+            #     "duration": int(duration),
+            #     "scores": scores,
+            #     "completedAt": datetime.utcnow(),
+            #     "lastModifiedAt": datetime.utcnow(),
+            #     "transcription_data": request.
+            #     slides_data,  # Store the complete slides data with transcriptions
+            # }
 
-            await self.db.user_sim_progress.update_one(
-                {"_id": ObjectId(request.usersimulationprogress_id)},
-                {"$set": update_doc})
+            # await self.db.user_sim_progress.update_one(
+            #     {"_id": ObjectId(request.usersimulationprogress_id)},
+            #     {"$set": update_doc})
 
-            return EndSimulationResponse(
-                id=request.usersimulationprogress_id,
-                status="success",
-                scores=scores,
-                duration=int(duration),
-                transcript=transcript,
-                audio_url="",
-            )
+            # return EndSimulationResponse(
+            #     id=request.usersimulationprogress_id,
+            #     status="success",
+            #     scores=scores,
+            #     duration=int(duration),
+            #     transcript=transcript,
+            #     audio_url="",
+            # )
 
             # simulation = await self.service.end_visual_audio_attempt(request.user_id, request.simulation_id, request.usersimulationprogress_id, request.userAttemptSequence)
             # logger.info(f"Ended {simulation} attempts for user {request.user_id}")

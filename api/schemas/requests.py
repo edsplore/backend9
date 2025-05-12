@@ -393,8 +393,9 @@ class EndVisualAudioAttemptRequest(BaseModel):
     user_id: str
     simulation_id: str
     usersimulationprogress_id: str
+    userAttemptSequence: List[AttemptModel] 
     slides_data: Optional[List[Dict[str, Any]]]
-    userAttemptSequence: Optional[List[AttemptModel]] = None
+    
 
 
 class EndVisualChatAttemptRequest(BaseModel):
