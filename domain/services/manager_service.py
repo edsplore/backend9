@@ -36,7 +36,7 @@ class ManagerService:
                     assignment_agg_stats_by_training_entity[training_entity]["notStarted"] +=1
                 elif each_assigned_user.status == "over_due":
                     assignment_agg_stats_by_training_entity[training_entity]["overdue"] +=1
-    
+
     def get_training_entity_assessment_counts(self, assignment_agg_stats_by_training_entity, training_entity: str):
         return ManagerDashboardAssignmentCounts(
             total=assignment_agg_stats_by_training_entity[training_entity]["total"],
@@ -45,7 +45,7 @@ class ManagerService:
             notStarted=assignment_agg_stats_by_training_entity[training_entity]["notStarted"],
             overdue=assignment_agg_stats_by_training_entity[training_entity]["overdue"]
         )
-    
+
     def get_completion_rate_or_adherence_rate(self, assignment_type: str, agg_metrics: Dict, metric: str):
         if metric == "completion_rate":
             if agg_metrics.get(assignment_type).get("total") > 0:
@@ -58,19 +58,19 @@ class ManagerService:
             else:
                 return 0
         return 0
-    
+
     async def get_assigments_attempt_stats_by_training_entity(self,
         user_id: str, reporting_userIds: List[str], reporting_teamIds: List[str], type: str,
         filters: Dict, training_entity_filters: Dict, pagination: Optional[PaginationParams] = None) -> FetchManagerDashboardResponse:
         """Get All Assignments By User Details
-        
+
         Returns:
             FetchManagerDashboardResponse containing training plans, modules, and simulations
         """
         logger.info(f"Get All Assignments By User Details user_id={user_id}, reporting_userIds={reporting_userIds}")
         if pagination:
             logger.info(f"Pagination={pagination}")
-        
+
         try:
             assignmentWithUserAttemptsByAssignmentId = {}
             assignmentWithUserAttemptsByAssignmentId, unique_teams, pagination_params = await self.repository.fetch_assignments_by_training_entity(user_id, reporting_userIds, reporting_teamIds, type, filters, training_entity_filters, pagination)
@@ -177,7 +177,7 @@ class ManagerService:
                                                 team_wise_stats[team_id].extend(user_map[team_member_id])
                                             else:
                                                 team_wise_stats[team_id] = user_map[team_member_id]
-            
+
             # Add pagination metadata if pagination is provided
             if pagination:
                 logger.info(f"Pagination metadata: {pagination_params}")
@@ -195,7 +195,7 @@ class ManagerService:
                     simulations=simulations,
                     teams_stats=team_wise_stats
                 )
-            
+
         except Exception as e:
             logger.error(f"Error Getting All Assignment By User Details {str(e)}", exc_info=True)
             raise HTTPException(status_code=500, detail=f"Error Getting All Assignment By User Details {str(e)}")
@@ -210,6 +210,7 @@ class ManagerService:
                     global_filters["start_date"] = params.assignedDateRange.startDate
                     global_filters["end_date"] = params.assignedDateRange.endDate
             training_entity_data = await self.get_assigments_attempt_stats_by_training_entity(user_id, reporting_userIds, reporting_teamIds, None, global_filters, {}, None)
+            
             assignment_agg_stats_by_training_entity = {
                 "trainingPlans": {
                     "total": 0,
@@ -242,7 +243,7 @@ class ManagerService:
             self.assign_training_entity_stats_agg_metrics(assignment_agg_stats_by_training_entity, "trainingPlans", training_entity_data.training_plans)
             self.assign_training_entity_stats_agg_metrics(assignment_agg_stats_by_training_entity, "modules", training_entity_data.modules)
             self.assign_training_entity_stats_agg_metrics(assignment_agg_stats_by_training_entity, "simulations", training_entity_data.simulations)
-            
+
             trainingPlanAssessmentCounts = self.get_training_entity_assessment_counts(assignment_agg_stats_by_training_entity, "trainingPlans")
             moduleAssessmentCounts = self.get_training_entity_assessment_counts(assignment_agg_stats_by_training_entity, "modules")
             simulationAssessmentCounts = self.get_training_entity_assessment_counts(assignment_agg_stats_by_training_entity, "simulations")
@@ -260,7 +261,7 @@ class ManagerService:
             training_plan_adherence_rate = self.get_completion_rate_or_adherence_rate("trainingPlans", assignment_agg_stats_by_training_entity, "adherence_rate")
             module_adherence_rate = self.get_completion_rate_or_adherence_rate("modules", assignment_agg_stats_by_training_entity, "adherence_rate")
             simulation_adherence_rate = self.get_completion_rate_or_adherence_rate("simulations", assignment_agg_stats_by_training_entity, "adherence_rate")
-            
+
 
             completionRates = ManagerDashboardAggregateMetrics(
                 trainingPlans=training_plan_completion_rate,
@@ -278,7 +279,7 @@ class ManagerService:
                 modules_average_score = math.ceil(assignment_agg_stats_by_training_entity["modules"]["average_score"]/assignment_agg_stats_by_training_entity["modules"]["total"])
             if assignment_agg_stats_by_training_entity["simulations"]["total"] > 0:
                 simulations_average_score = math.ceil(assignment_agg_stats_by_training_entity["simulations"]["average_score"]/assignment_agg_stats_by_training_entity["simulations"]["total"])
-            
+
 
             averageScores = ManagerDashboardAggregateMetrics(
                 trainingPlans=training_plans_average_score,
@@ -325,43 +326,43 @@ class ManagerService:
                     adherence_rate = math.ceil((team_agg_status.get("completed_on_time") / team_agg_status.get("completed"))*100)
                 if len(team_assignments_average_scores_list) > 0:
                     average_score = math.ceil(sum(team_assignments_average_scores_list) / len(team_assignments_average_scores_list))
-                
+
                 if team_wise_metric_stats.get("completion_rate"):
                     team_wise_metric_stats["completion_rate"].append(ManagerDashboardTeamWiseAggregateMetrics(team=teamId,score=completion_rate))
                 else:
                     team_wise_metric_stats["completion_rate"] = [ManagerDashboardTeamWiseAggregateMetrics(team=teamId,score=completion_rate)]
-                
+
                 if team_wise_metric_stats.get("adherence_rate"):
                     team_wise_metric_stats["adherence_rate"].append(ManagerDashboardTeamWiseAggregateMetrics(team=teamId,score=adherence_rate))
                 else:
                     team_wise_metric_stats["adherence_rate"] = [ManagerDashboardTeamWiseAggregateMetrics(team=teamId,score=adherence_rate)]
-                
+
                 if team_wise_metric_stats.get("average_score"):
                     team_wise_metric_stats["average_score"].append(ManagerDashboardTeamWiseAggregateMetrics(team=teamId,score=average_score))
                 else:
                     team_wise_metric_stats["average_score"] = [ManagerDashboardTeamWiseAggregateMetrics(team=teamId,score=average_score)]
-            
+
             if team_wise_metric_stats.get("completion_rate"):
                 sorted_team_wise_completion_rate_metric = sorted(team_wise_metric_stats["completion_rate"], key=lambda team: team.score, reverse=True)
             else:
                 sorted_team_wise_completion_rate_metric = []
-            
+
             if team_wise_metric_stats.get("adherence_rate"):
                 sorted_team_wise_adherence_rate_metric = sorted(team_wise_metric_stats["adherence_rate"], key=lambda team: team.score, reverse=True)
             else:
                 sorted_team_wise_adherence_rate_metric = []
-            
+
             if team_wise_metric_stats.get("average_score"):
                 sorted_team_wise_average_score_metric = sorted(team_wise_metric_stats["average_score"], key=lambda team: team.score, reverse=True)
             else:
                 sorted_team_wise_average_score_metric = []
-            
+
             leaderBoards = ManagerDashboardLeaderBoardsAggMetricWise(
                 completion=sorted_team_wise_completion_rate_metric,
                 averageScore=sorted_team_wise_average_score_metric,
                 adherence=sorted_team_wise_adherence_rate_metric
             )
-           
+
             logger.info(
                 f"Fetched Manager Dashboard data for user_id={user_id}.")
             return ManagerDashboardAggregateDetails(
@@ -376,7 +377,7 @@ class ManagerService:
                 f"Error fetching manager dashboard data for user_id={user_id}: {str(e)}",
                 exc_info=True)
             raise HTTPException(status_code=500, detail=f"Error fetching manager dashboard data for user_id={user_id}: {str(e)}")
-           
+
     async def fetch_manager_dashboard_training_entity_data(
         self,
         user_id: str,
@@ -403,7 +404,7 @@ class ManagerService:
                     training_entity_filters["team_ids"] = params.trainingEntityTeams
                 if params.trainingEntitySearchQuery:
                     training_entity_filters["training_entity_search_query"] = params.trainingEntitySearchQuery
-            
+
             if not pagination and assignment_type:
                 pagination = PaginationParams(page=0, pagesize=5)
 

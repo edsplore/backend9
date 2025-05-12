@@ -19,59 +19,87 @@ class TrainingPlanService:
         self.db = Database()
         logger.info("TrainingPlanService initialized.")
 
-    async def training_plan_name_exists(self, name: str) -> bool:
-        """Check if a training plan with the given name already exists"""
-        logger.info(f"Checking if training plan name '{name}' exists")
+    async def training_plan_name_exists(self, name: str,
+                                        workspace: str) -> bool:
+        """Check if a training plan with the given name already exists in the workspace"""
+        logger.info(
+            f"Checking if training plan name '{name}' exists in workspace {workspace}"
+        )
         try:
-            # Query the database for training plan with the same name
-            count = await self.db.training_plans.count_documents({"name": name})
+            # Query the database for training plan with the same name in the workspace
+            count = await self.db.training_plans.count_documents({
+                "name":
+                name,
+                "workspace":
+                workspace
+            })
             return count > 0
         except Exception as e:
-            logger.error(f"Error checking training plan name existence: {str(e)}",
-                         exc_info=True)
+            logger.error(
+                f"Error checking training plan name existence: {str(e)}",
+                exc_info=True)
             raise HTTPException(
                 status_code=500,
                 detail=f"Error checking training plan name: {str(e)}")
 
-    async def create_training_plan(self,
-                                   request: CreateTrainingPlanRequest) -> Dict:
+    async def create_training_plan(self, request: CreateTrainingPlanRequest,
+                                   workspace: str) -> Dict:
         """Create a new training plan"""
-        logger.info("Received request to create a training plan.")
+        logger.info(
+            f"Received request to create a training plan in workspace {workspace}."
+        )
         logger.debug(f"CreateTrainingPlanRequest data: {request.dict()}")
         try:
-            # Check if a training plan with this name already exists
-            name_exists = await self.training_plan_name_exists(request.training_plan_name)
+            # Check if a training plan with this name already exists in the workspace
+            name_exists = await self.training_plan_name_exists(
+                request.training_plan_name, workspace)
             if name_exists:
                 logger.warning(
-                    f"Training Plan with name '{request.training_plan_name}' already exists")
+                    f"Training Plan with name '{request.training_plan_name}' already exists in workspace {workspace}"
+                )
                 # Return a specific error for duplicate names
                 return {
                     "status": "error",
                     "message": "Training Plan with this name already exists",
                 }
-                
-            # Validate added objects
+
+            # Validate added objects in the same workspace
             for obj in request.added_object:
                 logger.debug(
                     f"Validating added object with ID {obj.id} and type {obj.type}"
                 )
                 if obj.type == "module":
-                    module = await self.db.modules.find_one(
-                        {"_id": ObjectId(obj.id)})
+                    module = await self.db.modules.find_one({
+                        "_id":
+                        ObjectId(obj.id),
+                        "workspace":
+                        workspace
+                    })
                     if not module:
-                        logger.warning(f"Module with ID {obj.id} not found.")
+                        logger.warning(
+                            f"Module with ID {obj.id} not found in workspace {workspace}."
+                        )
                         raise HTTPException(
                             status_code=404,
-                            detail=f"Module with id {obj.id} not found")
+                            detail=
+                            f"Module with id {obj.id} not found in workspace {workspace}"
+                        )
                 elif obj.type == "simulation":
-                    simulation = await self.db.simulations.find_one(
-                        {"_id": ObjectId(obj.id)})
+                    simulation = await self.db.simulations.find_one({
+                        "_id":
+                        ObjectId(obj.id),
+                        "workspace":
+                        workspace
+                    })
                     if not simulation:
                         logger.warning(
-                            f"Simulation with ID {obj.id} not found.")
+                            f"Simulation with ID {obj.id} not found in workspace {workspace}."
+                        )
                         raise HTTPException(
                             status_code=404,
-                            detail=f"Simulation with id {obj.id} not found")
+                            detail=
+                            f"Simulation with id {obj.id} not found in workspace {workspace}"
+                        )
                 else:
                     logger.warning(f"Invalid object type: {obj.type}")
                     raise HTTPException(
@@ -85,7 +113,8 @@ class TrainingPlanService:
                 "createdBy": request.user_id,
                 "createdAt": datetime.utcnow(),
                 "lastModifiedBy": request.user_id,
-                "lastModifiedAt": datetime.utcnow()
+                "lastModifiedAt": datetime.utcnow(),
+                "workspace": workspace  # Add workspace field
             }
 
             logger.debug(
@@ -105,32 +134,56 @@ class TrainingPlanService:
                 status_code=500,
                 detail=f"Error creating training plan: {str(e)}")
 
-    async def clone_training_plan(self,
-                                  request: CloneTrainingPlanRequest) -> Dict:
+    async def clone_training_plan(self, request: CloneTrainingPlanRequest,
+                                  workspace: str) -> Dict:
         """Clone an existing training plan"""
-        logger.info("Received request to clone a training plan.")
+        logger.info(
+            f"Received request to clone a training plan in workspace {workspace}."
+        )
         logger.debug(f"CloneTrainingPlanRequest data: {request.dict()}")
+
         try:
             plan_id_object = ObjectId(request.training_plan_id)
-            existing_plan = await self.db.training_plans.find_one(
-                {"_id": plan_id_object})
+            existing_plan = await self.db.training_plans.find_one({
+                "_id":
+                plan_id_object,
+                "workspace":
+                workspace
+            })
             if not existing_plan:
                 logger.warning(
-                    f"Training plan with ID {request.training_plan_id} not found for cloning."
+                    f"Training plan with ID {request.training_plan_id} not found for cloning in workspace {workspace}."
                 )
                 raise HTTPException(
                     status_code=404,
                     detail=
-                    f"Training plan with id {request.training_plan_id} not found"
+                    f"Training plan with id {request.training_plan_id} not found in workspace {workspace}"
                 )
+
+            # Generate new name with (Copy) suffix
+            base_name = existing_plan['name']
+            new_name = f"Copy {base_name}"
+
+            # Check if the name with (Copy) exists in the same workspace
+            name_exists = await self.training_plan_name_exists(
+                new_name, workspace)
+            counter = 0
+
+            # If name exists, append a number until we find a unique name
+            while name_exists:
+                counter += 1
+                new_name = f"Copy {base_name} {counter}"
+                name_exists = await self.training_plan_name_exists(
+                    new_name, workspace)
 
             new_plan = existing_plan.copy()
             new_plan.pop("_id")
-            new_plan["name"] = f"{existing_plan['name']} (Copy)"
+            new_plan["name"] = new_name
             new_plan["createdBy"] = request.user_id
             new_plan["createdAt"] = datetime.utcnow()
             new_plan["lastModifiedBy"] = request.user_id
             new_plan["lastModifiedAt"] = datetime.utcnow()
+            new_plan["workspace"] = workspace  # Ensure workspace is set
 
             logger.debug(f"Cloned training plan document: {new_plan}")
             result = await self.db.training_plans.insert_one(new_plan)
@@ -150,24 +203,30 @@ class TrainingPlanService:
                 status_code=500,
                 detail=f"Error cloning training plan: {str(e)}")
 
-    async def update_training_plan(
-            self, training_plan_id: str,
-            request: UpdateTrainingPlanRequest) -> TrainingPlanData:
+    async def update_training_plan(self, training_plan_id: str,
+                                   request: UpdateTrainingPlanRequest,
+                                   workspace: str) -> TrainingPlanData:
         """Update an existing training plan"""
         logger.info(
-            f"Received request to update training plan with ID: {training_plan_id}"
+            f"Received request to update training plan with ID: {training_plan_id} in workspace {workspace}"
         )
         logger.debug(f"UpdateTrainingPlanRequest data: {request.dict()}")
         try:
             training_plan_id_object = ObjectId(training_plan_id)
-            existing_plan = await self.db.training_plans.find_one(
-                {"_id": training_plan_id_object})
+            existing_plan = await self.db.training_plans.find_one({
+                "_id":
+                training_plan_id_object,
+                "workspace":
+                workspace
+            })
             if not existing_plan:
                 logger.warning(
-                    f"Training plan with ID {training_plan_id} not found.")
+                    f"Training plan with ID {training_plan_id} not found in workspace {workspace}."
+                )
                 raise HTTPException(
                     status_code=404,
-                    detail=f"Training plan with id {training_plan_id} not found"
+                    detail=
+                    f"Training plan with id {training_plan_id} not found in workspace {workspace}"
                 )
 
             update_doc = {}
@@ -182,25 +241,36 @@ class TrainingPlanService:
                         f"Validating added object with ID {obj.id} and type {obj.type}"
                     )
                     if obj.type == "module":
-                        module = await self.db.modules.find_one(
-                            {"_id": ObjectId(obj.id)})
+                        module = await self.db.modules.find_one({
+                            "_id":
+                            ObjectId(obj.id),
+                            "workspace":
+                            workspace
+                        })
                         if not module:
                             logger.warning(
-                                f"Module with ID {obj.id} not found during update."
+                                f"Module with ID {obj.id} not found during update in workspace {workspace}."
                             )
                             raise HTTPException(
                                 status_code=404,
-                                detail=f"Module with id {obj.id} not found")
+                                detail=
+                                f"Module with id {obj.id} not found in workspace {workspace}"
+                            )
                     elif obj.type == "simulation":
-                        simulation = await self.db.simulations.find_one(
-                            {"_id": ObjectId(obj.id)})
+                        simulation = await self.db.simulations.find_one({
+                            "_id":
+                            ObjectId(obj.id),
+                            "workspace":
+                            workspace
+                        })
                         if not simulation:
                             logger.warning(
-                                f"Simulation with ID {obj.id} not found during update."
+                                f"Simulation with ID {obj.id} not found during update in workspace {workspace}."
                             )
                             raise HTTPException(
                                 status_code=404,
-                                detail=f"Simulation with id {obj.id} not found"
+                                detail=
+                                f"Simulation with id {obj.id} not found in workspace {workspace}"
                             )
                     else:
                         logger.warning(
@@ -228,7 +298,8 @@ class TrainingPlanService:
                 raise HTTPException(status_code=500,
                                     detail="Failed to update training plan")
 
-            updated_plan = await self.get_training_plan_by_id(training_plan_id)
+            updated_plan = await self.get_training_plan_by_id(
+                training_plan_id, workspace)
             logger.info(
                 f"Training plan {training_plan_id} updated successfully.")
             return updated_plan
@@ -246,6 +317,7 @@ class TrainingPlanService:
     async def fetch_training_plans(
             self,
             user_id: str,
+            workspace: str,
             pagination: Optional[PaginationParams] = None) -> Dict[str, any]:
         """Fetch all training plans with pagination and filtering
 
@@ -254,10 +326,11 @@ class TrainingPlanService:
         - total_count: Total number of training plans matching the query
         """
         logger.info(
-            f"Fetching training plans for user_id={user_id} with pagination")
+            f"Fetching training plans for user_id={user_id} in workspace={workspace} with pagination"
+        )
         try:
             # Build query filter based on pagination parameters
-            query = {}
+            query = {"workspace": workspace}  # Add workspace filter
 
             if pagination:
                 logger.debug(f"Applying pagination parameters: {pagination}")
@@ -349,18 +422,30 @@ class TrainingPlanService:
                 for obj in doc.get("addedObject", []):
                     try:
                         if obj["type"] == "module":
-                            module = await self.db.modules.find_one(
-                                {"_id": ObjectId(obj["id"])})
+                            module = await self.db.modules.find_one({
+                                "_id":
+                                ObjectId(obj["id"]),
+                                "workspace":
+                                workspace  # Filter modules by workspace
+                            })
                             if module:
                                 for sim_id in module.get("simulationIds", []):
-                                    sim = await self.db.simulations.find_one(
-                                        {"_id": ObjectId(sim_id)})
+                                    sim = await self.db.simulations.find_one({
+                                        "_id":
+                                        ObjectId(sim_id),
+                                        "workspace":
+                                        workspace  # Filter simulations by workspace
+                                    })
                                     if sim and "estimatedTimeToAttemptInMins" in sim:
                                         total_estimated_time += sim[
                                             "estimatedTimeToAttemptInMins"]
                         elif obj["type"] == "simulation":
-                            sim = await self.db.simulations.find_one(
-                                {"_id": ObjectId(obj["id"])})
+                            sim = await self.db.simulations.find_one({
+                                "_id":
+                                ObjectId(obj["id"]),
+                                "workspace":
+                                workspace  # Filter simulations by workspace
+                            })
                             if sim and "estimatedTimeToAttemptInMins" in sim:
                                 total_estimated_time += sim[
                                     "estimatedTimeToAttemptInMins"]
@@ -399,37 +484,90 @@ class TrainingPlanService:
                 detail=f"Error fetching training plans: {str(e)}")
 
     async def get_training_plan_by_id(
-            self, training_plan_id: str) -> Optional[TrainingPlanData]:
+            self, training_plan_id: str,
+            workspace: str) -> Optional[TrainingPlanData]:
         """Fetch a single training plan by ID"""
-        logger.info(f"Fetching training plan by ID: {training_plan_id}")
+        logger.info(
+            f"Fetching training plan by ID: {training_plan_id} in workspace {workspace}"
+        )
         try:
             training_plan_id_object = ObjectId(training_plan_id)
-            doc = await self.db.training_plans.find_one(
-                {"_id": training_plan_id_object})
+            doc = await self.db.training_plans.find_one({
+                "_id": training_plan_id_object,
+                "workspace": workspace
+            })
             if not doc:
                 logger.warning(
-                    f"No training plan found for ID {training_plan_id}")
+                    f"No training plan found for ID {training_plan_id} in workspace {workspace}"
+                )
                 return None
 
             total_estimated_time = 0
+            enriched_added_objects = []
+
             for obj in doc.get("addedObject", []):
                 try:
                     if obj["type"] == "module":
-                        module = await self.db.modules.find_one(
-                            {"_id": ObjectId(obj["id"])})
+                        module = await self.db.modules.find_one({
+                            "_id":
+                            ObjectId(obj["id"]),
+                            "workspace":
+                            workspace  # Filter modules by workspace
+                        })
                         if module:
+                            module_simulations = []
                             for sim_id in module.get("simulationIds", []):
-                                sim = await self.db.simulations.find_one(
-                                    {"_id": ObjectId(sim_id)})
+                                sim = await self.db.simulations.find_one({
+                                    "_id":
+                                    ObjectId(sim_id),
+                                    "workspace":
+                                    workspace  # Filter simulations by workspace
+                                })
                                 if sim and "estimatedTimeToAttemptInMins" in sim:
                                     total_estimated_time += sim[
                                         "estimatedTimeToAttemptInMins"]
+                                    module_simulations.append({
+                                        "id":
+                                        str(sim["_id"]),
+                                        "name":
+                                        sim.get("name", ""),
+                                        "estimatedTime":
+                                        sim.get("estimatedTimeToAttemptInMins",
+                                                0)
+                                    })
+
+                            enriched_added_objects.append({
+                                "type":
+                                "module",
+                                "id":
+                                str(module["_id"]),
+                                "name":
+                                module.get("name", ""),
+                                "simulations":
+                                module_simulations
+                            })
+
                     elif obj["type"] == "simulation":
-                        sim = await self.db.simulations.find_one(
-                            {"_id": ObjectId(obj["id"])})
+                        sim = await self.db.simulations.find_one({
+                            "_id":
+                            ObjectId(obj["id"]),
+                            "workspace":
+                            workspace  # Filter simulations by workspace
+                        })
                         if sim and "estimatedTimeToAttemptInMins" in sim:
                             total_estimated_time += sim[
                                 "estimatedTimeToAttemptInMins"]
+                            enriched_added_objects.append({
+                                "type":
+                                "simulation",
+                                "id":
+                                str(sim["_id"]),
+                                "name":
+                                sim.get("name", ""),
+                                "estimatedTime":
+                                sim.get("estimatedTimeToAttemptInMins", 0)
+                            })
+
                 except Exception as ex:
                     logger.warning(
                         f"Skipping invalid object {obj.get('id', 'unknown')} due to: {ex}"
@@ -440,7 +578,7 @@ class TrainingPlanService:
                 id=str(doc["_id"]),
                 name=doc.get("name", ""),
                 tags=doc.get("tags", []),
-                added_object=doc.get("addedObject", []),
+                added_object=enriched_added_objects,
                 created_by=doc.get("createdBy", ""),
                 created_at=doc.get("createdAt", datetime.utcnow()).isoformat(),
                 last_modified_by=doc.get("lastModifiedBy", ""),

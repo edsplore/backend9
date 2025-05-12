@@ -15,9 +15,10 @@ class TagService:
         self.db = Database()
         logger.info("TagService initialized.")
 
-    async def create_tag(self, request: CreateTagRequest) -> Dict:
+    async def create_tag(self, request: CreateTagRequest,
+                         workspace: str) -> Dict:
         """Create a new tag"""
-        logger.info("Creating new tag.")
+        logger.info(f"Creating new tag in workspace {workspace}.")
         logger.debug(f"Tag request data: {request.dict()}")
         try:
             tag_doc = {
@@ -25,9 +26,9 @@ class TagService:
                 "createdBy": request.user_id,
                 "createdAt": datetime.utcnow(),
                 "lastModifiedBy": request.user_id,
-                "lastModifiedAt": datetime.utcnow()
+                "lastModifiedAt": datetime.utcnow(),
+                "workspace": workspace  # Add workspace field
             }
-
             result = await self.db.tags.insert_one(tag_doc)
             logger.info(f"Tag created with ID: {result.inserted_id}")
             return {"id": str(result.inserted_id), "status": "success"}
@@ -36,13 +37,14 @@ class TagService:
             raise HTTPException(status_code=500,
                                 detail=f"Error creating tag: {str(e)}")
 
-    async def fetch_tags(self, user_id: str) -> List[TagData]:
+    async def fetch_tags(self, user_id: str, workspace: str) -> List[TagData]:
         """Fetch all tags"""
-        logger.info(f"Fetching tags for user_id={user_id}")
+        logger.info(
+            f"Fetching tags for user_id={user_id} in workspace={workspace}")
         try:
-            cursor = self.db.tags.find({})
+            # Add workspace filter to the query
+            cursor = self.db.tags.find({"workspace": workspace})
             tags = []
-
             async for doc in cursor:
                 tag = TagData(
                     id=str(doc["_id"]),
@@ -54,8 +56,7 @@ class TagService:
                     last_modified_at=doc.get("lastModifiedAt",
                                              datetime.utcnow()).isoformat())
                 tags.append(tag)
-
-            logger.info(f"Fetched {len(tags)} tags")
+            logger.info(f"Fetched {len(tags)} tags from workspace {workspace}")
             return tags
         except Exception as e:
             logger.error(f"Error fetching tags: {str(e)}", exc_info=True)

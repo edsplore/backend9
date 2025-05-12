@@ -22,12 +22,19 @@ class AssignmentService:
         logger.info("AssignmentService initialized.")
 
     # New method in your service class
-    async def assignment_name_exists(self, name: str) -> bool:
-        """Check if a assignment with the given name already exists"""
-        logger.info(f"Checking if assignment name '{name}' exists")
+    async def assignment_name_exists(self, name: str, workspace: str) -> bool:
+        """Check if a assignment with the given name already exists in the workspace"""
+        logger.info(
+            f"Checking if assignment name '{name}' exists in workspace {workspace}"
+        )
         try:
-            # Query the database for assignment with the same name
-            count = await self.db.assignments.count_documents({"name": name})
+            # Query the database for assignment with the same name in the workspace
+            count = await self.db.assignments.count_documents({
+                "name":
+                name,
+                "workspace":
+                workspace
+            })
             return count > 0
         except Exception as e:
             logger.error(f"Error checking assignment name existence: {str(e)}",
@@ -35,24 +42,28 @@ class AssignmentService:
             raise HTTPException(
                 status_code=500,
                 detail=f"Error checking assignment name: {str(e)}")
-            
-    async def create_assignment(self,
-                                request: CreateAssignmentRequest) -> Dict:
+
+    async def create_assignment(self, request: CreateAssignmentRequest,
+                                workspace: str) -> Dict:
         """Create a new assignment"""
         logger.info("Received request to create a new assignment.")
-        logger.debug(f"Assignment request data: {request.dict()}")
+        logger.debug(
+            f"Assignment request data: {request.dict()}, workspace: {workspace}"
+        )
         try:
-            # Check if a assignment with this name already exists
-            name_exists = await self.assignment_name_exists(request.name)
+            # Check if a assignment with this name already exists in the workspace
+            name_exists = await self.assignment_name_exists(
+                request.name, workspace)
             if name_exists:
                 logger.warning(
-                    f"Assignment with name '{request.name}' already exists")
+                    f"Assignment with name '{request.name}' already exists in workspace {workspace}"
+                )
                 # Return a specific error for duplicate names
                 return {
                     "status": "error",
                     "message": "Assignment with this name already exists",
                 }
-                
+
             assignment_doc = {
                 "id": request.id,
                 "name": request.name,
@@ -65,7 +76,8 @@ class AssignmentService:
                 "createdAt": datetime.utcnow(),
                 "lastModifiedBy": request.user_id,
                 "lastModifiedAt": datetime.utcnow(),
-                "status": "published"
+                "status": "published",
+                "workspace": workspace
             }
 
             result = await self.db.assignments.insert_one(assignment_doc)
@@ -77,7 +89,8 @@ class AssignmentService:
                 logger.debug(
                     f"Processing trainee_id={trainee_id} for assignment={assignment_id}"
                 )
-                await self._process_user_assignment(trainee_id, assignment_id)
+                await self._process_user_assignment(trainee_id, assignment_id,
+                                                    workspace)
 
             # Process team members
             for team in request.team_id:
@@ -86,7 +99,8 @@ class AssignmentService:
                         f"Processing team leader={team.leader.user_id} for assignment={assignment_id}"
                     )
                     await self._process_user_assignment(
-                        team.leader.user_id, assignment_id, team.leader.dict())
+                        team.leader.user_id, assignment_id, workspace,
+                        team.leader.dict())
 
                 if team.team_members:
                     for member in team.team_members:
@@ -95,7 +109,8 @@ class AssignmentService:
                                 f"Processing team member={member.user_id} for assignment={assignment_id}"
                             )
                             await self._process_user_assignment(
-                                member.user_id, assignment_id, member.dict())
+                                member.user_id, assignment_id, workspace,
+                                member.dict())
 
             logger.info("Assignment creation completed successfully.")
             return {"id": assignment_id, "status": "success"}
@@ -107,16 +122,21 @@ class AssignmentService:
     async def _process_user_assignment(self,
                                        user_id: str,
                                        assignment_id: str,
+                                       workspace: str,
                                        user_data: Dict = None) -> None:
         """Process user document creation or update for assignments"""
         logger.debug(
-            f"Processing user assignment for user_id={user_id}, assignment_id={assignment_id}"
+            f"Processing user assignment for user_id={user_id}, assignment_id={assignment_id}, workspace={workspace}"
         )
         try:
-            existing_user = await self.db.users.find_one({"_id": user_id})
+            existing_user = await self.db.users.find_one({
+                "_id": user_id,
+                "workspace": workspace
+            })
             if existing_user:
                 logger.debug(
-                    f"User {user_id} found. Updating assignments array.")
+                    f"User {user_id} found in workspace {workspace}. Updating assignments array."
+                )
                 update_doc = {"$addToSet": {"assignments": assignment_id}}
 
                 if user_data:
@@ -130,18 +150,24 @@ class AssignmentService:
                         "lastModifiedAt": datetime.utcnow()
                     }
 
-                await self.db.users.update_one({"_id": user_id}, update_doc)
+                await self.db.users.update_one(
+                    {
+                        "_id": user_id,
+                        "workspace": workspace
+                    }, update_doc)
                 logger.debug(
-                    f"User {user_id} assignments array updated successfully.")
+                    f"User {user_id} assignments array updated successfully in workspace {workspace}."
+                )
             else:
                 logger.debug(
-                    f"User {user_id} does not exist. Creating new user document."
+                    f"User {user_id} does not exist in workspace {workspace}. Creating new user document."
                 )
                 new_user = {
                     "_id": user_id,
                     "assignments": [assignment_id],
                     "createdAt": datetime.utcnow(),
-                    "lastModifiedAt": datetime.utcnow()
+                    "lastModifiedAt": datetime.utcnow(),
+                    "workspace": workspace
                 }
 
                 if user_data:
@@ -155,7 +181,9 @@ class AssignmentService:
                     })
 
                 await self.db.users.insert_one(new_user)
-                logger.debug(f"New user {user_id} created successfully.")
+                logger.debug(
+                    f"New user {user_id} created successfully in workspace {workspace}."
+                )
         except Exception as e:
             logger.error(f"Error processing user assignment: {str(e)}",
                          exc_info=True)
@@ -165,12 +193,13 @@ class AssignmentService:
 
     async def fetch_assignments(
             self,
+            workspace: str,
             pagination: Optional[PaginationParams] = None) -> Dict[str, any]:
         """Fetch all assignments with pagination and filtering"""
         logger.info("Fetching all assignments with pagination.")
         try:
             # Build query filter based on pagination parameters
-            query = {}
+            query = {"workspace": workspace}
 
             if pagination:
                 logger.debug(f"Applying pagination parameters: {pagination}")
@@ -299,15 +328,20 @@ class AssignmentService:
     async def fetch_assigned_plans(
             self,
             user_id: str,
+            workspace: str,
             pagination: Optional[PaginationParams] = None) -> Dict[str, any]:
         """Fetch assigned training plans with nested details and pagination"""
         logger.info(
-            f"Fetching assigned training plans for user_id={user_id} with pagination"
+            f"Fetching assigned training plans for user_id={user_id} in workspace={workspace}"
         )
         try:
-            user = await self.db.users.find_one({"_id": user_id})
+            user = await self.db.users.find_one({
+                "_id": user_id,
+                "workspace": workspace
+            })
             if not user:
-                logger.warning(f"User {user_id} not found.")
+                logger.warning(
+                    f"User {user_id} not found in workspace {workspace}.")
                 raise HTTPException(status_code=404,
                                     detail=f"User {user_id} not found")
 
@@ -318,7 +352,13 @@ class AssignmentService:
             object_ids = [ObjectId(aid) for aid in assignment_ids]
 
             # Build base query
-            base_query = {"_id": {"$in": object_ids}, "status": "published"}
+            base_query = {
+                "_id": {
+                    "$in": object_ids
+                },
+                "status": "published",
+                "workspace": workspace
+            }
 
             # Applying additional filters if pagination parameters are provided
             query = base_query.copy()
@@ -382,8 +422,12 @@ class AssignmentService:
             for assignment in assignments:
                 logger.debug(f"Processing assignment: {assignment}")
                 if assignment["type"] == "TrainingPlan":
-                    training_plan = await self.db.training_plans.find_one(
-                        {"_id": ObjectId(assignment["id"])})
+                    training_plan = await self.db.training_plans.find_one({
+                        "_id":
+                        ObjectId(assignment["id"]),
+                        "workspace":
+                        workspace
+                    })
                     if training_plan:
                         plan_modules = []
                         plan_total_simulations = 0
@@ -392,11 +436,8 @@ class AssignmentService:
                         for added_obj in training_plan.get("addedObject", []):
                             if added_obj["type"] == "module":
                                 module_details = await self._get_module_details(
-                                    added_obj["id"],
-                                    assignment["endDate"],
-                                    str(assignment["_id"]),
-                                    user_id,
-                                )
+                                    added_obj["id"], assignment["endDate"],
+                                    str(assignment["_id"]), user_id, workspace)
                                 if module_details:
                                     plan_modules.append(module_details)
                                     plan_total_simulations += module_details.total_simulations
@@ -407,11 +448,8 @@ class AssignmentService:
 
                             elif added_obj["type"] == "simulation":
                                 sim_details = await self._get_simulation_details(
-                                    added_obj["id"],
-                                    assignment["endDate"],
-                                    str(assignment["_id"]),
-                                    user_id,
-                                )
+                                    added_obj["id"], assignment["endDate"],
+                                    str(assignment["_id"]), user_id, workspace)
                                 if sim_details:
                                     plan_modules.append(
                                         ModuleDetails(
@@ -452,21 +490,15 @@ class AssignmentService:
                             ))
                 elif assignment["type"] == "Module":
                     module_details = await self._get_module_details(
-                        assignment["id"],
-                        assignment["endDate"],
-                        str(assignment["_id"]),
-                        user_id,
-                    )
+                        assignment["id"], assignment["endDate"],
+                        str(assignment["_id"]), user_id, workspace)
                     if module_details:
                         modules.append(module_details)
                         total_simulations += module_details.total_simulations
                 elif assignment["type"] == "Simulation":
                     sim_details = await self._get_simulation_details(
-                        assignment["id"],
-                        assignment["endDate"],
-                        str(assignment["_id"]),
-                        user_id,
-                    )
+                        assignment["id"], assignment["endDate"],
+                        str(assignment["_id"]), user_id, workspace)
                     if sim_details:
                         # Consolidate duplicates by assignment with precedence
                         existing_index = next(
@@ -527,12 +559,15 @@ class AssignmentService:
                 detail=f"Error fetching assigned plans: {str(e)}")
 
     async def _get_simulation_details(
-            self, sim_id: str, due_date: str, assignment_id: str,
-            user_id: str) -> SimulationDetails | None:
+            self, sim_id: str, due_date: str, assignment_id: str, user_id: str,
+            workspace: str) -> SimulationDetails | None:
         """Helper method to get simulation details with status precedence"""
         logger.debug(f"Fetching simulation details for sim_id={sim_id}")
         try:
-            sim = await self.db.simulations.find_one({"_id": ObjectId(sim_id)})
+            sim = await self.db.simulations.find_one({
+                "_id": ObjectId(sim_id),
+                "workspace": workspace
+            })
             if not sim:
                 logger.warning(f"Simulation {sim_id} not found.")
                 return None
@@ -544,7 +579,9 @@ class AssignmentService:
                 "assignmentId":
                 assignment_id,
                 "simulationId":
-                sim_id
+                sim_id,
+                "workspace":
+                workspace
             }).to_list(None)
 
             # Determine status with precedence: completed > in_progress > not_started
@@ -559,7 +596,9 @@ class AssignmentService:
                 elif "in_progress" in statuses:
                     status = "in_progress"
 
-            if((status == 'not_started' or status == 'in_progress' ) and datetime.now() > datetime.strptime(due_date, '%Y-%m-%d')):
+            if ((status == 'not_started' or status == 'in_progress')
+                    and datetime.now() > datetime.strptime(
+                        due_date, '%Y-%m-%d')):
                 status = 'over_due'
 
             logger.debug(
@@ -570,8 +609,8 @@ class AssignmentService:
             scores = {}
             # TODO: Ask do we need the latest attept response?
             # if(status == 'completed'):
-                # scores = progress_list.get('scores')
-            
+            # scores = progress_list.get('scores')
+
             return SimulationDetails(
                 simulation_id=str(sim["_id"]),
                 name=sim.get("name", ""),
@@ -590,12 +629,14 @@ class AssignmentService:
             return None
 
     async def _get_module_details(self, module_id: str, due_date: str,
-                                  assignment_id: str,
-                                  user_id: str) -> ModuleDetails:
+                                  assignment_id: str, user_id: str,
+                                  workspace: str) -> ModuleDetails:
         logger.debug(f"Fetching module details for module_id={module_id}")
         try:
-            module = await self.db.modules.find_one(
-                {"_id": ObjectId(module_id)})
+            module = await self.db.modules.find_one({
+                "_id": ObjectId(module_id),
+                "workspace": workspace
+            })
             if not module:
                 logger.warning(f"Module {module_id} not found.")
                 return None
@@ -605,7 +646,7 @@ class AssignmentService:
 
             for sim_id in module.get("simulationIds", []):
                 sim_details = await self._get_simulation_details(
-                    sim_id, due_date, assignment_id, user_id)
+                    sim_id, due_date, assignment_id, user_id, workspace)
                 if sim_details:
                     module_simulations.append(sim_details)
                     sim_statuses.append(sim_details.status)

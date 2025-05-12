@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from typing import Dict, List, Optional
 from domain.services.assignment_service import AssignmentService
 from api.schemas.requests import (CreateAssignmentRequest,
@@ -19,14 +19,13 @@ class AssignmentController:
         self.service = AssignmentService()
         logger.info("AssignmentController initialized.")
 
-    async def create_assignment(
-            self,
-            request: CreateAssignmentRequest) -> CreateAssignmentResponse:
+    async def create_assignment(self, request: CreateAssignmentRequest,
+                                workspace: str) -> CreateAssignmentResponse:
         logger.info("Received request to create assignment.")
-        logger.debug(f"Request data: {request.dict()}")
+        logger.debug(f"Request data: {request.dict()}, workspace: {workspace}")
         try:
 
-            result = await self.service.create_assignment(request)
+            result = await self.service.create_assignment(request, workspace)
 
             # Check for duplicate name error
             if result.get("status") == "error":
@@ -38,7 +37,7 @@ class AssignmentController:
                 else:
                     raise HTTPException(status_code=400,
                                         detail=result["message"])
-                    
+
             logger.info(f"Assignment created successfully: {result}")
             return CreateAssignmentResponse(id=result["id"],
                                             status=result["status"])
@@ -47,14 +46,15 @@ class AssignmentController:
                          exc_info=True)
             raise
 
-    async def fetch_assignments(
-        self,
-        pagination: Optional[PaginationParams] = None
-    ) -> FetchAssignmentsResponse:
+    async def fetch_assignments(self,
+                                workspace: str,
+                                pagination: Optional[PaginationParams] = None
+                                ) -> FetchAssignmentsResponse:
         logger.info("Fetching all assignments.")
         try:
-            # Pass the pagination parameters to the service layer
-            result = await self.service.fetch_assignments(pagination)
+            # Pass the pagination parameters and workspace to the service layer
+            result = await self.service.fetch_assignments(
+                workspace, pagination)
 
             assignments = result["assignments"]
             total_count = result["total_count"]
@@ -85,13 +85,13 @@ class AssignmentController:
                                 detail=f"Error fetching assignments: {str(e)}")
 
     async def fetch_assigned_plans(
-            self,
-            request: FetchAssignedPlansRequest) -> FetchAssignedPlansResponse:
+            self, request: FetchAssignedPlansRequest,
+            workspace: str) -> FetchAssignedPlansResponse:
         logger.info(f"Fetching assigned plans for user_id={request.user_id}")
         try:
-            # Pass the pagination parameters to the service layer
+            # Pass the pagination parameters and workspace to the service layer
             result = await self.service.fetch_assigned_plans(
-                request.user_id, pagination=request.pagination)
+                request.user_id, workspace, pagination=request.pagination)
 
             response_data = result["data"]
             total_count = result["total_count"]
@@ -130,22 +130,35 @@ controller = AssignmentController()
 
 @router.post("/create-assignment", tags=["Assignments", "Create"])
 async def create_assignment(
-        request: CreateAssignmentRequest) -> CreateAssignmentResponse:
+        request: CreateAssignmentRequest,
+        current_request: Request) -> CreateAssignmentResponse:
     """Create a new assignment"""
-    return await controller.create_assignment(request)
+    workspace = current_request.headers.get('x-workspace-id')
+    if not workspace:
+        raise HTTPException(status_code=400, detail="Workspace ID is required")
+    return await controller.create_assignment(request, workspace)
 
 
 @router.post("/fetch-assignments", tags=["Assignments", "Read"])
-async def fetch_assignments(request: dict = None) -> FetchAssignmentsResponse:
+async def fetch_assignments(current_request: Request,
+                            request: dict = None) -> FetchAssignmentsResponse:
     """Fetch all assignments with optional pagination"""
+    workspace = current_request.headers.get('x-workspace-id')
+    if not workspace:
+        raise HTTPException(status_code=400, detail="Workspace ID is required")
+
     pagination = None
     if request and "pagination" in request:
         pagination = PaginationParams(**request["pagination"])
-    return await controller.fetch_assignments(pagination)
+    return await controller.fetch_assignments(workspace, pagination)
 
 
 @router.post("/fetch-assigned-plans", tags=["Assignments", "Read"])
 async def fetch_assigned_plans(
-        request: FetchAssignedPlansRequest) -> FetchAssignedPlansResponse:
+        request: FetchAssignedPlansRequest,
+        current_request: Request) -> FetchAssignedPlansResponse:
     """Fetch assigned training plans with nested details"""
-    return await controller.fetch_assigned_plans(request)
+    workspace = current_request.headers.get('x-workspace-id')
+    if not workspace:
+        raise HTTPException(status_code=400, detail="Workspace ID is required")
+    return await controller.fetch_assigned_plans(request, workspace)
