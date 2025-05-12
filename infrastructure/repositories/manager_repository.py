@@ -21,11 +21,11 @@ class ManagerRepository(IManagerRepository):
         self.db = Database()
         self.assignment_service = AssignmentService()
         logger.info("ManagerRepository initialized.")
-   
+
     async def get_manager_dashboard_data(self, user_id: str) -> Dict:
         logger.info(f"Fetching manager dashboard data for user_id: {user_id}")
         return {}
-    
+
     def calculate_simulation_attempts_status(self, user_sim_progress_list, due_date):
         try:
             status = "not_started"
@@ -54,7 +54,7 @@ class ManagerRepository(IManagerRepository):
         except Exception as e:
             logger.error(f"Error fetching simulation attempt status: {str(e)}", exc_info=True)
             return "not_started"
-    
+
     def calculate_simulation_attempts_score(self, user_sim_progress_list):
         try:
             total_attempts_score = 0
@@ -116,12 +116,12 @@ class ManagerRepository(IManagerRepository):
         except Exception as e:
             logger.error(f"Error fetching simulation attempt status: {str(e)}", exc_info=True)
             return "not_started"
-    
+
     def calculate_single_training_entity_completion_rate(self, status_list: List[str])->Dict[str, int]:
         try:
             if not status_list:
                 return {"completion_rate": 0, "adherence_rate": 0}
-            
+
             total_count = len(status_list)
             completion_count = sum(1 for status in status_list if status in {"completed", "completed_on_time"})
             adherence_count = sum(1 for status in status_list if status == "completed_on_time")
@@ -161,7 +161,7 @@ class ManagerRepository(IManagerRepository):
                     curr_team_members.append(team_member_id)
                 unique_teams[team_id] = curr_team_members
         return unique_teams
-    
+
     async def fetch_assignments_by_training_entity(self, user_id: str, reporting_userIds: List[str], reporting_teamIds: List[str],  type: str, filters: Dict, training_entity_filters: Dict, pagination: Optional[PaginationParams] = None):
         logger.info(f"Fetching assignments by training entity for user_id: {user_id}")
         try:
@@ -188,7 +188,7 @@ class ManagerRepository(IManagerRepository):
             # Add traineeIds condition if reporting_userIds is provided
             if reporting_userIds:
                 or_conditions.append({"traineeId": {"$in": reporting_userIds}})
-            
+
             # Add teamIds condition if reporting_teamIds is provided
             all_team_ids = []
             # Handle createdBy filter for Training Plans or Modules or Simualtions Collections
@@ -291,7 +291,7 @@ class ManagerRepository(IManagerRepository):
                     assignmentWithUsersAndTeamsObj.get(assignment["id"]).append(assignment)
                 else:
                     assignmentWithUsersAndTeamsObj[assignment["id"]] = [assignment]
-            
+
             unique_user_id_by_assignment = {}
             unique_team_id_by_assignment = {}
             assignmentWithUserAttemptsByAssignmentId = {}
@@ -314,7 +314,7 @@ class ManagerRepository(IManagerRepository):
 
                     # Removing duplicates- if same team has been assigned same training entity before then its not considered 
                     team_ids_not_previously_assigned = []
-                    
+
                     for each_team in assignment["teamId"]:
                         if each_team.get("team_id") not in unique_team_id_by_assignment[assignment_id]:
                             team_ids_not_previously_assigned.append(each_team.get("team_id"))
@@ -343,11 +343,11 @@ class ManagerRepository(IManagerRepository):
                     #assignmentWithUsersAndTeamsObj[assignment_id] = assignment
                     #assignmentWithUsersAndTeamsList.append(assignment)
                     assignmentWithUserAttemptsByAssignmentId[assignment_id].append(assignment)
-                
+
             if pagination:
                 pagination_params.total_count = total_count
                 pagination_params.total_pages = math.ceil(total_count / pagination_params.pagesize)
-            
+
             return assignmentWithUserAttemptsByAssignmentId, unique_teams, pagination_params
         except Exception as e:
             logger.error(f"Error fetching assignments by training entity: {str(e)}", exc_info=True)
@@ -390,11 +390,11 @@ class ManagerRepository(IManagerRepository):
                 assignment_id=assignment_id,
                 user_id=user_id
             )
-            
+
         except Exception as e:
             logger.error(f"Error fetching simulation stats: {str(e)}", exc_info=True)
             raise HTTPException(status_code=500, detail=f"Error fetching simulation stats: {str(e)}")
-    
+
     async def get_module_stats(self, module_id, assignment_id, user_id, due_date):
         try:
             module = await self.db.modules.find_one({"_id": ObjectId(module_id)})
@@ -442,7 +442,7 @@ class ManagerRepository(IManagerRepository):
         except Exception as e:
             logger.error(f"Error fetching module stats: {str(e)}", exc_info=True)
             raise HTTPException(status_code=500, detail=f"Error fetching module stats: {str(e)}")
-    
+
     async def get_training_plan_stats(self, assignment, userId):
         try:
             training_plan = await self.db.training_plans.find_one({"_id": ObjectId(assignment["id"])})
@@ -458,7 +458,7 @@ class ManagerRepository(IManagerRepository):
                             plan_modules.append(module_details)
                             plan_total_simulations += module_details.total_simulations
                             plan_est_time += module_details.est_time
-                            
+
                     elif added_obj["type"] == "simulation":
                         sim_details = await self.get_simulation_stats(added_obj["id"], str(assignment["_id"]), userId, assignment["endDate"])
                         if sim_details:
@@ -497,29 +497,29 @@ class ManagerRepository(IManagerRepository):
         except Exception as e:
             logger.error(f"Error fetching training plan stats: {str(e)}", exc_info=True)
             return None
-    
+
     async def get_all_assigments_by_user_details(self,
         user_id: str, reporting_userIds: List[str], type: str, 
         pagination: Optional[PaginationParams] = None) -> FetchManagerDashboardResponse:
         """Get All Assignments By User Details
-        
+
         Returns:
             FetchManagerDashboardResponse containing training plans, modules, and simulations
         """
         logger.info(f"Get All Assignments By User Details user_id={user_id}, reporting_userIds={reporting_userIds}")
         if pagination:
             logger.info(f"Pagination={pagination}")
-        
+
         try:
             assignmentWithUsers = []
             total_count = 0
-            
+
             # Calculate pagination parameters if pagination is provided
             # skip = 0
             # limit = None
             # page = 1
             # pagesize = 20  
-            
+
             if pagination:
                 page = pagination.page
                 pagesize = pagination.pagesize
@@ -530,26 +530,26 @@ class ManagerRepository(IManagerRepository):
                 if user:                
                     assignment_ids = user.get("assignments", [])
                     logger.debug(f"Assignment IDs for user {user_id}: {assignment_ids}")
-                    
+
                     object_ids = [ObjectId(aid) for aid in assignment_ids]
-                    
+
                     # Get total count for pagination if pagination is enabled
                     if pagination:
                         total_count += await self.db.assignments.count_documents({
                             "_id": {"$in": object_ids},
                             "type": type,
                         })
-                    
+
                     # Create the query
                     assignment_query = self.db.assignments.find({
                         "_id": {"$in": object_ids},
                         "type": type,
                     })
-                    
+
                     # Apply pagination if provided
                     if pagination:
                         assignment_query = assignment_query.skip(skip).limit(pagesize)
-                    
+
                     # Execute the query
                     assignments = await assignment_query.to_list(None)
 
@@ -577,7 +577,7 @@ class ManagerRepository(IManagerRepository):
 
             for assignment in assignmentWithUsers:
                 logger.debug(f"Processing assignment: {assignment}")
-                
+
                 if assignment["type"] == "TrainingPlan":
                     training_plan = await self.db.training_plans.find_one(
                         {"_id": ObjectId(assignment["id"])})
@@ -693,7 +693,7 @@ class ManagerRepository(IManagerRepository):
                                     simulations=module_details.simulations,
                                 )
                             )
-                            
+
                             modules.append(
                                 ModuleDetailsMinimal(
                                     id=assignment["id"],
@@ -703,7 +703,7 @@ class ManagerRepository(IManagerRepository):
                                     user=module_by_user
                                 )
                             )
-                        
+
                 elif assignment["type"] == "Simulation":
                     for userId in assignment['traineeId']:
                         simulation_by_user = []
@@ -764,12 +764,8 @@ class ManagerRepository(IManagerRepository):
                     modules=modules, 
                     simulations=simulations
                 )
-            
+
         except Exception as e:
             logger.error(f"Error Getting All Assignment By User Details {str(e)}", exc_info=True)
             raise HTTPException(status_code=500, detail=f"Error Getting All Assignment By User Details {str(e)}")
-
-
-
-
 
