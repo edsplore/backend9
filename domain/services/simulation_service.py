@@ -23,12 +23,14 @@ from semantic_kernel.connectors.ai.function_choice_behavior import FunctionChoic
 from semantic_kernel.contents.chat_history import ChatHistory
 from semantic_kernel.connectors.ai.open_ai.prompt_execution_settings.azure_chat_prompt_execution_settings import (
     AzureChatPromptExecutionSettings, )
+from api.schemas.requests import UpdateImageMaskingObjectRequest
 
 from api.schemas.responses import (StartVisualAudioPreviewResponse,
                                    StartVisualChatPreviewResponse,
                                    StartVisualPreviewResponse, SimulationData,
                                    SimulationByIDResponse,
-                                   EndSimulationResponse)
+                                   EndSimulationResponse,
+                                   SimulationByIDResponse, EndSimulationResponse, UpdateImageMaskingObjectResponse)
 
 from domain.services.scoring_service import ScoringService
 
@@ -2073,3 +2075,37 @@ class SimulationService:
             logger.error(f"[end_visual_attempt] {str(e)}", exc_info=True)
             raise HTTPException(status_code=500,
                                 detail="Internal server error")
+
+    async def update_image_mask(self, sim_id: str, image_id: str, masking_list: List[Dict]):
+        try:
+            filter_query = { "_id": ObjectId(sim_id) }
+            update_query = {
+                "$set": {
+                    "slidesData.$[elem].masking": masking_list
+                }
+            }
+            array_filters = [{"elem.imageId": image_id}]
+
+            result = await self.db.simulations.update_one(filter_query, update_query, array_filters=array_filters)
+
+            if result: 
+                if result.matched_count == 0:
+                    return UpdateImageMaskingObjectResponse(
+                        status="failed",
+                        message=f"No document found with sim_id '{sim_id}' and image_id '{image_id}'"
+                    )
+
+                return UpdateImageMaskingObjectResponse(
+                    status="success",
+                    message=f"Masking data updated successfully for image_id '{image_id}'."
+                )
+            return UpdateImageMaskingObjectResponse(
+                status="failed",
+                message="Failed to update masking data"
+            )
+                
+        except Exception as e:
+            logger.error(f"[update_image_masking_object] {str(e)}", exc_info=True)
+            raise HTTPException(status_code=500,
+                                detail="Internal server error")
+        

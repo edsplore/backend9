@@ -144,6 +144,17 @@ class SlideImage(BaseModel):
     data: str  # Base64 encoded image data
     contentType: str  # e.g., "image/png", "image/jpeg"
 
+class Masking(BaseModel):
+    id: str
+    type: str = "masking"
+    coordinates: Optional[HotspotCoordinates] = None
+    settings: Optional[Dict[str, Any]] = None
+
+class MaskingItem(BaseModel):
+    id: str
+    type: str = "masking"
+    content: Optional[Masking] = None
+    timestamp: Optional[int] = None
 
 class SlideData(BaseModel):
     imageId: str
@@ -151,6 +162,7 @@ class SlideData(BaseModel):
     imageUrl: Optional[str] = None  # URL for stored image
     imageData: Optional[SlideImage] = None  # Image data for upload
     sequence: Optional[List[SlideSequence]] = None
+    masking: Optional[List[MaskingItem]] = None
 
 
 class SimulationData(BaseModel):
@@ -724,3 +736,7 @@ class ChatTypeScoreResponse(BaseModel):
     confidence_accuracy: Optional[IndividualBehaviouralScoreAnalysis] = None
     concentration_accuracy: Optional[IndividualBehaviouralScoreAnalysis] = None
     energy_accuracy: Optional[IndividualBehaviouralScoreAnalysis] = None
+
+class UpdateImageMaskingObjectResponse(BaseModel):
+    status: str
+    message: str

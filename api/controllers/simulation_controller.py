@@ -28,6 +28,7 @@ from api.schemas.requests import (
     EndVisualAudioAttemptRequest,
     EndVisualChatAttemptRequest,
     EndVisualAttemptRequest,
+    UpdateImageMaskingObjectRequest
 )
 from api.schemas.responses import (
     CreateSimulationResponse, UpdateSimulationResponse,
@@ -36,7 +37,7 @@ from api.schemas.responses import (
     StartVisualAudioPreviewResponse, SlideImageData, SimulationByIDResponse,
     StartVisualChatPreviewResponse, StartVisualPreviewResponse, SimulationData,
     StartVisualAttemptResponse, StartVisualAudioAttemptResponse,
-    StartVisualChatAttemptResponse, PaginationMetadata)
+    StartVisualChatAttemptResponse, PaginationMetadata, UpdateImageMaskingObjectResponse)
 from config import (RETELL_API_KEY, AZURE_OPENAI_DEPLOYMENT_NAME,
                     AZURE_OPENAI_KEY, AZURE_OPENAI_BASE_URL)
 from semantic_kernel import Kernel
@@ -875,6 +876,17 @@ class SimulationController:
             logger.error(f"[end_visual_attempt] {str(e)}", exc_info=True)
             raise HTTPException(status_code=500,
                                 detail="Internal server error")
+    
+    async def update_image_mask(self, request: UpdateImageMaskingObjectRequest) -> UpdateImageMaskingObjectResponse:
+        logger.info("API endpoint called: PUT /simulations/update-image-mask")
+        try:
+            simulation = await self.service.update_image_mask(request.sim_id, request.image_id, request.masking_list)
+            logger.info(f"Updated image mask for simulation {request.sim_id}")
+            return simulation
+        except Exception as e:
+            logger.error(f"[update_image_mask] {str(e)}", exc_info=True)
+            raise HTTPException(status_code=500,
+                                detail="Internal server error")
 
 
 controller = SimulationController()
@@ -938,7 +950,6 @@ async def update_simulation(
     )
     return await controller.update_simulation(sim_id, update_request,
                                               slides_files)
-
 
 @router.post("/simulations/start-audio-preview", tags=["Simulations", "Audio"])
 async def start_audio_simulation_preview(
@@ -1141,3 +1152,10 @@ async def end_visual_attempt(
     """End a visual simulation attempt"""
     logger.info("API endpoint called: POST /simulations/end-visual-attempt")
     return await controller.end_visual_attempt(request)
+
+@router.put("/simulations/update-image-mask", tags=["Simulations", "End"])
+async def update_image_mask(
+        request: UpdateImageMaskingObjectRequest) -> UpdateImageMaskingObjectResponse:
+    """End a visual simulation attempt"""
+    logger.info("API endpoint called: POST /simulations/update-image-mask")
+    return await controller.update_image_mask(request)

@@ -145,6 +145,17 @@ class SlideImage(BaseModel):
     data: str  # Base64 encoded image data
     contentType: str  # e.g., "image/png", "image/jpeg"
 
+class Masking(BaseModel):
+    id: str
+    type: str = "masking"
+    coordinates: Optional[HotspotCoordinates] = None
+    settings: Optional[Dict[str, Any]] = None
+
+class MaskingItem(BaseModel):
+    id: str
+    type: str = "masking"
+    content: Optional[Masking] = None
+    timestamp: Optional[int] = None
 
 class SlideData(BaseModel):
     imageId: str
@@ -152,6 +163,7 @@ class SlideData(BaseModel):
     imageUrl: Optional[str] = None  # URL for stored image
     imageData: Optional[SlideImage] = None  # Image data for upload
     sequence: List[SlideSequence]
+    masking: Optional[List[MaskingItem]] = []
 
 
 class SimulationLevel(BaseModel):
@@ -453,3 +465,9 @@ class AdminDashboardUserActivityStatsRequest(BaseModel):
 
 class CreateUserRequest(BaseModel):
     user_id: str
+
+class UpdateImageMaskingObjectRequest(BaseModel):
+    sim_id: str
+    image_id: str
+    masking_list: Optional[List[Dict]] = []
+    
