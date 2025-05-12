@@ -3,6 +3,9 @@ from typing import List, Optional, Dict, Any, Union
 from datetime import datetime
 from enum import Enum
 
+from domain.models.attempts import AttemptModel
+
+
 
 class SortDirection(str, Enum):
     ASC = "asc"
@@ -391,18 +394,21 @@ class EndVisualAudioAttemptRequest(BaseModel):
     simulation_id: str
     usersimulationprogress_id: str
     slides_data: Optional[List[Dict[str, Any]]]
+    userAttemptSequence: Optional[List[AttemptModel]] = None
 
 
 class EndVisualChatAttemptRequest(BaseModel):
     user_id: str
     simulation_id: str
     usersimulationprogress_id: str
+    userAttemptSequence: List[AttemptModel]
 
 
 class EndVisualAttemptRequest(BaseModel):
     user_id: str
     simulation_id: str
     usersimulationprogress_id: str
+    userAttemptSequence: List[AttemptModel]
 
 
 class FetchManagerDashboardTrainingPlansRequest(BaseModel):
@@ -419,6 +425,7 @@ class ManagerDashboardParams(BaseModel):
     trainingEntityDateRange: Optional[DateRange] = None
     trainingEntityCreatedBy: Optional[List[str]] = None
     trainingEntityTeams: Optional[List[str]] = None
+    trainingEntitySearchQuery: Optional[str] = None
 
 class ManagerDashboardAggregateRequest(BaseModel):
     user_id: str

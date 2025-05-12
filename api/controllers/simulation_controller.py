@@ -85,13 +85,14 @@ class SimulationController:
             response_format=MyScoreResponseSchema)
         logger.info("SimulationController initialized successfully.")
 
-    async def create_simulation(
-            self,
-            request: CreateSimulationRequest) -> CreateSimulationResponse:
+    async def create_simulation(self, request: CreateSimulationRequest,
+                                workspace: str) -> CreateSimulationResponse:
         """Create a new simulation"""
-        logger.info("Received request to create a new simulation.")
+        logger.info(
+            f"Received request to create a new simulation in workspace {workspace}."
+        )
         try:
-            result = await self.service.create_simulation(request)
+            result = await self.service.create_simulation(request, workspace)
 
             # Check for duplicate name error
             if result.get("status") == "error":
@@ -104,7 +105,9 @@ class SimulationController:
                     raise HTTPException(status_code=400,
                                         detail=result["message"])
 
-            logger.info(f"Simulation created with ID: {result['id']}")
+            logger.info(
+                f"Simulation created with ID: {result['id']} in workspace {workspace}"
+            )
             return CreateSimulationResponse(id=result["id"],
                                             status=result["status"])
         except HTTPException:
@@ -114,13 +117,15 @@ class SimulationController:
             logger.error(f"Error creating simulation: {e}", exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
 
-    async def clone_simulation(
-            self, request: CloneSimulationRequest) -> CreateSimulationResponse:
+    async def clone_simulation(self, request: CloneSimulationRequest,
+                               workspace: str) -> CreateSimulationResponse:
         """Clone an existing simulation"""
-        logger.info("Received request to clone a simulation.")
+        logger.info(
+            f"Received request to clone a simulation in workspace {workspace}."
+        )
         try:
 
-            result = await self.service.clone_simulation(request)
+            result = await self.service.clone_simulation(request, workspace)
             logger.info(f"Simulation cloned. New ID: {result['id']}")
             return CreateSimulationResponse(id=result["id"],
                                             status=result["status"])
@@ -529,63 +534,10 @@ class SimulationController:
             self, request: EndAudioSimulationRequest) -> EndSimulationResponse:
         logger.info("Received request to end audio simulation.")
         try:
-            async with aiohttp.ClientSession() as session:
-                headers = {"Authorization": f"Bearer {RETELL_API_KEY}"}
-                url = f"https://api.retellai.com/v2/get-call/{request.call_id}"
-
-                async with session.get(url, headers=headers) as response:
-                    if response.status != 200:
-                        logger.warning(
-                            f"Failed to fetch call details. Status: {response.status}"
-                        )
-                        raise HTTPException(
-                            status_code=response.status,
-                            detail="Failed to fetch call details from Retell AI"
-                        )
-                    call_data = await response.json()
-
-            sim = await self.db.simulations.find_one(
-                {"_id": ObjectId(request.simulation_id)})
-            if not sim:
-                logger.warning(
-                    f"Simulation {request.simulation_id} not found for end_audio_simulation."
-                )
-                raise HTTPException(
-                    status_code=404,
-                    detail=
-                    f"Simulation with id {request.simulation_id} not found")
-
-            transcript = call_data.get("transcript", "")
-            scores = await self._calculate_scores(sim, transcript)
-            transcriptObject = call_data.get("transcript_object", {})
-            duration = (call_data.get("end_timestamp", 0) -
-                        call_data.get("start_timestamp", 0)) // 1000
-
-            update_doc = {
-                "status": "completed",
-                "transcript": transcript,
-                "transcriptObject": transcriptObject,
-                "audioUrl": call_data.get("recording_url", ""),
-                "duration": duration,
-                "scores": scores,
-                "completedAt": datetime.utcnow(),
-                "lastModifiedAt": datetime.utcnow()
-            }
-
-            await self.db.user_sim_progress.update_one(
-                {"_id": ObjectId(request.usersimulationprogress_id)},
-                {"$set": update_doc})
-
-            logger.info(
-                f"Audio simulation ended. ID={request.usersimulationprogress_id}"
-            )
-            return EndSimulationResponse(id=request.usersimulationprogress_id,
-                                         status="success",
-                                         scores=scores,
-                                         duration=duration,
-                                         transcript=transcript,
-                                         audio_url=call_data.get(
-                                             "recording_url", ""))
+            end_simulation = await self.service.end_audio_simulation(
+                request.user_id, request.simulation_id,
+                request.usersimulationprogress_id, request.call_id)
+            return end_simulation
         except HTTPException as he:
             raise he
         except Exception as e:
@@ -598,45 +550,10 @@ class SimulationController:
             self, request: EndChatSimulationRequest) -> EndSimulationResponse:
         logger.info("Received request to end chat simulation.")
         try:
-            sim = await self.db.simulations.find_one(
-                {"_id": ObjectId(request.simulation_id)})
-            if not sim:
-                logger.warning(
-                    f"Simulation {request.simulation_id} not found for end_chat_simulation."
-                )
-                raise HTTPException(
-                    status_code=404,
-                    detail=
-                    f"Simulation with id {request.simulation_id} not found")
-
-            transcript = "\n".join(f"{msg.role}: {msg.sentence}"
-                                   for msg in request.chat_history)
-            scores = await self._calculate_scores(sim, transcript)
-            duration = 300  # 5 minutes default for chat simulations
-
-            update_doc = {
-                "status": "completed",
-                "transcript": transcript,
-                "chatHistory": [msg.dict() for msg in request.chat_history],
-                "duration": duration,
-                "scores": scores,
-                "completedAt": datetime.utcnow(),
-                "lastModifiedAt": datetime.utcnow()
-            }
-
-            await self.db.user_sim_progress.update_one(
-                {"_id": ObjectId(request.usersimulationprogress_id)},
-                {"$set": update_doc})
-
-            logger.info(
-                f"Chat simulation ended. ID={request.usersimulationprogress_id}"
-            )
-            return EndSimulationResponse(id=request.usersimulationprogress_id,
-                                         status="success",
-                                         scores=scores,
-                                         duration=duration,
-                                         transcript=transcript,
-                                         audio_url="")
+            end_simulation = await self.service.end_chat_simulation(
+                request.user_id, request.simulation_id,
+                request.usersimulationprogress_id, request.chat_history)
+            return end_simulation
         except HTTPException as he:
             raise he
         except Exception as e:
@@ -679,14 +596,15 @@ class SimulationController:
             raise HTTPException(status_code=500,
                                 detail=f"Error calculating scores: {str(e)}")
 
-    async def fetch_simulations(
-            self,
-            request: FetchSimulationsRequest) -> FetchSimulationsResponse:
-        logger.info("Received request to fetch simulations.")
+    async def fetch_simulations(self, request: FetchSimulationsRequest,
+                                workspace: str) -> FetchSimulationsResponse:
+        logger.info(
+            f"Received request to fetch simulations from workspace {workspace}."
+        )
         try:
-            # Pass the pagination parameters to the service layer
+            # Pass the pagination parameters and workspace to the service layer
             result = await self.service.fetch_simulations(
-                request.user_id, pagination=request.pagination)
+                request.user_id, workspace, pagination=request.pagination)
 
             simulations = result["simulations"]
             total_count = result["total_count"]
@@ -715,20 +633,25 @@ class SimulationController:
             raise HTTPException(status_code=500,
                                 detail=f"Error fetching simulations: {str(e)}")
 
-    async def get_simulation_by_id(
-            self, simulation_id: str) -> SimulationByIDResponse:
+    async def get_simulation_by_id(self, simulation_id: str,
+                                   workspace: str) -> SimulationByIDResponse:
         """Get a single simulation by ID"""
         logger.info(
-            f"Received request to get simulation by ID: {simulation_id}")
+            f"Received request to get simulation by ID: {simulation_id} from workspace {workspace}"
+        )
         try:
 
-            simulation = await self.service.get_simulation_by_id(simulation_id)
+            simulation = await self.service.get_simulation_by_id(
+                simulation_id, workspace)
             if not simulation:
                 logger.warning(
-                    f"Simulation with id {simulation_id} not found.")
+                    f"Simulation with id {simulation_id} not found in workspace {workspace}."
+                )
                 raise HTTPException(
                     status_code=404,
-                    detail=f"Simulation with id {simulation_id} not found")
+                    detail=
+                    f"Simulation with id {simulation_id} not found in workspace {workspace}"
+                )
             logger.info(f"Simulation {simulation_id} retrieved successfully.")
             return simulation
         except Exception as e:
@@ -839,6 +762,7 @@ class SimulationController:
             self,
             request: EndVisualAudioAttemptRequest) -> EndSimulationResponse:
         try:
+
             # Extract transcript from slides_data if available
             transcript = ""
             if request.slides_data:
@@ -909,6 +833,11 @@ class SimulationController:
                 transcript=transcript,
                 audio_url="",
             )
+
+            # simulation = await self.service.end_visual_audio_attempt(request.user_id, request.simulation_id, request.usersimulationprogress_id, request.userAttemptSequence)
+            # logger.info(f"Ended {simulation} attempts for user {request.user_id}")
+            # return simulation
+
         except Exception as e:
             logger.error(f"[end_visual_audio_attempt] {str(e)}", exc_info=True)
             raise HTTPException(status_code=500,
@@ -918,29 +847,12 @@ class SimulationController:
             self,
             request: EndVisualChatAttemptRequest) -> EndSimulationResponse:
         try:
-            transcript = ""
-            scores = {}
-
-            update_doc = {
-                "status": "completed",
-                "transcript": transcript,
-                "chatHistory": [],
-                "duration": 0,
-                "scores": scores,
-                "completedAt": datetime.utcnow(),
-                "lastModifiedAt": datetime.utcnow()
-            }
-
-            await self.db.user_sim_progress.update_one(
-                {"_id": ObjectId(request.usersimulationprogress_id)},
-                {"$set": update_doc})
-
-            return EndSimulationResponse(id=request.usersimulationprogress_id,
-                                         status="success",
-                                         scores=scores,
-                                         duration=0,
-                                         transcript=transcript,
-                                         audio_url="")
+            simulation = await self.service.end_visual_chat_attempt(
+                request.user_id, request.simulation_id,
+                request.usersimulationprogress_id, request.userAttemptSequence)
+            logger.info(
+                f"Ended {simulation} attempts for user {request.user_id}")
+            return simulation
         except Exception as e:
             logger.error(f"[end_visual_chat_attempt] {str(e)}", exc_info=True)
             raise HTTPException(status_code=500,
@@ -949,24 +861,12 @@ class SimulationController:
     async def end_visual_attempt(
             self, request: EndVisualAttemptRequest) -> EndSimulationResponse:
         try:
-            update_doc = {
-                "status": "completed",
-                "duration": 0,
-                "scores": {},
-                "completedAt": datetime.utcnow(),
-                "lastModifiedAt": datetime.utcnow()
-            }
-
-            await self.db.user_sim_progress.update_one(
-                {"_id": ObjectId(request.usersimulationprogress_id)},
-                {"$set": update_doc})
-
-            return EndSimulationResponse(id=request.usersimulationprogress_id,
-                                         status="success",
-                                         scores={},
-                                         duration=0,
-                                         transcript="",
-                                         audio_url="")
+            simulation = await self.service.end_visual_attempt(
+                request.user_id, request.simulation_id,
+                request.usersimulationprogress_id, request.userAttemptSequence)
+            logger.info(
+                f"Ended {simulation} attempts for user {request.user_id}")
+            return simulation
         except Exception as e:
             logger.error(f"[end_visual_attempt] {str(e)}", exc_info=True)
             raise HTTPException(status_code=500,
@@ -1018,8 +918,10 @@ async def update_simulation(
             if key.startswith("slide_"):
                 image_id = key[6:]
                 slides_files[image_id] = value
+
                 logger.debug(
                     f"Found file for image ID {image_id}: {value.filename}")
+
     from api.schemas.requests import UpdateSimulationRequest
 
     try:
@@ -1096,9 +998,13 @@ async def end_chat_simulation(
 
 @router.post("/simulations/fetch", tags=["Simulations", "Read"])
 async def fetch_simulations(
-        request: FetchSimulationsRequest) -> FetchSimulationsResponse:
+        request: FetchSimulationsRequest,
+        current_request: Request) -> FetchSimulationsResponse:
     logger.info("API endpoint called: POST /simulations/fetch")
-    return await controller.fetch_simulations(request)
+    workspace = current_request.headers.get('x-workspace-id')
+    if not workspace:
+        raise HTTPException(status_code=400, detail="Workspace ID is required")
+    return await controller.fetch_simulations(request, workspace)
 
 
 @router.post("/simulations/start-visual-audio-preview",
@@ -1133,26 +1039,39 @@ async def start_visual_preview(
 
 
 @router.get("/simulations/fetch/{simulation_id}", tags=["Simulations", "Read"])
-async def get_simulation_by_id(simulation_id: str) -> SimulationByIDResponse:
+async def get_simulation_by_id(
+        simulation_id: str,
+        current_request: Request) -> SimulationByIDResponse:
     """Get a single simulation by ID"""
     logger.info(f"API endpoint called: GET /simulations/fetch/{simulation_id}")
-    return await controller.get_simulation_by_id(simulation_id)
+    workspace = current_request.headers.get('x-workspace-id')
+    if not workspace:
+        raise HTTPException(status_code=400, detail="Workspace ID is required")
+    return await controller.get_simulation_by_id(simulation_id, workspace)
 
 
 @router.post("/simulations/create", tags=["Simulations", "Create"])
 async def create_simulation(
-        request: CreateSimulationRequest) -> CreateSimulationResponse:
+        request: CreateSimulationRequest,
+        current_request: Request) -> CreateSimulationResponse:
     """Create a new simulation"""
     logger.info("API endpoint called: POST /simulations/create")
-    return await controller.create_simulation(request)
+    workspace = current_request.headers.get('x-workspace-id')
+    if not workspace:
+        raise HTTPException(status_code=400, detail="Workspace ID is required")
+    return await controller.create_simulation(request, workspace)
 
 
 @router.post("/simulations/clone", tags=["Simulations", "Create"])
 async def clone_simulation(
-        request: CloneSimulationRequest) -> CreateSimulationResponse:
+        request: CloneSimulationRequest,
+        current_request: Request) -> CreateSimulationResponse:
     """Clone an existing simulation"""
     logger.info("API endpoint called: POST /simulations/clone")
-    return await controller.clone_simulation(request)
+    workspace = current_request.headers.get('x-workspace-id')
+    if not workspace:
+        raise HTTPException(status_code=400, detail="Workspace ID is required")
+    return await controller.clone_simulation(request, workspace)
 
 
 @router.post("/simulations/start-visual-audio-attempt",

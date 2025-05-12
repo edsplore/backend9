@@ -203,7 +203,7 @@ class ModuleData(BaseModel):
     id: str
     name: str
     tags: List[str]
-    simulations_id: List[str]
+    simulations_id: List[Any]
     created_by: str
     created_at: str
     last_modified_by: str
@@ -225,7 +225,7 @@ class TrainingPlanData(BaseModel):
     id: str
     name: str
     tags: List[str]
-    added_object: List[dict[str, str]]
+    added_object: List[dict[str, Any]]
     created_by: str
     created_at: str
     last_modified_by: str
@@ -467,6 +467,7 @@ class TrainingPlanDetailsMinimal(BaseModel):
     completion_percentage: float = 0
     average_score: float = 0
     user: List[TrainingPlanDetailsByUser]
+    est_time: int = 0
 
 
 class ModuleDetailsMinimal(BaseModel):
@@ -475,6 +476,7 @@ class ModuleDetailsMinimal(BaseModel):
     completion_percentage: float = 0
     average_score: float = 0
     user: List[ModuleDetailsByUser]
+    est_time: int = 0
 
 
 class SimulationDetailsMinimal(BaseModel):
@@ -483,6 +485,7 @@ class SimulationDetailsMinimal(BaseModel):
     completion_percentage: float = 0
     average_score: float = 0
     user: List[SimulationDetailsByUser]
+    est_time: int = 0
 
 
 class FetchManagerDashboardResponse(BaseModel):
@@ -715,8 +718,9 @@ class BehaviouralScoreAnalysis(BaseModel):
 
 
 class ChatTypeScoreResponse(BaseModel):
-    keyword_accuracy: KeywordScoreAnalysisWithScriptResponse
-    contextual_accuracy: ContextualScoreAnalysisWithScriptResponse
+    keyword_accuracy: Optional[KeywordScoreAnalysisWithScriptResponse] = None
+    contextual_accuracy: Optional[
+        ContextualScoreAnalysisWithScriptResponse] = None
     confidence_accuracy: Optional[IndividualBehaviouralScoreAnalysis] = None
     concentration_accuracy: Optional[IndividualBehaviouralScoreAnalysis] = None
     energy_accuracy: Optional[IndividualBehaviouralScoreAnalysis] = None
