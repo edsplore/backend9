@@ -1,5 +1,5 @@
 import asyncio
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 import json
 import aiohttp
 import base64
@@ -1644,7 +1644,7 @@ class SimulationService:
     async def end_visual_audio_attempt(
             self, user_id: str, simulation_id: str,
             usersimulationprogress_id: str,
-            userAttemptSequence: List[AttemptModel]) -> EndSimulationResponse:
+            userAttemptSequence: List[AttemptModel], slides_data: Optional[List[Dict[str, Any]]]) -> EndSimulationResponse:
         logger.info(f"Ending Visual Audio Attempt: {simulation_id}")
         try:
 
@@ -1657,13 +1657,49 @@ class SimulationService:
                 'Concentration': 0
             }
 
+            # Use internal method that doesn't require workspace
+            simulation: SimulationByIDResponse = await self._get_simulation_by_id_internal(simulation_id)
+
             # Keyword Scores
+            # Extract transcript from slides_data if available
+            transcript = ""
+            if slides_data:
+                transcript_parts = []
+
+                # Iterate through slides and extract message transcriptions
+                for slide in slides_data:
+                    if "sequence" in slide and slide["sequence"]:
+                        for item in slide["sequence"]:
+                            if item.get("type") == "message":
+                                # Format as "Role: Text"
+                                role = item.get("role", "")
+                                text = item.get("text", "")
+                                if role and text:
+                                    transcript_parts.append(f"{role}: {text}")
+
+                # Join all messages into a single transcript
+                if transcript_parts:
+                    transcript = "\n".join(transcript_parts)
+            
+
+                original_script = [{
+                    **s.dict(), "script_sentence":
+                    re.sub('<.*?>', '', s.script_sentence)
+                } for s in simulation.simulation.script]
+
+                keyword_score = await self.scoring_service.get_keyword_score_analysis_regex(
+                    original_script, transcript)
+                if keyword_score:
+                    scores['KeywordScore'] = keyword_score.keyword_score
 
             #Click Accurracy
-            wrong_click = sum(1 for userAttempt in userAttemptSequence
-                              if userAttempt.type == 'wrong_click')
-            correct_click = sum(1 for userAttempt in userAttemptSequence
-                                if userAttempt.type == 'hotspot')
+            wrong_click = sum(
+                len(userAttempt.wrong_clicks)
+                for userAttempt in userAttemptSequence
+                if userAttempt.wrong_clicks)
+            correct_click = sum(
+                1 for userAttempt in userAttemptSequence
+                if userAttempt.type == 'hotspot' and userAttempt.isClicked)
             total_clicks = wrong_click + correct_click
             click_score = (correct_click /
                            total_clicks) * 100 if total_clicks > 0 else 0
@@ -1685,7 +1721,8 @@ class SimulationService:
                 "lastModifiedAt":
                 datetime.utcnow(),
                 "userAttemptSequence":
-                [attempt.dict() for attempt in userAttemptSequence]
+                [attempt.dict() for attempt in userAttemptSequence],
+                "transcription_data": slides_data
             }
 
             response = await self.db.user_sim_progress.update_one(
